@@ -64,13 +64,14 @@ final class NetworkRegion {
     /** One endpoint the module talks to, and what the reader loses when it is unreachable. */
     static final class Endpoint {
         final String id;
-        final String label;
+        /** A translation key, not text: the brand is written the way each language writes it. */
+        final String labelKey;
         final String url;
         final String lossWhenDown;
 
-        Endpoint(String id, String label, String url, String lossWhenDown) {
+        Endpoint(String id, String labelKey, String url, String lossWhenDown) {
             this.id = id;
-            this.label = label;
+            this.labelKey = labelKey;
             this.url = url;
             this.lossWhenDown = lossWhenDown;
         }
@@ -92,15 +93,16 @@ final class NetworkRegion {
 
     static List<Endpoint> endpoints() {
         List<Endpoint> list = new ArrayList<>();
-        list.add(new Endpoint("netease", "网易云音乐", "https://music.163.com", "network.loss_translation"));
-        list.add(new Endpoint("qq", "QQ 音乐", "https://y.qq.com", "network.loss_translation"));
-        list.add(new Endpoint("kugou", "酷狗音乐", "https://www.kugou.com", "network.loss_translation"));
-        list.add(new Endpoint("lrclib", "LRCLIB", "https://lrclib.net", "network.loss_timeline"));
-        list.add(new Endpoint("lrc_red", "lrc.red", "https://lrc.red", "network.loss_timeline"));
-        list.add(new Endpoint("unison", "Unison", "https://unison.boidu.dev", "network.loss_timeline"));
-        list.add(new Endpoint("genius", "Genius", "https://genius.com", "network.loss_meaning"));
-        list.add(new Endpoint("google", "Google 翻译", "https://translate.googleapis.com", "network.loss_google"));
-        list.add(new Endpoint("github", "GitHub", "https://github.com", "network.loss_update"));
+        list.add(new Endpoint("netease", "network.ep_netease", "https://music.163.com", "network.loss_translation"));
+        list.add(new Endpoint("qq", "network.ep_qq", "https://y.qq.com", "network.loss_translation"));
+        list.add(new Endpoint("kugou", "network.ep_kugou", "https://www.kugou.com", "network.loss_translation"));
+        // Product names, identical in every language, but still keys so nothing is hard-coded in the UI.
+        list.add(new Endpoint("lrclib", "network.ep_lrclib", "https://lrclib.net", "network.loss_timeline"));
+        list.add(new Endpoint("lrc_red", "network.ep_lrc_red", "https://lrc.red", "network.loss_timeline"));
+        list.add(new Endpoint("unison", "network.ep_unison", "https://unison.boidu.dev", "network.loss_timeline"));
+        list.add(new Endpoint("genius", "network.ep_genius", "https://genius.com", "network.loss_meaning"));
+        list.add(new Endpoint("google", "network.ep_google", "https://translate.googleapis.com", "network.loss_google"));
+        list.add(new Endpoint("github", "network.ep_github", "https://github.com", "network.loss_update"));
         return list;
     }
 

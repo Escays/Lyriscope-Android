@@ -160,6 +160,26 @@ if webkit_jar.is_file():
         require(bool(protocol_classes) and protocol_classes.issubset(classes),
                 f"All {len(protocol_classes)} original Chromium protocol class names remain available")
 
+# The catalogue labels are written as a key list plus one row per language; a row that is one value
+# short silently shifts every later string onto the wrong key, which is how "applied" once printed
+# "no results". Compare the two arities here so a build never ships that.
+def translation_row_arity(source, function):
+    body = source[source.index("private static void " + function):]
+    body = body[:body.index("\n    }\n")]
+    keys_block = body[body.index("String[] keys = {") + len("String[] keys = {"):]
+    keys_block = keys_block[:keys_block.index("};")]
+    keys = re.findall(r'"(?:\\.|[^"\\])*"', keys_block)
+    rows_block = body[body.index("String[][] rows = {") + len("String[][] rows = {"):]
+    rows_block = rows_block[:rows_block.rindex("\n        };")]
+    return len(keys), [len(re.findall(r'"(?:\\.|[^"\\])*"', row.group(1)))
+                       for row in re.finditer(r"\{(.*?)\}", rows_block, re.S)]
+
+
+catalogue_source = (ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid/AppI18n.java").read_text()
+key_count, row_widths = translation_row_arity(catalogue_source, "addCatalogueNameStrings")
+require(key_count > 0 and all(width == key_count + 1 for width in row_widths),
+        f"Catalogue labels keep one value per key across all {len(row_widths)} language rows")
+
 report = "\n".join("PASS " + check for check in checks)
 report += f"\nMODULE_BOUNDARIES_PASSED assertions={len(checks)}\n"
 directory = REPORTS / "module-boundaries"

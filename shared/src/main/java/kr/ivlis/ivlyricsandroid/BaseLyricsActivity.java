@@ -649,6 +649,8 @@ public class BaseLyricsActivity extends Activity implements
     private static final String MANUAL_SOURCE_LRCLIB = "lrclib";
     private String manualSearchSource = MANUAL_SOURCE_LRCLIB;
     private final java.util.List<TextView> manualSearchSourceChips = new java.util.ArrayList<>();
+    /** One line under the chips saying what the selected catalogue actually brings. */
+    private TextView manualSearchCapabilityView;
     private PlatformHttpTransport.Transport manualSearchTransport;
     private boolean pictureInPictureUiActive;
     private boolean pictureInPictureActionsInitialized;
@@ -1952,8 +1954,11 @@ public class BaseLyricsActivity extends Activity implements
         statusView.setText(result.detail);
         updateDetectedLyricsSourceLanguage(result);
         updateLyricsLanguageSettingsUi();
-        setManualLrclibStatus(ui("lyrics.lrclib_search.loaded"));
-        showSavedToast(ui("lyrics.lrclib_search.loaded"));
+        // Name the catalogue it actually came from: four of them can be asked, not just LRCLIB.
+        String applied = uiFormat("lyrics.lrclib_search.loaded_format",
+                manualSourceBrand(manualSearchSource));
+        setManualLrclibStatus(applied);
+        showSavedToast(applied);
         requestMetadataTranslation(false);
         if (!maybeShowFirstLanguagePrompt()) {
             requestAiLyrics(false);
@@ -5623,6 +5628,11 @@ public class BaseLyricsActivity extends Activity implements
         stylePanelControlsForPalette(panel);
         switchLyricsPopupTab(activeLyricsPopupTab);
         applyPanelControlPalette(panel, palette);
+        // The catalogue chips carry their own inverted background when picked; the palette pass above
+        // paints every clickable label, so the selection has to be restated afterwards.
+        for (TextView chip : manualSearchSourceChips) {
+            setSelectableButtonState(chip, manualSearchSource.equals(chip.getTag()), 14f);
+        }
         updateSelectedLanguageRuleStatusFromUi();
         buildingCurrentTrackPanel = false;
         return panel;
@@ -6014,23 +6024,30 @@ public class BaseLyricsActivity extends Activity implements
         content.addView(description, topMargin(matchWrap(), dp(5)));
 
         // Four catalogues: LRCLIB keeps the old behaviour, the three Chinese platforms carry their
-        // own translations, which is often what a missing lyric needs.
-        LinearLayout sourceRow = new LinearLayout(this);
-        sourceRow.setOrientation(LinearLayout.HORIZONTAL);
+        // own translations, which is often what a missing lyric needs. Each chip names what it brings,
+        // because "which one do I pick" is the only real question this panel asks.
+        //
+        // Two rows instead of one scrolling row: a sideways drag that scrolls also has to be told apart
+        // from the sheet's own tab swipe, and getting that wrong switched tabs mid-search. Two rows fit,
+        // so nobody has to drag here at all.
         manualSearchSourceChips.clear();
         manualSearchSource = defaultManualSearchSource();
-        addManualSearchSourceChip(sourceRow, MANUAL_SOURCE_LRCLIB, "LRCLIB");
-        addManualSearchSourceChip(sourceRow, "netease", manualLyricSource("netease").label());
-        addManualSearchSourceChip(sourceRow, "qq", manualLyricSource("qq").label());
-        addManualSearchSourceChip(sourceRow, "kugou", manualLyricSource("kugou").label());
-        HorizontalScrollView sourceScroll = new HorizontalScrollView(this);
-        sourceScroll.setHorizontalScrollBarEnabled(false);
-        sourceScroll.setFillViewport(false);
-        sourceScroll.addView(sourceRow, new HorizontalScrollView.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        content.addView(sourceScroll, topMargin(matchWrap(), dp(8)));
+        LinearLayout sourceGrid = new LinearLayout(this);
+        sourceGrid.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout sourceFirstRow = manualSearchSourceRow();
+        LinearLayout sourceSecondRow = manualSearchSourceRow();
+        addManualSearchSourceChip(sourceFirstRow, MANUAL_SOURCE_LRCLIB, manualSourceChipText(MANUAL_SOURCE_LRCLIB));
+        addManualSearchSourceChip(sourceFirstRow, "netease", manualSourceChipText("netease"));
+        addManualSearchSourceChip(sourceSecondRow, "qq", manualSourceChipText("qq"));
+        addManualSearchSourceChip(sourceSecondRow, "kugou", manualSourceChipText("kugou"));
+        sourceGrid.addView(sourceFirstRow, matchWrap());
+        sourceGrid.addView(sourceSecondRow, topMargin(matchWrap(), dp(6)));
+        content.addView(sourceGrid, topMargin(matchWrap(), dp(8)));
+
+        manualSearchCapabilityView = label(manualSourceHint(manualSearchSource), 11f,
+                withAlpha(panelPalette.text, 150), AppFonts.regular(this));
+        manualSearchCapabilityView.setLineSpacing(dp(2), 1f);
+        content.addView(manualSearchCapabilityView, topMargin(matchWrap(), dp(6)));
 
         lyricsManualSearchTitleInput = settingEditText(ui("lyrics.lrclib_search.title_hint"), false, false);
         lyricsManualSearchArtistInput = settingEditText(ui("lyrics.lrclib_search.artist_hint"), false, false);
@@ -8337,8 +8354,8 @@ public class BaseLyricsActivity extends Activity implements
                     NetworkRegion.setRegion(this, id);
                     NetworkRegion.applyPreset(this, lyricsPageSettings);
                     rebuildSettingsPanelInPlace();
-                    android.widget.Toast.makeText(this,
-                            "已切换：".concat(title), android.widget.Toast.LENGTH_SHORT).show();
+                    android.widget.Toast.makeText(this, String.format(ui("network.switched"), title),
+                            android.widget.Toast.LENGTH_SHORT).show();
                 });
         if (selected) {
             // The active preset is the one coloured element; everything else keeps the row style.
@@ -8372,7 +8389,7 @@ public class BaseLyricsActivity extends Activity implements
                     : ui("network.unreachable") + " " + ui(result.endpoint.lossWhenDown);
             int markColor = result.reachable ? settingsKit.p.accent : settingsKit.p.danger;
             android.text.SpannableString line = new android.text.SpannableString(
-                    mark + "  " + result.endpoint.label + "   " + detail);
+                    mark + "  " + ui(result.endpoint.labelKey) + "   " + detail);
             // Same type as every other row; only the mark carries the state colour.
             line.setSpan(new android.text.style.ForegroundColorSpan(markColor), 0, mark.length(),
                     android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -12457,6 +12474,41 @@ public class BaseLyricsActivity extends Activity implements
         return LyricsProviderSettings.PROVIDER_LRCLIB.equals(provider) ? MANUAL_SOURCE_LRCLIB : "netease";
     }
 
+    /** The brand as each language writes it; the platform source labels are Chinese only. */
+    private String manualSourceBrand(String id) {
+        if ("netease".equals(id)) {
+            return ui("lyrics.lrclib_search.brand_netease");
+        }
+        if ("qq".equals(id)) {
+            return ui("lyrics.lrclib_search.brand_qq");
+        }
+        if ("kugou".equals(id)) {
+            return ui("lyrics.lrclib_search.brand_kugou");
+        }
+        return ui("lyrics.lrclib_search.brand_lrclib");
+    }
+
+    /** "网易云 · 译文": the brand plus what this catalogue actually carries. */
+    private String manualSourceChipText(String id) {
+        String capability = MANUAL_SOURCE_LRCLIB.equals(id) || "kugou".equals(id)
+                ? ui("lyrics.lrclib_search.cap_timeline")
+                : ui("lyrics.lrclib_search.cap_translation");
+        return manualSourceBrand(id) + " \u00b7 " + capability;
+    }
+
+    private String manualSourceHint(String id) {
+        if ("netease".equals(id)) {
+            return ui("lyrics.lrclib_search.hint_netease");
+        }
+        if ("qq".equals(id)) {
+            return ui("lyrics.lrclib_search.hint_qq");
+        }
+        if ("kugou".equals(id)) {
+            return ui("lyrics.lrclib_search.hint_kugou");
+        }
+        return ui("lyrics.lrclib_search.hint_lrclib");
+    }
+
     private PlatformLyricSource manualLyricSource(String id) {
         if (manualSearchTransport == null) {
             manualSearchTransport = PlatformHttpTransport.http();
@@ -12473,8 +12525,19 @@ public class BaseLyricsActivity extends Activity implements
         return null;
     }
 
+    private LinearLayout manualSearchSourceRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        return row;
+    }
+
     private void addManualSearchSourceChip(LinearLayout row, String id, String text) {
-        TextView chip = languageButton(text, id.equals(manualSearchSource));
+        // A touch smaller than an ordinary language chip: the suffix makes these longer than a name.
+        TextView chip = SettingsAppearance.button(this, text, 12f);
+        makeRemoteFocusable(chip);
+        chip.setGravity(Gravity.CENTER);
+        chip.setTextColor(panelPalette.text);
+        setSelectableButtonState(chip, id.equals(manualSearchSource), 14f);
         chip.setTag(id);
         chip.setOnClickListener(view -> selectManualSearchSource(id));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -12482,7 +12545,7 @@ public class BaseLyricsActivity extends Activity implements
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
         if (row.getChildCount() > 0) {
-            params.leftMargin = dp(8);
+            params.leftMargin = dp(6);
         }
         row.addView(chip, params);
         manualSearchSourceChips.add(chip);
@@ -12491,7 +12554,10 @@ public class BaseLyricsActivity extends Activity implements
     private void selectManualSearchSource(String id) {
         manualSearchSource = id == null ? MANUAL_SOURCE_LRCLIB : id;
         for (TextView chip : manualSearchSourceChips) {
-            setSelectableButtonState(chip, manualSearchSource.equals(chip.getTag()), 11f);
+            setSelectableButtonState(chip, manualSearchSource.equals(chip.getTag()), 14f);
+        }
+        if (manualSearchCapabilityView != null) {
+            manualSearchCapabilityView.setText(manualSourceHint(manualSearchSource));
         }
         if (lyricsManualSearchResultsContainer != null) {
             lyricsManualSearchResultsContainer.removeAllViews();
@@ -12526,8 +12592,9 @@ public class BaseLyricsActivity extends Activity implements
         }
         final String trackKey = currentTrack == null ? "" : currentTrack.stableKey();
         final String query = artist.isEmpty() ? title : title + " " + artist;
+        final String brand = manualSourceBrand(manualSearchSource);
         manualLrclibSearchInFlight = true;
-        setManualLrclibStatus(ui("lyrics.lrclib_search.loading"));
+        setManualLrclibStatus(uiFormat("lyrics.lrclib_search.searching_format", brand));
         if (lyricsManualSearchResultsContainer != null) {
             lyricsManualSearchResultsContainer.removeAllViews();
         }
@@ -12540,7 +12607,7 @@ public class BaseLyricsActivity extends Activity implements
                 runOnUiThread(() -> {
                     manualLrclibSearchInFlight = false;
                     if (isCurrentManualLrclibTrack(trackKey)) {
-                        setManualLrclibStatus(uiFormat("lyrics.lrclib_search.error_format", reason));
+                        setManualLrclibStatus(uiFormat("lyrics.lrclib_search.failed_format", reason));
                     }
                 });
                 return;
@@ -12562,11 +12629,12 @@ public class BaseLyricsActivity extends Activity implements
         }
         lyricsManualSearchResultsContainer.removeAllViews();
         if (hits == null || hits.isEmpty()) {
-            setManualLrclibStatus(ui("lyrics.lrclib_search.no_results"));
+            setManualLrclibStatus(uiFormat("lyrics.lrclib_search.no_results_format",
+                    manualSourceBrand(source.id())));
             resizeLyricsMetaMenuPopupForActiveTab(false);
             return;
         }
-        setManualLrclibStatus(source.label() + " \u00b7 "
+        setManualLrclibStatus(manualSourceBrand(source.id()) + " \u00b7 "
                 + uiFormat("lyrics.lrclib_search.result_count_format", hits.size()));
         for (PlatformRecordingMatcher.Candidate candidate : hits) {
             LinearLayout row = new LinearLayout(this);
@@ -12601,7 +12669,8 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         manualLrclibSearchInFlight = true;
-        setManualLrclibStatus(ui("lyrics.lrclib_search.loading"));
+        setManualLrclibStatus(uiFormat("lyrics.lrclib_search.selecting_format",
+                manualSourceBrand(source.id())));
         new Thread(() -> {
             LyricsResult result = null;
             String reason = "";
@@ -12618,8 +12687,12 @@ public class BaseLyricsActivity extends Activity implements
                     return;
                 }
                 if (loaded == null || loaded.lines.isEmpty()) {
-                    setManualLrclibStatus(uiFormat("lyrics.lrclib_search.error_format",
-                            failure.isEmpty() ? ui("lyrics.lrclib_search.no_results") : failure));
+                    // The search did find recordings; this one simply carries no lyrics upstream. Saying
+                    // "no results" here was wrong — the results are still listed right above.
+                    setManualLrclibStatus(failure.isEmpty()
+                            ? uiFormat("lyrics.lrclib_search.result_empty_format",
+                                    manualSourceBrand(source.id()))
+                            : uiFormat("lyrics.lrclib_search.failed_format", failure));
                     return;
                 }
                 onManualLrclibLyricsLoaded(trackKey, loaded);
@@ -13703,7 +13776,10 @@ public class BaseLyricsActivity extends Activity implements
         switchLyricsPopupTab(order.get(next));
     }
 
-    /** True when a point lands on a text field, where a sideways drag is text selection, not a swipe. */
+    /**
+     * True when a sideways drag at this point belongs to a child, not to the tab switcher: text
+     * fields (a drag there is text selection) and horizontal scrollers (the catalogue chip row).
+     */
     private static boolean pointHitsEditable(View root, float screenX, float screenY) {
         if (root == null || root.getVisibility() != View.VISIBLE) {
             return false;
@@ -13714,7 +13790,7 @@ public class BaseLyricsActivity extends Activity implements
                 || screenY < location[1] || screenY > location[1] + root.getHeight()) {
             return false;
         }
-        if (root instanceof android.widget.EditText) {
+        if (root instanceof android.widget.EditText || root instanceof android.widget.HorizontalScrollView) {
             return true;
         }
         if (root instanceof ViewGroup) {

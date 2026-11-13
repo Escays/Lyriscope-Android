@@ -157,6 +157,7 @@ final class AppI18n {
         addSettingsRedesignStrings(languages);
         FirstUseI18n.apply(languages);
         addLrclibPlaybackSettingsStrings(languages);
+        addCatalogueNameStrings(languages);
         assertComplete(languages);
         return Collections.unmodifiableMap(languages);
     }
@@ -4031,13 +4032,13 @@ final class AppI18n {
         switch (normalize(lang)) {
             case "ko":
                 return new String[]{
-                        "lyrics.lrclib_search.title", "LRCLIB 수동 검색",
-                        "lyrics.lrclib_search.desc", "현재 곡에 맞지 않는 가사가 불러와졌을 때 LRCLIB에서 직접 검색해 적용합니다.",
+                        "lyrics.lrclib_search.title", "가사 직접 찾기",
+                        "lyrics.lrclib_search.desc", "아래는 모두 가사 저장소이며 제공자가 아닙니다. 키워드로 가사를 찾아 현재 곡에 지정합니다.",
                         "lyrics.lrclib_search.title_hint", "곡 제목",
                         "lyrics.lrclib_search.artist_hint", "아티스트",
                         "lyrics.lrclib_search.field_title", "제목",
                         "lyrics.lrclib_search.field_artist", "아티스트",
-                        "lyrics.lrclib_search.button", "LRCLIB 검색",
+                        "lyrics.lrclib_search.button", "검색",
                         "lyrics.lrclib_search.ready", "검색어를 확인한 뒤 검색하세요.",
                         "lyrics.lrclib_search.empty_title", "검색할 곡 제목을 입력하세요.",
                         "lyrics.lrclib_search.loading", "LRCLIB 검색 중...",
@@ -4095,12 +4096,12 @@ final class AppI18n {
             case "zh-TW":
                 return new String[]{
                         "lyrics.lrclib_search.title", "手動找歌詞",
-                        "lyrics.lrclib_search.desc", "載入的歌詞不符合目前歌曲時，可在 LRCLIB 中手動搜尋並套用。",
+                        "lyrics.lrclib_search.desc", "以下都是曲庫、不是提供商：按關鍵字找一條歌詞，找不到時指定給目前歌曲。",
                         "lyrics.lrclib_search.title_hint", "歌曲標題",
                         "lyrics.lrclib_search.artist_hint", "藝人",
                         "lyrics.lrclib_search.field_title", "標題",
                         "lyrics.lrclib_search.field_artist", "藝人",
-                        "lyrics.lrclib_search.button", "搜尋 LRCLIB",
+                        "lyrics.lrclib_search.button", "搜尋",
                         "network.section", "網路與地區",
                         "network.desc", "只改預設值，隨時可改",
                         "network.cn", "中國大陸",
@@ -4135,13 +4136,13 @@ final class AppI18n {
                 };
             case "ja":
                 return new String[]{
-                        "lyrics.lrclib_search.title", "LRCLIBを手動検索",
-                        "lyrics.lrclib_search.desc", "現在の曲と違う歌詞が読み込まれたとき、LRCLIBで直接検索して適用します。",
+                        "lyrics.lrclib_search.title", "歌詞を手動で検索",
+                        "lyrics.lrclib_search.desc", "以下はすべて歌詞の保存先で、プロバイダーではありません。キーワードで探して現在の曲に適用します。",
                         "lyrics.lrclib_search.title_hint", "曲名",
                         "lyrics.lrclib_search.artist_hint", "アーティスト",
                         "lyrics.lrclib_search.field_title", "曲名",
                         "lyrics.lrclib_search.field_artist", "アーティスト",
-                        "lyrics.lrclib_search.button", "LRCLIBを検索",
+                        "lyrics.lrclib_search.button", "検索",
                         "lyrics.lrclib_search.ready", "検索語を確認して検索してください。",
                         "lyrics.lrclib_search.empty_title", "検索する曲名を入力してください。",
                         "lyrics.lrclib_search.loading", "LRCLIBを検索中...",
@@ -11882,6 +11883,104 @@ final class AppI18n {
             Map<String, String> table = new java.util.LinkedHashMap<>(existing);
             for (int index = 0; index < LRCLIB_SETTING_KEYS.length; index++) table.put(LRCLIB_SETTING_KEYS[index], row[index + 1]);
             languages.put(row[0], java.util.Collections.unmodifiableMap(table));
+        }
+    }
+
+    /**
+     * Names for the catalogues the manual search can ask, each carrying what it actually brings.
+     *
+     * <p>Only the five languages the interface is written in get their own wording here; every other
+     * table deliberately leaves these keys out and {@link #t(String, String)} answers in English.
+     * Adding a key to one table only is safe — that is the whole point of the English fallback.
+     */
+    private static void addCatalogueNameStrings(Map<String, Map<String, String>> languages) {
+        String[] keys = {
+                "lyrics.lrclib_search.brand_lrclib",
+                "lyrics.lrclib_search.brand_netease",
+                "lyrics.lrclib_search.brand_qq",
+                "lyrics.lrclib_search.brand_kugou",
+                "lyrics.lrclib_search.cap_timeline",
+                "lyrics.lrclib_search.cap_translation",
+                "lyrics.lrclib_search.hint_lrclib",
+                "lyrics.lrclib_search.hint_netease",
+                "lyrics.lrclib_search.hint_qq",
+                "lyrics.lrclib_search.hint_kugou",
+                "lyrics.lrclib_search.searching_format",
+                "lyrics.lrclib_search.selecting_format",
+                "lyrics.lrclib_search.failed_format",
+                "lyrics.lrclib_search.no_results_format",
+                "lyrics.lrclib_search.loaded_format",
+                "lyrics.lrclib_search.result_empty_format",
+                "network.ep_netease",
+                "network.ep_qq",
+                "network.ep_kugou",
+                "network.ep_lrclib",
+                "network.ep_lrc_red",
+                "network.ep_unison",
+                "network.ep_genius",
+                "network.ep_google",
+                "network.ep_github"
+        };
+        String[][] rows = {
+                {"en", "LRCLIB", "NetEase", "QQ", "Kugou", "timeline", "translation",
+                        "Timed lines only, no translation. Best when the words are right but the timing drifts.",
+                        "Timed lines plus NetEase's own translation, with a romanised track when it has one.",
+                        "Timed lines plus QQ Music's translation, with a romanised track when it has one.",
+                        "Only the original timeline comes back from Kugou, so keep it as a last resort.",
+                        "Searching %s…", "Loading the lyrics from %s…", "Search failed: %s", "No results from %s.",
+                        "Lyrics applied from %s.",
+                        "That recording carries no lyrics on %s. Try another result.",
+                        "NetEase Cloud Music", "QQ Music", "Kugou",
+                        "LRCLIB", "lrc.red", "Unison", "Genius", "Google Translate", "GitHub"},
+                {"ko", "LRCLIB", "넷이즈", "QQ", "쿠고우", "타임라인", "번역",
+                        "줄별 타임라인만 있고 번역은 없습니다. 가사는 맞는데 타이밍이 어긋날 때 쓰세요.",
+                        "줄별 타임라인과 넷이즈 자체 번역, 로마자 표기가 있으면 함께 가져옵니다.",
+                        "줄별 타임라인과 QQ 뮤직 자체 번역, 로마자 표기가 있으면 함께 가져옵니다.",
+                        "쿠고우에서는 원문 타임라인만 받을 수 있어 마지막 대안으로 쓰세요.",
+                        "%s 검색 중…", "%s 가사를 불러오는 중…", "검색 실패: %s", "%s 결과가 없습니다.",
+                        "%s 가사를 적용했습니다.",
+                        "%s 에 이 녹음의 가사가 없습니다. 다른 결과를 골라 보세요.",
+                        "넷이즈 클라우드 뮤직", "QQ 뮤직", "쿠고우",
+                        "LRCLIB", "lrc.red", "Unison", "Genius", "Google 번역", "GitHub"},
+                {"zh-CN", "LRCLIB", "网易", "QQ", "酷狗", "时间轴", "译文",
+                        "只有逐行时间轴，不带译文。词对了但时间轴不准时用它。",
+                        "逐行时间轴 + 网易云自带译文，有罗马音时一并带上。",
+                        "逐行时间轴 + QQ 音乐自带译文，有罗马音时一并带上。",
+                        "这里只能取到原文时间轴，当作最后的备选。",
+                        "正在搜索 %s…", "正在加载 %s 的歌词…", "搜索失败：%s", "没有 %s 的结果。",
+                        "已应用 %s 的歌词。",
+                        "这条结果在 %s 那边没有歌词，换一条试试。",
+                        "网易云音乐", "QQ 音乐", "酷狗音乐",
+                        "LRCLIB", "lrc.red", "Unison", "Genius", "谷歌翻译", "GitHub"},
+                {"zh-TW", "LRCLIB", "網易", "QQ", "酷狗", "時間軸", "譯文",
+                        "只有逐行時間軸，不帶譯文。詞對了但時間軸不準時用它。",
+                        "逐行時間軸 + 網易雲自帶譯文，有羅馬音時一併帶上。",
+                        "逐行時間軸 + QQ 音樂自帶譯文，有羅馬音時一併帶上。",
+                        "這裡只能取到原文時間軸，當作最後的備選。",
+                        "正在搜尋 %s…", "正在載入 %s 的歌詞…", "搜尋失敗：%s", "沒有 %s 的結果。",
+                        "已套用 %s 的歌詞。",
+                        "這條結果在 %s 那邊沒有歌詞，換一條試試。",
+                        "網易雲音樂", "QQ 音樂", "酷狗音樂",
+                        "LRCLIB", "lrc.red", "Unison", "Genius", "Google 翻譯", "GitHub"},
+                {"ja", "LRCLIB", "NetEase", "QQ", "Kugou", "タイムライン", "翻訳",
+                        "行ごとのタイムラインのみで翻訳はありません。歌詞は合っているのにタイミングがずれるとき向けです。",
+                        "行ごとのタイムラインと NetEase の翻訳、ローマ字があれば一緒に取得します。",
+                        "行ごとのタイムラインと QQ Music の翻訳、ローマ字があれば一緒に取得します。",
+                        "ここでは原文のタイムラインしか取得できないため、最後の選択肢にしてください。",
+                        "%s を検索しています…", "%s の歌詞を読み込み中…", "検索に失敗しました: %s", "%s の結果がありません。",
+                        "%s の歌詞を適用しました。",
+                        "この項目には %s の歌詞がありません。別の結果を選んでください。",
+                        "NetEase Cloud Music", "QQ Music", "Kugou",
+                        "LRCLIB", "lrc.red", "Unison", "Genius", "Google 翻訳", "GitHub"}
+        };
+        for (String[] row : rows) {
+            Map<String, String> existing = languages.get(row[0]);
+            if (existing == null) continue;
+            Map<String, String> table = new LinkedHashMap<>(existing);
+            for (int index = 0; index < keys.length; index++) {
+                table.put(keys[index], row[index + 1]);
+            }
+            languages.put(row[0], Collections.unmodifiableMap(table));
         }
     }
 
