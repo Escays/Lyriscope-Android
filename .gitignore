@@ -42,3 +42,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# WorkBuddy desk memory (local notes, not part of the product)
+.workbuddy/
