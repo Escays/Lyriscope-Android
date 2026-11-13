@@ -176,9 +176,11 @@ def translation_row_arity(source, function):
 
 
 catalogue_source = (ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid/AppI18n.java").read_text()
-key_count, row_widths = translation_row_arity(catalogue_source, "addCatalogueNameStrings")
-require(key_count > 0 and all(width == key_count + 1 for width in row_widths),
-        f"Catalogue labels keep one value per key across all {len(row_widths)} language rows")
+for table_function, description in (("addCatalogueNameStrings", "Catalogue labels"),
+                                    ("addCreditStrings", "Credit lines")):
+    key_count, row_widths = translation_row_arity(catalogue_source, table_function)
+    require(key_count > 0 and all(width == key_count + 1 for width in row_widths),
+            f"{description} keep one value per key across all {len(row_widths)} language rows")
 
 report = "\n".join("PASS " + check for check in checks)
 report += f"\nMODULE_BOUNDARIES_PASSED assertions={len(checks)}\n"

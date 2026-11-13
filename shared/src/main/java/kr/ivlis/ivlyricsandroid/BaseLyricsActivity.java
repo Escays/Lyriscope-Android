@@ -645,6 +645,25 @@ public class BaseLyricsActivity extends Activity implements
     private boolean automaticUpdateCheckStarted;
     private boolean spotifySetupRequired;
     private boolean manualLrclibSearchInFlight;
+    /**
+     * Open-source projects this one learned from, plus the lyric sources it reads. Names and authors
+     * are spelled as their own projects spell them; the middle column is a translation key.
+     */
+    private static final String[][] CREDITS = {
+            {"ivLyrics", "ivLis Studio", "credits.note_ivlyrics",
+                    "https://github.com/ivLis-Studio/ivLyrics-Android"},
+            {"HyperLyrics Enhanced", "juren233", "credits.note_hyperlyrics",
+                    "https://github.com/juren233/HyperLyrics-Enhanced"},
+            {"HyperLyric", "limczhh", "credits.note_hyperlyric",
+                    "https://github.com/limczhh/HyperLyric"},
+            {"LRCLIB", "lrclib.net", "credits.note_lrclib", "https://lrclib.net"},
+            {"lrc.red", "lrc.red", "credits.note_lrcred", "https://lrc.red"},
+            {"LyricsPlus", "ibratabian17", "credits.note_lyricsplus",
+                    "https://github.com/ibratabian17/lyricsplus"},
+            {"Unison", "better-lyrics", "credits.note_unison",
+                    "https://github.com/better-lyrics/unison"}
+    };
+
     /** Which catalogue the manual search asks: lrclib, qq, netease or kugou. */
     private static final String MANUAL_SOURCE_LRCLIB = "lrclib";
     private String manualSearchSource = MANUAL_SOURCE_LRCLIB;
@@ -6434,6 +6453,7 @@ public class BaseLyricsActivity extends Activity implements
         for (Map.Entry<String, LinearLayout> entry : settingsMenuPages.entrySet()) {
             entry.getValue().setVisibility(entry.getKey().equals(next) ? View.VISIBLE : View.GONE);
         }
+        if (SETTINGS_TAB_CURRENT_TRACK.equals(next)) adoptCurrentTrackPanelIntoPage();
         updateCurrentTrackSettingsMenu();
         if (SETTINGS_TAB_CURRENT_TRACK.equals(next)) updateLyricsLanguageSettingsUi();
         updateSettingsNavBar();
@@ -6847,11 +6867,40 @@ public class BaseLyricsActivity extends Activity implements
             params.bottomMargin = dp(20);
             settingsHomeMenus.addView(list, params);
         }
-        TextView footer = settingsKit.text(IvLyricsBridge.isEmbedded(this) ? "ivLyrics · LSPatch" : "ivLyrics · Android",
+        buildSettingsCredits(settingsHomeMenus);
+        TextView footer = settingsKit.text(ui(IvLyricsBridge.isEmbedded(this) ? "app.footer_module" : "app.footer_app"),
                 12f, settingsKit.p.text4, settingsKit.regular);
         footer.setGravity(Gravity.CENTER);
         footer.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         settingsHomeMenus.addView(footer, topMargin(matchWrap(), dp(2)));
+    }
+
+    /**
+     * The modules whose ideas this one leans on, and the sources the lyrics come from. Each row opens
+     * its project page; nothing is bundled, so the credit is the link.
+     */
+    private void buildSettingsCredits(LinearLayout page) {
+        LinearLayout group = settingsKit.vertical();
+        group.addView(settingsKit.sectionHeader(ui("credits.section"), ui("credits.desc")), matchWrap());
+        LinearLayout rows = settingsKit.group();
+        for (String[] entry : CREDITS) {
+            String description = entry[1] + " \u00b7 " + ui(entry[2]);
+            Button row = settingsKit.actionRow(entry[0], description, SettingsKit.ACTION_NORMAL);
+            makeRemoteFocusable(row);
+            row.setOnClickListener(view -> openCreditLink(entry[3]));
+            // Not indexed by search: these are links, and the home page is rebuilt often enough
+            // that index entries would pile up.
+            rows.addView(row, matchWrap());
+        }
+        group.addView(rows, matchWrap());
+        page.addView(group, topMargin(matchWrap(), dp(26)));
+    }
+
+    private void openCreditLink(String url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        if (!tryStartActivity(intent)) {
+            showSavedToast(ui("credits.link_failed"));
+        }
     }
 
     private void updateSettingsSearch() {
@@ -7007,8 +7056,33 @@ public class BaseLyricsActivity extends Activity implements
         }
     }
 
+    /**
+     * Puts the panel back into the current-track page when the sheet has taken it, or when a rebuild
+     * left it in another host. The page has a single slot, so this is idempotent.
+     */
+    private void adoptCurrentTrackPanelIntoPage() {
+        LinearLayout page = settingsMenuPages.get(SETTINGS_TAB_CURRENT_TRACK);
+        if (page == null || lyricsLanguageSettingsPanel == null || isMetaSheetShowing()) {
+            return;
+        }
+        if (lyricsLanguageSettingsPanel.getParent() == page) {
+            return;
+        }
+        if (panelOverArtwork) {
+            // A cover-coloured copy does not belong on the settings surface.
+            panelOverArtwork = false;
+            detachFromParent(lyricsLanguageSettingsPanel);
+            lyricsLanguageSettingsPanel = buildLyricsLanguageSettingsPanel(themePalette());
+        }
+        detachFromParent(lyricsLanguageSettingsPanel);
+        styleCurrentTrackPanel(true);
+        page.addView(lyricsLanguageSettingsPanel, matchWrap());
+    }
+
     private void updateCurrentTrackSettingsMenu() {
         if (currentTrackSettingsSummary == null) return;
+        // Any refresh is also a chance to notice the page's slot is empty and fill it again.
+        if (SETTINGS_TAB_CURRENT_TRACK.equals(settingsRoute)) adoptCurrentTrackPanelIntoPage();
         boolean hasTrack = currentTrack != null && currentTrack.hasUsableMetadata();
         String summary = hasTrack ? currentTrack.title + "\n" + currentTrack.artist : ui("status.waiting_current_track");
         if (!TextUtils.equals(currentTrackSettingsSummary.getText(), summary)) currentTrackSettingsSummary.setText(summary);
@@ -13548,6 +13622,9 @@ public class BaseLyricsActivity extends Activity implements
         updateLyricsLanguageSettingsUi();
         updateLyricsMatchStatusBlock();
         switchLyricsPopupTab(activeLyricsPopupTab);
+        // Take the settings page's slot first: the panel is about to be replaced by a cover-coloured
+        // copy, and the page must get its own back when the sheet closes.
+        rememberLyricsLanguageSettingsParent();
         if (panelPalette != SettingsPalette.ARTWORK) {
             // The sheet paints itself with the cover colour, so the panel inside must be built for it
             // rather than reused from the settings page.
@@ -13555,7 +13632,6 @@ public class BaseLyricsActivity extends Activity implements
             lyricsLanguageSettingsPanel = buildLyricsLanguageSettingsPanel(SettingsPalette.ARTWORK);
             panelOverArtwork = true;
         }
-        rememberLyricsLanguageSettingsParent();
         detachFromParent(lyricsLanguageSettingsPanel);
 
         // The card is a darkened cover colour in both themes, so its ink is always the sheet's own.
@@ -13937,6 +14013,13 @@ public class BaseLyricsActivity extends Activity implements
         }
         lyricsLanguageSettingsPanel.animate().cancel();
         detachFromParent(lyricsLanguageSettingsPanel);
+        boolean coverCopy = panelOverArtwork;
+        if (coverCopy) {
+            // This copy was built for the cover-coloured sheet. The page needs one for its own palette,
+            // and without building it here the slot stays empty until something forces a rebuild.
+            panelOverArtwork = false;
+            lyricsLanguageSettingsPanel = buildLyricsLanguageSettingsPanel(themePalette());
+        }
         if (lyricsLanguageSettingsOriginalParent != null) {
             int index = lyricsLanguageSettingsOriginalIndex >= 0
                     ? Math.min(lyricsLanguageSettingsOriginalIndex, lyricsLanguageSettingsOriginalParent.getChildCount())

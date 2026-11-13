@@ -158,6 +158,7 @@ final class AppI18n {
         FirstUseI18n.apply(languages);
         addLrclibPlaybackSettingsStrings(languages);
         addCatalogueNameStrings(languages);
+        addCreditStrings(languages);
         assertComplete(languages);
         return Collections.unmodifiableMap(languages);
     }
@@ -11883,6 +11884,98 @@ final class AppI18n {
             Map<String, String> table = new java.util.LinkedHashMap<>(existing);
             for (int index = 0; index < LRCLIB_SETTING_KEYS.length; index++) table.put(LRCLIB_SETTING_KEYS[index], row[index + 1]);
             languages.put(row[0], java.util.Collections.unmodifiableMap(table));
+        }
+    }
+
+    /**
+     * The settings page ends on who this owes its ideas to. Same shape as the catalogue table: a key
+     * list plus one row per language, so a missing value cannot silently shift the rest.
+     */
+    private static void addCreditStrings(Map<String, Map<String, String>> languages) {
+        String[] keys = {
+                "credits.section",
+                "credits.desc",
+                "credits.link_failed",
+                "credits.note_ivlyrics",
+                "credits.note_hyperlyrics",
+                "credits.note_hyperlyric",
+                "credits.note_lrclib",
+                "credits.note_lrcred",
+                "credits.note_lyricsplus",
+                "credits.note_unison",
+                "app.footer_module",
+                "app.footer_app"
+        };
+        String[][] rows = {
+                {"en", "Credits",
+                        "Lyriscope builds on ideas from these open-source modules and reads its lyrics from these sources. Thank you.",
+                        "No app on this device can open that link.",
+                        "the interface and data model Lyriscope started from",
+                        "where the settings grouping and row style come from",
+                        "the project the one above is based on, also a reference",
+                        "lyrics and timelines",
+                        "lyrics and timelines",
+                        "lyrics source",
+                        "lyrics source",
+                        "Lyriscope · Spotify module",
+                        "Lyriscope · standalone app"},
+                {"ko", "감사 인사",
+                        "Lyriscope는 이 오픈소스 모듈들의 아이디어를 바탕으로 만들어졌고, 가사는 아래 출처에서 가져옵니다. 감사합니다.",
+                        "이 기기에는 해당 링크를 열 수 있는 앱이 없습니다.",
+                        "Lyriscope가 출발한 인터페이스와 데이터 모델",
+                        "설정 화면의 그룹과 행 스타일을 참고한 프로젝트",
+                        "위 프로젝트의 원본이며 함께 참고했습니다",
+                        "가사와 타임라인",
+                        "가사와 타임라인",
+                        "가사 출처",
+                        "가사 출처",
+                        "Lyriscope · Spotify 모듈",
+                        "Lyriscope · 독립 앱"},
+                {"zh-CN", "致谢",
+                        "Lyriscope 借鉴了这些开源模块的思路与做法，歌词来自这些来源。谢谢每一位作者。",
+                        "这台设备没有能打开该链接的应用。",
+                        "Lyriscope 的界面与数据模型从这里起步",
+                        "设置页的分组方式与行样式参考了它",
+                        "上一个项目的上游，同样参考过",
+                        "歌词与时间轴",
+                        "歌词与时间轴",
+                        "歌词来源",
+                        "歌词来源",
+                        "Lyriscope · Spotify 模块",
+                        "Lyriscope · 独立应用"},
+                {"zh-TW", "致謝",
+                        "Lyriscope 借鑑了這些開源模組的思路與做法，歌詞來自這些來源。謝謝每一位作者。",
+                        "這台裝置沒有能開啟該連結的應用程式。",
+                        "Lyriscope 的介面與資料模型從這裡起步",
+                        "設定頁的分組方式與列樣式參考了它",
+                        "上一個專案的上游，同樣參考過",
+                        "歌詞與時間軸",
+                        "歌詞與時間軸",
+                        "歌詞來源",
+                        "歌詞來源",
+                        "Lyriscope · Spotify 模組",
+                        "Lyriscope · 獨立應用"},
+                {"ja", "謝辞",
+                        "Lyriscope はこれらのオープンソースモジュールの考え方を土台にしており、歌詞はこれらの提供元から取得しています。作者の皆さんに感謝します。",
+                        "この端末にはそのリンクを開けるアプリがありません。",
+                        "Lyriscope の出発点となった画面とデータモデル",
+                        "設定画面のグループ分けと行のスタイルの参考元",
+                        "上のプロジェクトの上流で、こちらも参考にしました",
+                        "歌詞とタイムライン",
+                        "歌詞とタイムライン",
+                        "歌詞の提供元",
+                        "歌詞の提供元",
+                        "Lyriscope · Spotify モジュール",
+                        "Lyriscope · 単体アプリ"}
+        };
+        for (String[] row : rows) {
+            Map<String, String> existing = languages.get(row[0]);
+            if (existing == null) continue;
+            Map<String, String> table = new LinkedHashMap<>(existing);
+            for (int index = 0; index < keys.length; index++) {
+                table.put(keys[index], row[index + 1]);
+            }
+            languages.put(row[0], Collections.unmodifiableMap(table));
         }
     }
 
