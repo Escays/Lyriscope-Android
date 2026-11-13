@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 import java.io.*;
 import java.lang.reflect.*;
@@ -26,7 +26,7 @@ public final class SyncMetadataReportingRegression {
     static {
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe"); f.setAccessible(true); unsafe = (Unsafe) f.get(null);
-            logType = Class.forName("kr.ivlis.ivlyricsandroid.LyricsRepository$LogSink");
+            logType = Class.forName("dev.lyriscope.core.LyricsRepository$LogSink");
             log = java.lang.reflect.Proxy.newProxyInstance(logType.getClassLoader(), new Class<?>[]{logType}, (p, m, a) -> null);
         } catch (Exception e) { throw new ExceptionInInitializerError(e); }
     }

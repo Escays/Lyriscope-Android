@@ -6,8 +6,8 @@ import shutil
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-SHARED = ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid"
-MODULE = ROOT / "spotify-module/src/main/java/kr/ivlis/ivlyricsandroid"
+SHARED = ROOT / "shared/src/main/java/dev/lyriscope/core"
+MODULE = ROOT / "spotify-module/src/main/java/dev/lyriscope/core"
 REPORTS = ROOT / "build/reports/regressions"
 JSON_VERSION = "20250517"
 JSON_SHA256 = "3ea61b2a06e31edf1c91134fe9106b0ebb16628be169f3db75bc7a2b06b45796"

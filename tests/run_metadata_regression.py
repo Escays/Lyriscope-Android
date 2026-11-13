@@ -17,10 +17,10 @@ test_classpath = classpath(classes, json_jar(), compiled_classes("spotify-module
 files = [SHARED / name for name in ["NowPlayingService.java", "TrackSnapshot.java", "LyricsProviderSelectionPlan.java", "LyricsResult.java", "SyncDataApplier.java", "SyncDataV6Codec.java", "LyricsRepository.java", "LrcRedWordSync.java", "ProviderLookupWindow.java"]]
 files += [MODULE / name for name in ["NativeTrackIdentity.java", "SpotifyMetadataBridge.java", "SpotifyNativeMetadataClient.java"]]
 files += [ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Looper.java",
-          ROOT / "tests/kr/ivlis/ivlyricsandroid/NativeMetadataRegression.java"]
+          ROOT / "tests/dev/lyriscope/core/NativeMetadataRegression.java"]
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(classes), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", test_classpath,
-                         "kr.ivlis.ivlyricsandroid.NativeMetadataRegression", *sys.argv[1:]],
+                         "dev.lyriscope.core.NativeMetadataRegression", *sys.argv[1:]],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 report = "Production native metadata code; synthetic in-memory fixtures.\n"
 for file in files[:9]:

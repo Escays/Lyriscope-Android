@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 import android.graphics.Bitmap;
 import java.util.*;

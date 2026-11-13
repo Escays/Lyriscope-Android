@@ -25,11 +25,11 @@ sources = [
     SHARED / "SongMeaningService.java",
     SHARED / "PlatformTranslationSettings.java",
     SHARED / "PlatformTranslationService.java",
-    ROOT / "tests/kr/ivlis/ivlyricsandroid/PlatformQueryDiagnostic.java",
+    ROOT / "tests/dev/lyriscope/core/PlatformQueryDiagnostic.java",
 ]
 
 deps = classpath(work, json_jar(), android_jar())
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-cp", deps, "-d", str(work)]
                + [str(source) for source in sources], check=True)
 subprocess.run([java_tool("java"), "-Dfile.encoding=UTF-8", "-cp", deps,
-                "kr.ivlis.ivlyricsandroid.PlatformQueryDiagnostic"] + sys.argv[1:], check=True)
+                "dev.lyriscope.core.PlatformQueryDiagnostic"] + sys.argv[1:], check=True)

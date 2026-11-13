@@ -57,7 +57,7 @@ files += [handler, clock, ROOT / "tests/android/os/Looper.java",
 test_classpath = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(work), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", test_classpath,
-                         "kr.ivlis.ivlyricsandroid.SupplementLoadingRegression"],
+                         "dev.lyriscope.core.SupplementLoadingRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 report = "Production AI lifecycle, synthetic settings/lyrics, controlled main-thread queue. No provider/device calls.\n"
 for file in files[:4] + [activity]:

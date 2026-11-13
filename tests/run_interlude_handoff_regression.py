@@ -28,7 +28,7 @@ target = work / "InterludeHandoffRegression.java"
 target.write_text(fixture)
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-d", str(work),
                 str(SHARED / "InterludeTransition.java"), str(target)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work), "kr.ivlis.ivlyricsandroid.InterludeHandoffRegression"],
+result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.InterludeHandoffRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

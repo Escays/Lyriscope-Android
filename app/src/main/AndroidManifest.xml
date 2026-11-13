@@ -8,7 +8,7 @@
     </queries>
 
     <application
-        android:name="kr.ivlis.ivlyricsandroid.StandaloneApplication"
+        android:name="dev.lyriscope.core.StandaloneApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="Lyriscope"
@@ -18,7 +18,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name="kr.ivlis.ivlyricsandroid.MainActivity"
+            android:name="dev.lyriscope.core.MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTop"
@@ -33,15 +33,15 @@
         </activity>
 
         <receiver
-            android:name="kr.ivlis.ivlyricsandroid.PictureInPictureActionReceiver"
+            android:name="dev.lyriscope.core.PictureInPictureActionReceiver"
             android:exported="false" />
 
         <receiver
-            android:name="kr.ivlis.ivlyricsandroid.UpdateInstallResultReceiver"
+            android:name="dev.lyriscope.core.UpdateInstallResultReceiver"
             android:exported="false" />
 
         <service
-            android:name="kr.ivlis.ivlyricsandroid.NowPlayingService"
+            android:name="dev.lyriscope.core.NowPlayingService"
             android:exported="false"
             android:label="@string/service_label_media_listener"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -51,7 +51,7 @@
         </service>
 
         <service
-            android:name="kr.ivlis.ivlyricsandroid.SpotifyForegroundAccessibilityService"
+            android:name="dev.lyriscope.core.SpotifyForegroundAccessibilityService"
             android:exported="true"
             android:label="@string/service_label_spotify_detector"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

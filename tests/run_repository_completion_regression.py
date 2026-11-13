@@ -40,7 +40,7 @@ files = production_files + [handler, clock, ROOT / "tests/android/os/Looper.java
 test_classpath = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(work), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", test_classpath,
-                         "kr.ivlis.ivlyricsandroid.RepositoryCompletionRegression"],
+                         "dev.lyriscope.core.RepositoryCompletionRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 report = "Production AI entry point, synthetic provider transport/settings/lyrics. No network/device calls.\n"
 for file in production_files:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run real WebView + CDN Kuromoji against module-only assets in an isolated QA APK.
 
-This opt-in device test installs/starts/stops only kr.ivlis.ivlyricsandroid.qa.
+This opt-in device test installs/starts/stops only dev.lyriscope.app.qa.
 It never installs, starts, stops, or changes Spotify or its ivLyrics module.
 """
 import argparse
@@ -21,8 +21,8 @@ import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = "kr.ivlis.ivlyricsandroid.qa"
-ACTIVITY = "kr.ivlis.ivlyricsandroid.FuriganaWebViewSmokeActivity"
+PACKAGE = "dev.lyriscope.app.qa"
+ACTIVITY = "dev.lyriscope.core.FuriganaWebViewSmokeActivity"
 REPORT = ROOT / "build/reports/regressions/furigana-webview-device"
 
 
@@ -139,7 +139,7 @@ def main():
         "WebView: " + next((line.strip() for line in run(*adb, "shell", "dumpsys", "webviewupdate").splitlines()
                              if "Current WebView package" in line), "unavailable"),
         "QA APK SHA256: " + hashlib.sha256(signed.read_bytes()).hexdigest(),
-        "Production Java SHA256: " + hashlib.sha256((ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid/FuriganaRepository.java").read_bytes()).hexdigest(),
+        "Production Java SHA256: " + hashlib.sha256((ROOT / "shared/src/main/java/dev/lyriscope/core/FuriganaRepository.java").read_bytes()).hexdigest(),
         "Production bridge SHA256: " + hashlib.sha256((ROOT / "shared/src/main/assets/furigana/bridge.html").read_bytes()).hexdigest(),
     ]
     (REPORT / "result.txt").write_text("\n".join(evidence) + "\n")

@@ -51,7 +51,7 @@ sources = [target, SHARED / "VideoTimingSubmission.java", SHARED / "YouTubeBackg
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-cp", dependencies,
                 "-d", str(work), *map(str, sources)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", dependencies,
-                         "kr.ivlis.ivlyricsandroid.VideoTimingShareRegression"],
+                         "dev.lyriscope.core.VideoTimingShareRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

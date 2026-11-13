@@ -22,7 +22,7 @@ def declaration(text, signature):
     return text[start:cursor]
 
 
-source = ROOT / "spotify-module/src/main/java/dev/ivlyrics/spotify/SpotifyLyricsCardPresence.java"
+source = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify/SpotifyLyricsCardPresence.java"
 method = declaration(source.read_text(), "static List<?> withLyricsIfMissing(")
 adapter = source.with_name("ComposeAdapter.java")
 adapter_methods = [declaration(adapter.read_text(), signature) for signature in (

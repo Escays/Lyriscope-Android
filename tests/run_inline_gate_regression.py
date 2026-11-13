@@ -5,7 +5,7 @@ import hashlib
 
 from regression_runtime import ROOT, REPORTS, java_tool
 
-source = ROOT / "spotify-module/src/main/java/dev/ivlyrics/spotify/SpotifyInlineLyrics.java"
+source = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify/SpotifyInlineLyrics.java"
 text = source.read_text()
 start = text.index("    static final class Gates {")
 cursor = text.index("{", start) + 1

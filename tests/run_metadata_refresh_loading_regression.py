@@ -46,7 +46,7 @@ files += [ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Loope
 cp = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(work), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", cp,
-                         "kr.ivlis.ivlyricsandroid.MetadataRefreshLoadingRegression"],
+                         "dev.lyriscope.core.MetadataRefreshLoadingRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 report = "Production embedded metadata refresh callbacks, guarded AI completion and loading propagation with synthetic lyrics; no network/device.\n"
 report += f"BaseLyricsActivity.java SHA256 {hashlib.sha256(activity.read_bytes()).hexdigest()}\n" + result.stdout

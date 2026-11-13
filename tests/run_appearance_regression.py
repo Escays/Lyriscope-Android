@@ -31,7 +31,7 @@ filtering = declaration(renderer, "private List<DrawGroup> visibleLyricGroups(")
 work = REPORTS / "appearance"
 work.mkdir(parents=True, exist_ok=True)
 fixture = r'''
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 import java.util.*;
 import org.json.*;
 public final class AppearanceRegression {
@@ -135,7 +135,7 @@ target.write_text(fixture)
 dependencies = classpath(work, json_jar())
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-cp", dependencies, "-d", str(work),
                 str(SHARED / "AppearanceOptions.java"), str(SHARED / "RecordRotation.java"), str(target)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", dependencies, "kr.ivlis.ivlyricsandroid.AppearanceRegression"],
+result = subprocess.run([java_tool("java"), "-cp", dependencies, "dev.lyriscope.core.AppearanceRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

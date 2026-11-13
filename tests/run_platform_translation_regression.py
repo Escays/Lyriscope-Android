@@ -27,11 +27,11 @@ sources = [
     SHARED / "GeniusClient.java",
     SHARED / "AnnotationLineMapper.java",
     SHARED / "SongMeaningService.java",
-    ROOT / "tests/kr/ivlis/ivlyricsandroid/PlatformTranslationRegression.java",
+    ROOT / "tests/dev/lyriscope/core/PlatformTranslationRegression.java",
 ]
 
 deps = classpath(work, json_jar(), android_jar())
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-cp", deps, "-d", str(work)]
                + [str(source) for source in sources], check=True)
 subprocess.run([java_tool("java"), "-Dfile.encoding=UTF-8", "-cp", deps,
-                "kr.ivlis.ivlyricsandroid.PlatformTranslationRegression"], check=True)
+                "dev.lyriscope.core.PlatformTranslationRegression"], check=True)

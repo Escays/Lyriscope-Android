@@ -8,8 +8,8 @@ Build/install the QA APK using the normal project workflow. Select the intended
 ADB device explicitly, then start the fixture in a fresh QA process:
 
 ```sh
-adb -s DEVICE_SERIAL shell am force-stop kr.ivlis.ivlyricsandroid.qa
-adb -s DEVICE_SERIAL shell am start -W -n kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.EmbeddedSmokeActivity
+adb -s DEVICE_SERIAL shell am force-stop dev.lyriscope.app.qa
+adb -s DEVICE_SERIAL shell am start -W -n dev.lyriscope.app.qa/dev.lyriscope.core.EmbeddedSmokeActivity
 adb -s DEVICE_SERIAL logcat -d -s IvLyricsSmoke:I '*:S'
 ```
 
@@ -33,7 +33,7 @@ translation above the larger card. It checks:
 After success, the inline click route opens the existing full lyrics page:
 
 ```sh
-adb -s DEVICE_SERIAL shell am start -W -n kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.EmbeddedSmokeActivity --es action inline-click
+adb -s DEVICE_SERIAL shell am start -W -n dev.lyriscope.app.qa/dev.lyriscope.core.EmbeddedSmokeActivity --es action inline-click
 ```
 
 Existing `card-click`, `full`, and `settings` actions remain available. Opening a page
@@ -63,9 +63,9 @@ debug APK with the QA application's class loader as parent. Build both APKs from
 same commit, install both, and pass the module's installed path:
 
 ```sh
-MODULE=$(adb -s DEVICE_SERIAL shell pm path dev.ivlyrics.spotify.module | sed 's/^package://' | tr -d '\r')
+MODULE=$(adb -s DEVICE_SERIAL shell pm path dev.lyriscope.spotify | sed 's/^package://' | tr -d '\r')
 adb -s DEVICE_SERIAL shell setprop log.tag.IvLyricsFrame DEBUG   # before the fixture starts
-adb -s DEVICE_SERIAL shell am start -n kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.EmbeddedSmokeActivity --es action sheet --es moduleApk "$MODULE"
+adb -s DEVICE_SERIAL shell am start -n dev.lyriscope.app.qa/dev.lyriscope.core.EmbeddedSmokeActivity --es action sheet --es moduleApk "$MODULE"
 ```
 
 With the frame probe enabled, `SHEET` lines give each drawn sheet frame's time and
@@ -74,12 +74,12 @@ player's card and inline preview can be counted separately. While the sheet rest
 fully open, the paused card and inline preview log `COVER`, and `UNCOVER` when a
 drag, close or pause reveals them again, or as soon as a touch lands on the sheet's
 drag handle (`COVER` again when that touch ends without moving the sheet). The
-`kr.ivlis.ivlyricsandroid.debug.FIXTURE_PLAYBACK` broadcast plays or pauses the
+`dev.lyriscope.core.debug.FIXTURE_PLAYBACK` broadcast plays or pauses the
 synthetic session (`--ez play`, `--el position`) or switches to the dense measurement
 track (`--es track three`). Launch the fixture with `--ez reduceMotion true` when
 paused captures must be compared pixel for pixel.
 
-For drag measurements, `kr.ivlis.ivlyricsandroid.debug.SHEET_TOUCH` plays a synthetic
+For drag measurements, `dev.lyriscope.core.debug.SHEET_TOUCH` plays a synthetic
 touch on the sheet through the Activity's own dispatch, with one move per display frame:
 `--ef x 640 --ef y 156` (the drag handle strip above the title), `--el hold 80` before
 moving, `--ef dy 900 --el ms 280` for the motion. `--ez release false` keeps the pointer
@@ -102,18 +102,18 @@ synthetic session), keep the device offline while measuring, and restore both af
 
 ```sh
 ORIG=$(adb -s DEVICE_SERIAL shell settings get secure enabled_notification_listeners | tr -d '\r')
-adb -s DEVICE_SERIAL shell settings put secure enabled_notification_listeners "$ORIG:kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.StandaloneSmokeNoListener"
+adb -s DEVICE_SERIAL shell settings put secure enabled_notification_listeners "$ORIG:dev.lyriscope.app.qa/dev.lyriscope.core.StandaloneSmokeNoListener"
 adb -s DEVICE_SERIAL shell cmd connectivity airplane-mode enable
-adb -s DEVICE_SERIAL shell am start -W -n kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.StandaloneSmokeActivity --es track three --ez play true --el position 2000
-adb -s DEVICE_SERIAL shell am start -n kr.ivlis.ivlyricsandroid.qa/kr.ivlis.ivlyricsandroid.StandaloneSmokeActivity --ez kr.ivlis.ivlyricsandroid.OPEN_LYRICS_PAGE true
+adb -s DEVICE_SERIAL shell am start -W -n dev.lyriscope.app.qa/dev.lyriscope.core.StandaloneSmokeActivity --es track three --ez play true --el position 2000
+adb -s DEVICE_SERIAL shell am start -n dev.lyriscope.app.qa/dev.lyriscope.core.StandaloneSmokeActivity --ez dev.lyriscope.core.OPEN_LYRICS_PAGE true
 # afterwards: settings put ... "$ORIG" (or settings delete ... if it was null); airplane-mode disable
 ```
 
 `STANDALONE_READY <track> <position>` follows each delivered track. Launch extras choose
 the first track (`--es track three|one`), its state (`--ez play`, `--el position`) and a
 static background (`--ez reduceMotion true`) for pixel comparisons. The broadcast
-`kr.ivlis.ivlyricsandroid.debug.STANDALONE_PLAYBACK` takes the same extras, and
-`kr.ivlis.ivlyricsandroid.debug.STANDALONE_TOUCH` plays the synthetic touch described above
+`dev.lyriscope.core.debug.STANDALONE_PLAYBACK` takes the same extras, and
+`dev.lyriscope.core.debug.STANDALONE_TOUCH` plays the synthetic touch described above
 on this page (`--ef y 156` is the lyrics page's drag strip). With the frame probe enabled,
 `PAGE` lines give each drawn frame's time, the lyrics page translation, whether the lyrics
 page is open (`open=`, already 0 while a closed page slides away), whether the player

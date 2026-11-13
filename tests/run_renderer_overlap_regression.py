@@ -45,7 +45,7 @@ dependencies = classpath(work, compiled_classes("shared"))
 subprocess.run([java_tool("javac"), "-cp", dependencies, "-d", str(work),
                 str(SHARED / "LyricsLine.java"), str(test)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", dependencies,
-                         "kr.ivlis.ivlyricsandroid.RendererOverlapRegression"],
+                         "dev.lyriscope.core.RendererOverlapRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

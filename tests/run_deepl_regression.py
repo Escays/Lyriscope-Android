@@ -11,7 +11,7 @@ def section(start, end):
 provider = section('    static final class Provider {', '    static final class ProviderProfile {')
 providers = section('    static final List<Provider> PROVIDERS =', '    static final List<Provider> ALL_AI_PROVIDERS')
 gates = section('        boolean hasKeylessTranslationProvider()', '        Snapshot forProvider(')
-fixture = '''package kr.ivlis.ivlyricsandroid;
+fixture = '''package dev.lyriscope.core;
 import java.util.*;
 final class ProviderGates {
 // PROVIDERS
@@ -32,6 +32,6 @@ static class Snapshot {
 '''.replace('// PROVIDERS', providers).replace('// PROVIDER', provider).replace('// GATES', gates)
 (work / 'ProviderGates.java').write_text(fixture)
 deps = classpath(work, json_jar())
-sources = [SHARED / 'DeepLTranslationProvider.java', work / 'ProviderGates.java', ROOT / 'tests/kr/ivlis/ivlyricsandroid/DeepLRegression.java']
+sources = [SHARED / 'DeepLTranslationProvider.java', work / 'ProviderGates.java', ROOT / 'tests/dev/lyriscope/core/DeepLRegression.java']
 subprocess.run([java_tool('javac'), '-cp', deps, '-d', str(work), *map(str, sources)], check=True)
-subprocess.run([java_tool('java'), '-cp', deps, 'kr.ivlis.ivlyricsandroid.DeepLRegression'], check=True)
+subprocess.run([java_tool('java'), '-cp', deps, 'dev.lyriscope.core.DeepLRegression'], check=True)

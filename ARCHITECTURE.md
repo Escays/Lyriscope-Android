@@ -8,11 +8,11 @@ rewrite source text during a build.
 | Module | Responsibility | Install package |
 | --- | --- | --- |
 | `shared` | Lyrics engine, providers, ivSync, shared UI/settings, fonts and resources | Android library |
-| `app` | Standalone launcher, application initialization, permissions and system components | `kr.ivlis.ivlyricsandroid` |
-| `spotify-module` | Xposed hooks, native metadata, resource context, Spotify navigation and vertical sheet | `dev.ivlyrics.spotify.module` |
+| `app` | Standalone launcher, application initialization, permissions and system components | `dev.lyriscope.core` |
+| `spotify-module` | Xposed hooks, native metadata, resource context, Spotify navigation and vertical sheet | `dev.lyriscope.spotify` |
 
 `BaseLyricsActivity` owns the shared page. The original standalone
-`kr.ivlis.ivlyricsandroid.MainActivity` is a thin subclass, preserving the
+`dev.lyriscope.core.MainActivity` is a thin subclass, preserving the
 installed component name. `SpotifyLyricsActivity` provides the module resource
 context and a `LyricsActivityHost` implementation for Spotify's window and sheet
 gestures. `SpotifyLyricsHost` explicitly registers context and navigation through
@@ -47,7 +47,7 @@ library because the common settings/activity currently call them; Spotify's
 embedded feature gates keep those settings and actions unavailable. Further
 internal UI splitting can happen without making another copy of the renderer.
 
-The shared library has its own `kr.ivlis.ivlyricsandroid.R`. Each APK has a separate
+The shared library has its own `dev.lyriscope.core.R`. Each APK has a separate
 namespace and receives the library's resources through normal Gradle packaging.
 Spotify still needs `ContextBridge`: it obtains resources/assets from the module
 APK while preserving Spotify's package identity, preferences, files and playback.
@@ -79,7 +79,7 @@ JDK/SDK locations when environment variables are absent; Linux/CI should provide
 # Build both release APKs and fail if release signing is not configured.
 
 ./build.sh :app:assembleQa
-# app/build/outputs/apk/qa/app-qa.apk, installed as kr.ivlis.ivlyricsandroid.qa
+# app/build/outputs/apk/qa/app-qa.apk, installed as dev.lyriscope.app.qa
 # Coexists with the production app and keeps separate data.
 ```
 

@@ -64,10 +64,10 @@ subprocess.run(["clang++", "-std=c++17", "-O2", "-Wall", "-Wextra", "-dynamiclib
                 "-o", str(libraries / "libivlyrics_localai.dylib")], check=True)
 sources = [SHARED / f"{name}.java" for name in
            ("LocalAiModels", "LocalAiTranslator", "LocalAiDownloader", "LocalAiNative", "LocalAiRuntime")]
-sources.append(ROOT / "tests/kr/ivlis/ivlyricsandroid/LocalAiHostCheck.java")
+sources.append(ROOT / "tests/dev/lyriscope/core/LocalAiHostCheck.java")
 subprocess.run([java_tool("javac"), "--release", "17", "-d", str(classes), *map(str, sources)], check=True)
 command = [java_tool("java"), "--enable-native-access=ALL-UNNAMED", "-cp", str(classes),
-           "kr.ivlis.ivlyricsandroid.LocalAiHostCheck", str(libraries), str(model.parent)]
+           "dev.lyriscope.core.LocalAiHostCheck", str(libraries), str(model.parent)]
 if "--download-check" in sys.argv:
     scratch = work / "download"
     scratch.mkdir(exist_ok=True)

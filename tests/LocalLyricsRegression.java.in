@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 import android.content.SharedPreferences;
 import java.io.IOException;
 import java.lang.reflect.*;

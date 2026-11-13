@@ -9,7 +9,7 @@ import subprocess
 
 from regression_runtime import ROOT, REPORTS, SHARED, java_tool
 
-source = (ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid/IvLyricsBridge.java").read_text()
+source = (ROOT / "shared/src/main/java/dev/lyriscope/core/IvLyricsBridge.java").read_text()
 def declaration(signature):
     start = source.index(signature, source.index("class NativeInline"))
     cursor = source.index("{", start) + 1
@@ -25,7 +25,7 @@ work = REPORTS / "inline-lifecycle"
 work.mkdir(parents=True, exist_ok=True)
 detector = work / "LyricsLanguageDetector.java"
 detector.write_text((SHARED / "LyricsLanguageDetector.java").read_text().replace(
-    "package kr.ivlis.ivlyricsandroid;", "", 1
+    "package dev.lyriscope.core;", "", 1
 ))
 test = work / "InlineLifecycleRegression.java"
 test.write_text(r'''

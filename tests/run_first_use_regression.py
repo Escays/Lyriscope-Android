@@ -28,7 +28,7 @@ methods = "\n".join(declaration(source, signature) for signature in (
     "private void populateSpotifyCredentialInputs(", "private String textOf("))
 
 fixture = r'''
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 public final class FirstUseRegression {
     static int checks;
@@ -191,7 +191,7 @@ work.mkdir(parents=True, exist_ok=True)
 java = work / "FirstUseRegression.java"
 java.write_text(fixture)
 subprocess.run([java_tool("javac"), "-d", str(work), str(java)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work), "kr.ivlis.ivlyricsandroid.FirstUseRegression"],
+result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.FirstUseRegression"],
                         check=True, capture_output=True, text=True)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

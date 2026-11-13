@@ -5,7 +5,7 @@ plugins {
 apply from: rootProject.file("gradle/release-signing.gradle")
 
 android {
-    namespace "kr.ivlis.ivlyricsandroid.app"
+    namespace "dev.lyriscope.app"
     compileSdk {
         version = release(36) {
             it.minorApiLevel = 1

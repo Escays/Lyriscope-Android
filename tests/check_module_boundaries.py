@@ -40,11 +40,11 @@ java_noncode = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[
 shared_java = [(path, java_noncode.sub(" ", path.read_text()))
                for path in (ROOT / "shared/src/main/java").rglob("*.java")]
 for package, pattern in (("androidx.webkit", r"\bandroidx\s*\.\s*webkit\b"),
-                         ("dev.ivlyrics.spotify", r"\bdev\s*\.\s*ivlyrics\s*\.\s*spotify\b")):
+                         ("dev.lyriscope.spotify", r"\bdev\s*\.\s*ivlyrics\s*\.\s*spotify\b")):
     references = [str(path.relative_to(ROOT)) for path, code in shared_java if re.search(pattern, code)]
     require(not references, f"Shared Java has no direct {package} imports or references (found: {references})")
 for name in ("LyricsView.java", "AiLyricsRepository.java", "BaseLyricsActivity.java"):
-    require((ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid" / name).is_file(), f"{name} exists in :shared")
+    require((ROOT / "shared/src/main/java/dev/lyriscope/core" / name).is_file(), f"{name} exists in :shared")
     duplicates = [str(path.relative_to(ROOT)) for project in ("app", "spotify-module")
                   for path in (ROOT / project / "src").rglob(name)]
     require(not duplicates, f"{name} has one shared implementation (duplicates: {duplicates})")
@@ -138,7 +138,7 @@ if args.built:
 if webkit_jar.is_file():
     with zipfile.ZipFile(webkit_jar) as artifact:
         classes = {name for name in artifact.namelist() if name.endswith(".class")}
-    private_root = "kr/ivlis/ivlyricsandroid/privateapi/"
+    private_root = "dev/lyriscope/core/privateapi/"
     public_boundary = "org/chromium/support_lib_boundary/"
     require(private_root + "androidx/webkit/WebViewCompat.class" in classes
             and private_root + "androidx/webkit/WebViewFeature.class" in classes,
@@ -175,7 +175,7 @@ def translation_row_arity(source, function):
                        for row in re.finditer(r"\{(.*?)\}", rows_block, re.S)]
 
 
-catalogue_source = (ROOT / "shared/src/main/java/kr/ivlis/ivlyricsandroid/AppI18n.java").read_text()
+catalogue_source = (ROOT / "shared/src/main/java/dev/lyriscope/core/AppI18n.java").read_text()
 for table_function, description in (("addCatalogueNameStrings", "Catalogue labels"),
                                     ("addCreditStrings", "Credit lines")):
     key_count, row_widths = translation_row_arity(catalogue_source, table_function)

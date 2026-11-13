@@ -92,7 +92,7 @@ files += [SHARED / (name + ".java") for name in (
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-cp", dependencies,
                 "-d", str(work), *map(str, files), str(target)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", dependencies,
-                         "kr.ivlis.ivlyricsandroid.IOSPrPortRegression"],
+                         "dev.lyriscope.core.IOSPrPortRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

@@ -22,7 +22,7 @@ production = [SHARED / name for name in (
 files = production + [ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Looper.java", fixture, wire_fixture]
 cp = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(work), *map(str, files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.LrclibPlaybackRegression"],
+result = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LrclibPlaybackRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
 report = "Production Java playback entry/selection/HTTP/settings/disk cache; synthetic responses, no real endpoint/device.\n"
 report += "\n".join(f"{file.name} SHA256 {hashlib.sha256(file.read_bytes()).hexdigest()}" for file in production)
@@ -37,7 +37,7 @@ subprocess.run([java_tool("keytool"), "-genkeypair", "-alias", "fixture", "-keya
                 "-dname", "CN=localhost", "-ext", "SAN=dns:localhost", "-validity", "1", "-storetype", "PKCS12",
                 "-storepass", "fixture-only", "-keypass", "fixture-only", "-keystore", str(keystore)],
                check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-wire = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.LrclibWireRegression", str(keystore)],
+wire = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LrclibWireRegression", str(keystore)],
                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
 (work / "wire-result.txt").write_text(wire.stdout)
 print(wire.stdout, end="")

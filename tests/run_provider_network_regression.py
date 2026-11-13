@@ -37,7 +37,7 @@ public final class Base64 {
  public static String encodeToString(byte[] value,int flags){return java.util.Base64.getEncoder().encodeToString(value);}
 }
 """,
-    "IvLyricsBridge.java": """package kr.ivlis.ivlyricsandroid;
+    "IvLyricsBridge.java": """package dev.lyriscope.core;
 public final class IvLyricsBridge { public static boolean isEmbedded(android.content.Context context){return false;} }
 """,
 }
@@ -56,7 +56,7 @@ files += [SHARED / name for name in (
 files += [ROOT / "tests/android/os/Looper.java", fixture]
 cp = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(work), *map(str, files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.ProviderNetworkRegression"],
+result = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.ProviderNetworkRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

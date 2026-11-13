@@ -32,10 +32,10 @@ public final class MediaController { public void registerCallback(Callback callb
  public void onSessionDestroyed() {} } }''',
     "android/media/session/MediaSession.java": '''package android.media.session;
 public final class MediaSession { public MediaController getController() { return new MediaController(); } }''',
-    "kr/ivlis/ivlyricsandroid/TrackSnapshot.java": '''package kr.ivlis.ivlyricsandroid;
+    "dev/lyriscope/core/TrackSnapshot.java": '''package dev.lyriscope.core;
 final class TrackSnapshot { final String mediaId, isrc; final long position;
  TrackSnapshot(String mediaId, String isrc, long position) { this.mediaId=mediaId; this.isrc=isrc; this.position=position; } }''',
-    "kr/ivlis/ivlyricsandroid/NowPlayingService.java": '''package kr.ivlis.ivlyricsandroid;
+    "dev/lyriscope/core/NowPlayingService.java": '''package dev.lyriscope.core;
 import java.util.ArrayList; import java.util.List;
 final class NowPlayingService {
  interface Listener { void changed(TrackSnapshot snapshot); }
@@ -50,10 +50,10 @@ final class NowPlayingService {
   }
  }
 }''',
-    "kr/ivlis/ivlyricsandroid/SpotifyNativeMetadataClient.java": '''package kr.ivlis.ivlyricsandroid;
+    "dev/lyriscope/core/SpotifyNativeMetadataClient.java": '''package dev.lyriscope.core;
 final class SpotifyNativeMetadataClient { static int requests; static String latest;
  static void attach(Object client) {} static void request(String uri, boolean resolved) { requests++; latest=uri; } }''',
-    "kr/ivlis/ivlyricsandroid/ModuleMetadataFanoutRegression.java": r'''package kr.ivlis.ivlyricsandroid;
+    "dev/lyriscope/core/ModuleMetadataFanoutRegression.java": r'''package dev.lyriscope.core;
 import android.os.Handler;
 import java.lang.reflect.*;
 import java.util.*;
@@ -147,7 +147,7 @@ for name, content in sources.items():
     files.append(path)
 production = [MODULE / name for name in ("NativeTrackIdentity.java", "SpotifyMetadataBridge.java")]
 subprocess.run([java_tool("javac"), "-d", str(classes), *map(str, production + files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(classes), "kr.ivlis.ivlyricsandroid.ModuleMetadataFanoutRegression"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+result = subprocess.run([java_tool("java"), "-cp", str(classes), "dev.lyriscope.core.ModuleMetadataFanoutRegression"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 report = "Production module metadata code; deterministic synthetic host/main queue, no device timings.\n"
 report += "".join(f"{p.relative_to(ROOT)} SHA256 {hashlib.sha256(p.read_bytes()).hexdigest()}\n" for p in production)
 report += result.stdout

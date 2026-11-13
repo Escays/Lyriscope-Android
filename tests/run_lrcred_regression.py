@@ -13,7 +13,7 @@ files = [SHARED / name for name in (
 )] + [fixture]
 cp = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-nowarn", "-cp", cp, "-d", str(work), *map(str, files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.LrcRedRegression"],
+result = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LrcRedRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 print(result.stdout, end="")
 raise SystemExit(result.returncode)

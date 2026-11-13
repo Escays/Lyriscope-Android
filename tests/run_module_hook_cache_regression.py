@@ -7,7 +7,7 @@ from regression_runtime import ROOT, REPORTS, java_tool
 work = REPORTS / "module-hook-cache"
 classes = work / "classes"
 classes.mkdir(parents=True, exist_ok=True)
-module = ROOT / "spotify-module/src/main/java/dev/ivlyrics/spotify"
+module = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify"
 sources = {
 "android/os/Looper.java": '''package android.os;
 public final class Looper { static final Looper MAIN=new Looper(); static boolean main=true;
@@ -62,7 +62,7 @@ public final class ContextTrack { private final String uri; public ContextTrack(
 "p/o131.java": '''package p; public final class o131 { public int reads; public final io.reactivex.rxjava3.core.Flowable source=new io.reactivex.rxjava3.core.Flowable();
  public io.reactivex.rxjava3.core.Flowable e(){reads++;return source;} }''',
 "io/reactivex/rxjava3/core/Flowable.java": "package io.reactivex.rxjava3.core; public final class Flowable {}",
-"dev/ivlyrics/spotify/ModuleHookCacheRegression.java": r'''package dev.ivlyrics.spotify;
+"dev/lyriscope/spotify/ModuleHookCacheRegression.java": r'''package dev.lyriscope.spotify;
 import android.os.Handler;
 import android.media.session.*;
 import com.spotify.player.model.*;
@@ -77,7 +77,7 @@ public final class ModuleHookCacheRegression {
  public static void main(String[] args)throws Exception{
   ClassLoader loader=ModuleHookCacheRegression.class.getClassLoader();
   SpotifyKaraokePlayback.install(loader,false);
-  Class<?> bindingType=Class.forName("dev.ivlyrics.spotify.SpotifyKaraokePlayback$Binding");
+  Class<?> bindingType=Class.forName("dev.lyriscope.spotify.SpotifyKaraokePlayback$Binding");
   Constructor<?> ctor=bindingType.getDeclaredConstructor(ClassLoader.class);ctor.setAccessible(true);Object binding=ctor.newInstance(loader);
   Method quality=bindingType.getDeclaredMethod("readQuality",Object.class,Object.class);quality.setAccessible(true);
   Method settings=bindingType.getDeclaredMethod("readSettings",Object.class);settings.setAccessible(true);
@@ -151,7 +151,7 @@ for name, content in sources.items():
     files.append(path)
 production = [module / name for name in ("SpotifyKaraokePlayback.java", "SpotifyKaraokeEligibility.java")]
 subprocess.run([java_tool("javac"), "-d", str(classes), *map(str, production + files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(classes), "dev.ivlyrics.spotify.ModuleHookCacheRegression"],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+result = subprocess.run([java_tool("java"), "-cp", str(classes), "dev.lyriscope.spotify.ModuleHookCacheRegression"],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
 report="Production Spotify hook code; counted synthetic bindings, no device timings.\n"
 report += "".join(f"{p.relative_to(ROOT)} SHA256 {hashlib.sha256(p.read_bytes()).hexdigest()}\n" for p in production)
 report += result.stdout

@@ -2,7 +2,7 @@
 
 This opt-in smoke test runs the production `FuriganaRepository`, production bridge,
 and real Kuromoji tokenizer in Android WebView. It installs and operates only the
-separate `kr.ivlis.ivlyricsandroid.qa` application. It does not operate Spotify,
+separate `dev.lyriscope.app.qa` application. It does not operate Spotify,
 replace the LSPatch module, or read/change their preferences, accounts, or caches.
 
 Run from the repository root with an explicitly selected connected device:

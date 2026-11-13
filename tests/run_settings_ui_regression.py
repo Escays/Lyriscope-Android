@@ -17,8 +17,8 @@ def declaration(source, signature):
 
 source = (SHARED / "BaseLyricsActivity.java").read_text()
 appearance = (SHARED / "SettingsAppearance.java").read_text()
-harness = (ROOT / "app/src/debug/java/kr/ivlis/ivlyricsandroid/SettingsUiHarnessActivity.java").read_text()
-native = (ROOT / "app/src/androidTest/java/kr/ivlis/ivlyricsandroid/SettingsUiRegressionTest.java").read_text()
+harness = (ROOT / "app/src/debug/java/dev/lyriscope/core/SettingsUiHarnessActivity.java").read_text()
+native = (ROOT / "app/src/androidTest/java/dev/lyriscope/core/SettingsUiRegressionTest.java").read_text()
 # Text alignment takes precedence over gravity for TextViews created by SettingsKit.
 # Keep ordinary labels leading-aligned, but center the fixed-size provider badges.
 rank = declaration(source, "private TextView settingsRank(")
@@ -80,7 +80,7 @@ print(f"Enabled settings description/hint contrast: {(luminance(tokens['MUTED'])
 work = REPORTS / "settings-ui"
 work.mkdir(parents=True, exist_ok=True)
 fixture = r'''
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 import java.util.*;
 public final class SettingsUiContractRegression {
     static int checks;
@@ -153,4 +153,4 @@ sources = [java] + [SHARED / name for name in (
     "SettingsTranslationOverrides.java", "LyricsToolsTranslationOverrides.java",
     "VideoSelectionTranslations.java", "SettingsExperienceTranslations.java")]
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-d", str(work), *map(str, sources)], check=True)
-subprocess.run([java_tool("java"), "-cp", str(work), "kr.ivlis.ivlyricsandroid.SettingsUiContractRegression"], check=True)
+subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.SettingsUiContractRegression"], check=True)

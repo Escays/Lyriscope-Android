@@ -9,12 +9,12 @@ public final class RelocateJar {
         Remapper remapper = new Remapper() {
             @Override public String map(String name) {
                 if (name.startsWith("androidx/webkit/") || name.startsWith("androidx/core/"))
-                    return "kr/ivlis/ivlyricsandroid/privateapi/" + name;
+                    return "dev/lyriscope/core/privateapi/" + name;
                 // Boundary interface FQCNs are a public protocol: WebView loads
                 // matching methods by declaring-class name in its own loader.
                 // Only helper implementation classes may be privately relocated.
                 if (name.startsWith("org/chromium/support_lib_boundary/util/"))
-                    return "kr/ivlis/ivlyricsandroid/privateapi/" + name;
+                    return "dev/lyriscope/core/privateapi/" + name;
                 return name;
             }
         };

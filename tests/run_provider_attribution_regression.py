@@ -34,7 +34,7 @@ files = [source / name for name in ("LyricsLine.java", "LyricsResult.java", "Lyr
 files += [ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Looper.java", test_file]
 test_classpath = classpath(work, json_dependency, compiled, android)
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(work), *map(str, files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", test_classpath, "kr.ivlis.ivlyricsandroid.ProviderAttributionRegression"],
+result = subprocess.run([java_tool("java"), "-cp", test_classpath, "dev.lyriscope.core.ProviderAttributionRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 report = "Production Java, synthetic in-memory rows/settings, no network/account/device access.\n"
 for file in files[:4] + [source / "BaseLyricsActivity.java"]:

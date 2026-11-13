@@ -21,7 +21,7 @@ target = work / "VinylRendererRegression.java"
 target.write_text(Path(__file__).with_name("VinylRendererRegression.java.in").read_text().replace("// PRODUCTION", production))
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-d", str(work),
                 str(SHARED / "RecordRotation.java"), str(target)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work), "kr.ivlis.ivlyricsandroid.VinylRendererRegression"],
+result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.VinylRendererRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

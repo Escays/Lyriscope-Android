@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 import android.content.*;
 import android.net.Uri;
@@ -189,7 +189,7 @@ public final class LocalLyricsImportRegression extends ImportActivityParent {
         recreated.destroy(); check(host.listeners.isEmpty(), "Activity listeners are released");
     }
     public static void main(String[] args) throws Exception {
-        scenario("kr.ivlis.ivlyricsandroid"); scenario("com.spotify.music");
+        scenario("dev.lyriscope.core"); scenario("com.spotify.music");
         System.out.println("PASS " + checks + " checks: production picker/results, recreated Activity, latest import/removal, captured Spotify key and host application storage");
     }
 }

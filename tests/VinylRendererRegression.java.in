@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 import java.util.*;
 public class VinylRendererRegression {
     static int checks;

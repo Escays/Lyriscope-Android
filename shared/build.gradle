@@ -19,11 +19,11 @@ def prepareLocalAiNative = tasks.register("prepareLocalAiNative", PrepareLocalAi
 }
 
 android {
-    namespace "kr.ivlis.ivlyricsandroid"
+    namespace "dev.lyriscope.core"
     compileSdk { version = release(36) { it.minorApiLevel = 1 } }
     defaultConfig {
         minSdk 26
-        testInstrumentationRunner "kr.ivlis.ivlyricsandroid.BackgroundArtworkInstrumentation"
+        testInstrumentationRunner "dev.lyriscope.core.BackgroundArtworkInstrumentation"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

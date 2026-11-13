@@ -103,7 +103,7 @@ public final class TextUtils {
 subprocess.run([java_tool("javac"), "-d", str(work), str(textutils),
                 str(SHARED / "LyricsLine.java"), str(SHARED / "LyricsTextComparison.java"), str(java_file)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", str(work),
-                         "kr.ivlis.ivlyricsandroid.LyricsMetadataCacheRegression"],
+                         "dev.lyriscope.core.LyricsMetadataCacheRegression"],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 report = (f"Baseline: {BASELINE}\n"
           f"Candidate LyricsView SHA256: {hashlib.sha256(source.encode()).hexdigest()}\n"

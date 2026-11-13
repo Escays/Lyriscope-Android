@@ -138,7 +138,7 @@ files += production
 test_classpath = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(work), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", test_classpath,
-                         "kr.ivlis.ivlyricsandroid.FuriganaWebViewRegression"],
+                         "dev.lyriscope.core.FuriganaWebViewRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 report = "Production WebView bootstrap/callback lifecycle; separate module/host assets, controlled Android stubs. No device/network.\n"
 for path in production:

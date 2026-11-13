@@ -32,7 +32,7 @@ files += [ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Loope
 test_classpath = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", test_classpath, "-d", str(work), *map(str, files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", test_classpath,
-                         "kr.ivlis.ivlyricsandroid.FuriganaLoadingRegression"],
+                         "dev.lyriscope.core.FuriganaLoadingRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
 report = "Production furigana callbacks and loading labels; synthetic cache/results, controlled timeout queue, no WebView/network/device.\n"
 for file in files[:4] + [activity]:

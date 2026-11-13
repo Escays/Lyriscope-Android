@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 import android.os.Handler;
 import java.io.*;
@@ -56,7 +56,7 @@ public final class SupplementLoadingRegression {
                     new LyricsLine(1000, 3000, "first source", List.of()),
                     new LyricsLine(3000, 5000, "second source", List.of())), "fixture", "base", false);
             Object requests = call(repository, "buildSupplementRequests", base.lines);
-            Constructor<?> sessionConstructor = Class.forName("kr.ivlis.ivlyricsandroid.AiLyricsRepository$SupplementSession")
+            Constructor<?> sessionConstructor = Class.forName("dev.lyriscope.core.AiLyricsRepository$SupplementSession")
                     .getDeclaredConstructors()[0];
             sessionConstructor.setAccessible(true);
             session = sessionConstructor.newInstance(base, requests, pronunciation, translation);
@@ -84,7 +84,7 @@ public final class SupplementLoadingRegression {
                 public void onAiCulturalAnnotationsLoaded(String key, String requestKey, List<CulturalAnnotation> value) { }
                 public void onAiCulturalAnnotationsError(String key, String requestKey, String message) { }
             };
-            Constructor<?> constructor = Class.forName("kr.ivlis.ivlyricsandroid.AiLyricsRepository$SupplementPartialDispatcher")
+            Constructor<?> constructor = Class.forName("dev.lyriscope.core.AiLyricsRepository$SupplementPartialDispatcher")
                     .getDeclaredConstructors()[0];
             constructor.setAccessible(true);
             dispatcher = constructor.newInstance(repository, "fixture", session, settings, rule, "en", "ko", "ko", false, callback);
@@ -257,13 +257,13 @@ public final class SupplementLoadingRegression {
                             + "data: {\"candidates\":[{\"finishReason\":\"FINISH_REASON_UNSPECIFIED\"}]}\n\n"
                             + "data: {\"text\":\" / reading two\"}\n\n" + terminal,
                     remainsOpen);
-            Class<?> handlerType = Class.forName("kr.ivlis.ivlyricsandroid.AiLyricsRepository$SseDataHandler");
+            Class<?> handlerType = Class.forName("dev.lyriscope.core.AiLyricsRepository$SseDataHandler");
             Object handler = java.lang.reflect.Proxy.newProxyInstance(handlerType.getClassLoader(), new Class<?>[]{handlerType},
                     (proxy, method, args) -> {
                         String data = (String) args[1];
                         return "[DONE]".equals(data.trim()) ? "" : new JSONObject(data).optString("text", "");
                     });
-            Class<?> sinkType = Class.forName("kr.ivlis.ivlyricsandroid.AiLyricsRepository$TextDeltaSink");
+            Class<?> sinkType = Class.forName("dev.lyriscope.core.AiLyricsRepository$TextDeltaSink");
             StringBuilder streamed = new StringBuilder();
             Object sink = java.lang.reflect.Proxy.newProxyInstance(sinkType.getClassLoader(), new Class<?>[]{sinkType},
                     (proxy, method, args) -> { streamed.append((String) args[0]); return null; });
@@ -286,7 +286,7 @@ public final class SupplementLoadingRegression {
             URL endpoint = new URL("fixture-sse://failed-supplements");
             streamConnection = new StreamConnection(endpoint,
                     "event: response.failed\ndata: {\"type\":\"response.failed\"}\n\n", true);
-            Class<?> handlerType = Class.forName("kr.ivlis.ivlyricsandroid.AiLyricsRepository$SseDataHandler");
+            Class<?> handlerType = Class.forName("dev.lyriscope.core.AiLyricsRepository$SseDataHandler");
             Object handler = java.lang.reflect.Proxy.newProxyInstance(handlerType.getClassLoader(), new Class<?>[]{handlerType},
                     (proxy, method, args) -> { throw new IOException("fixture provider failure"); });
             boolean failed = false;

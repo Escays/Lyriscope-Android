@@ -34,7 +34,7 @@ for name, source in (("baseline", baseline), ("candidate", production.read_text(
              ROOT / "tests/android/os/Handler.java", ROOT / "tests/android/os/Looper.java"]
     cp = classpath(directory, json_jar(), compiled_classes("shared"), android_jar())
     subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(directory), *map(str, files)], check=True)
-    result = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.SyncMetadataReportingRegression", name],
+    result = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.SyncMetadataReportingRegression", name],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=30)
     if result.returncode:
         print(result.stdout)

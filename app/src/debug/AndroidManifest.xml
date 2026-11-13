@@ -1,18 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <activity android:name="kr.ivlis.ivlyricsandroid.FirstUseHarnessActivity" android:exported="false"
+        <activity android:name="dev.lyriscope.core.FirstUseHarnessActivity" android:exported="false"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:theme="@style/AppTheme" android:windowSoftInputMode="adjustResize|stateHidden" />
-        <activity android:name="kr.ivlis.ivlyricsandroid.SettingsUiHarnessActivity" android:exported="false"
+        <activity android:name="dev.lyriscope.core.SettingsUiHarnessActivity" android:exported="false"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:theme="@style/AppTheme" android:windowSoftInputMode="adjustResize|stateHidden" />
-        <activity android:name="kr.ivlis.ivlyricsandroid.EmbeddedSmokeActivity" android:exported="true"
+        <activity android:name="dev.lyriscope.core.EmbeddedSmokeActivity" android:exported="true"
             android:launchMode="singleTop" android:theme="@style/AppTheme" />
-        <activity android:name="kr.ivlis.ivlyricsandroid.SheetSmokeActivity" android:exported="true"
+        <activity android:name="dev.lyriscope.core.SheetSmokeActivity" android:exported="true"
             android:theme="@style/AppTheme" />
-        <activity android:name="kr.ivlis.ivlyricsandroid.FuriganaWebViewSmokeActivity" android:exported="true"
+        <activity android:name="dev.lyriscope.core.FuriganaWebViewSmokeActivity" android:exported="true"
             android:theme="@style/AppTheme" />
-        <activity android:name="kr.ivlis.ivlyricsandroid.StandaloneSmokeActivity" android:exported="true"
+        <activity android:name="dev.lyriscope.core.StandaloneSmokeActivity" android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:launchMode="singleTop" android:resizeableActivity="true" android:theme="@style/AppTheme"
             android:windowSoftInputMode="adjustResize|stateHidden" />

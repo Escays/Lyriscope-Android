@@ -5,6 +5,6 @@ work = REPORTS / 'video-selection'
 work.mkdir(parents=True, exist_ok=True)
 cp = classpath(work, json_jar(), compiled_classes('shared'), android_jar())
 sources = [SHARED / name for name in ('YouTubeVideoSelection.java', 'YouTubeBackgroundRepository.java', 'VideoSelectionTranslations.java')]
-sources.append(ROOT / 'tests/kr/ivlis/ivlyricsandroid/VideoSelectionRegression.java')
+sources.append(ROOT / 'tests/dev/lyriscope/core/VideoSelectionRegression.java')
 subprocess.run([java_tool('javac'), '-cp', cp, '-d', str(work), *map(str, sources)], check=True)
-subprocess.run([java_tool('java'), '-cp', cp, 'kr.ivlis.ivlyricsandroid.VideoSelectionRegression'], check=True)
+subprocess.run([java_tool('java'), '-cp', cp, 'dev.lyriscope.core.VideoSelectionRegression'], check=True)

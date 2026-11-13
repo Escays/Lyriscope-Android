@@ -1,4 +1,4 @@
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 
 import android.content.SharedPreferences;
 import java.io.*;
@@ -34,7 +34,7 @@ public final class LrclibPlaybackRegression {
     static {
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe"); f.setAccessible(true); UNSAFE = (Unsafe) f.get(null);
-            Class<?> type = Class.forName("kr.ivlis.ivlyricsandroid.LyricsRepository$LogSink");
+            Class<?> type = Class.forName("dev.lyriscope.core.LyricsRepository$LogSink");
             log = java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, (p, m, a) -> {
                 logs.add((String) a[0]); return null;
             });
@@ -123,12 +123,12 @@ public final class LrclibPlaybackRegression {
         JSONArray lines = new JSONArray().put(new JSONObject().put("start", 0).put("end", 4).put("chars", new JSONArray(List.of(1, 2, 3, 4, 5))))
                 .put(new JSONObject().put("start", 5).put("end", 9).put("chars", new JSONArray(List.of(6, 7, 8, 9, 10))));
         JSONObject body = new JSONObject().put("version", 5).put("source", source).put("lines", lines);
-        Class<?> type = Class.forName("kr.ivlis.ivlyricsandroid.LyricsRepository$SyncDataResult");
+        Class<?> type = Class.forName("dev.lyriscope.core.LyricsRepository$SyncDataResult");
         Constructor<?> constructor = type.getDeclaredConstructor(JSONObject.class, String.class); constructor.setAccessible(true);
         return constructor.newInstance(body, "lrclib");
     }
     static Object englishMetadata() throws Exception {
-        Class<?> type = Class.forName("kr.ivlis.ivlyricsandroid.LyricsRepository$SpotifyTrackMatch");
+        Class<?> type = Class.forName("dev.lyriscope.core.LyricsRepository$SpotifyTrackMatch");
         Constructor<?> constructor = type.getDeclaredConstructor(String.class, String.class, String.class, String.class,
                 long.class, String.class, String.class, int.class, int.class, String.class, String.class, String.class);
         constructor.setAccessible(true);

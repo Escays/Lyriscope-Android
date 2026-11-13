@@ -111,7 +111,7 @@ when a native assertion fails. Run on a disposable emulator with:
 
 ```sh
 adb shell wm fixed-to-user-rotation enabled
-./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=kr.ivlis.ivlyricsandroid.FirstUseUiRegressionTest
+./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=dev.lyriscope.core.FirstUseUiRegressionTest
 ```
 
 Greeting-motion scenarios save the OS animator scale, explicitly enable motion, wait for both
@@ -134,9 +134,9 @@ focused `homeBrandingLightAndDark` scenario captures both native window themes a
 taps theme, Back and Close while retaining localized navigation/search labels.
 For local screenshot retention without UTP cleanup, assemble/install the debug app and its
 androidTest APK, run the same class with `adb shell am instrument -w -r -e class
-kr.ivlis.ivlyricsandroid.FirstUseUiRegressionTest
-kr.ivlis.ivlyricsandroid.test/androidx.test.runner.AndroidJUnitRunner`, then pull
-`/sdcard/Android/data/kr.ivlis.ivlyricsandroid/files/first-use-screenshots/`.
+dev.lyriscope.core.FirstUseUiRegressionTest
+dev.lyriscope.core.test/androidx.test.runner.AndroidJUnitRunner`, then pull
+`/sdcard/Android/data/dev.lyriscope.core/files/first-use-screenshots/`.
 
 The offline UI fixture verifies the notification-settings intent but does not grant access or make
 a live Spotify token request; validate those platform/account paths separately on a device.
@@ -326,7 +326,7 @@ Run the actual Android widgets on an API 35 emulator with a software keyboard:
 
 ```sh
 ./gradlew :app:connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=kr.ivlis.ivlyricsandroid.SettingsUiRegressionTest
+  -Pandroid.testInstrumentationRunnerArguments.class=dev.lyriscope.core.SettingsUiRegressionTest
 ```
 
 Runner: `androidx.test.runner.AndroidJUnitRunner`. The unexported
@@ -360,7 +360,7 @@ Screenshots are PNGs in the target app's external files directory. Pull them
 while the emulator and app are still present:
 
 ```sh
-adb pull /sdcard/Android/data/kr.ivlis.ivlyricsandroid/files/ui-regressions ./ui-regressions
+adb pull /sdcard/Android/data/dev.lyriscope.core/files/ui-regressions ./ui-regressions
 ```
 
 AGP's connected-test UTP teardown uninstalls the target and test APKs in the

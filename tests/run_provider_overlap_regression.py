@@ -8,11 +8,11 @@ work = REPORTS / "provider-overlap"
 work.mkdir(parents=True, exist_ok=True)
 sources = [SHARED / name for name in (
     "LyricsLine.java", "UnisonLyricsProvider.java", "LyricsPlusLyricsProvider.java", "OpenLyricsProvider.java")]
-sources.append(ROOT / "tests/kr/ivlis/ivlyricsandroid/ProviderOverlapRegression.java")
+sources.append(ROOT / "tests/dev/lyriscope/core/ProviderOverlapRegression.java")
 dependencies = classpath(work, json_jar(), compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", dependencies, "-d", str(work), *map(str, sources)], check=True)
 result = subprocess.run([java_tool("java"), "-Dopen.lyrics.fixtures=" + str(ROOT / "tests/fixtures/open-lyrics.json"), "-cp", dependencies,
-                         "kr.ivlis.ivlyricsandroid.ProviderOverlapRegression", *sys.argv[1:]],
+                         "dev.lyriscope.core.ProviderOverlapRegression", *sys.argv[1:]],
                         text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")

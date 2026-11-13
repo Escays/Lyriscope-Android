@@ -47,7 +47,7 @@ work = REPORTS / "karaoke-motion"
 work.mkdir(parents=True, exist_ok=True)
 java_file = work / "KaraokeMotionRegression.java"
 java_file.write_text(r'''
-package kr.ivlis.ivlyricsandroid;
+package dev.lyriscope.core;
 import java.util.*;
 public final class KaraokeMotionRegression {
     static int assertions, profiles, samples;
@@ -194,7 +194,7 @@ public final class KaraokeMotionRegression {
 }
 ''')
 stub = work / "LyricsLine.java"
-stub.write_text("""package kr.ivlis.ivlyricsandroid;
+stub.write_text("""package dev.lyriscope.core;
 final class LyricsLine { static final class Syllable {
     final String text; final long startTimeMs, endTimeMs;
     Syllable(String text, long start, long end) { this.text=text; startTimeMs=start; endTimeMs=end; }
@@ -202,7 +202,7 @@ final class LyricsLine { static final class Syllable {
 """)
 subprocess.run([java_tool("javac"), "--release", "17", "-d", str(work), str(source_path),
                 str(stub), str(java_file)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work), "kr.ivlis.ivlyricsandroid.KaraokeMotionRegression"],
+result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.KaraokeMotionRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 report = ("Scope: production motion helper and renderer gates; no Android rasterization/device assertions.\n"
           f"Desktop reference SHA256: {fixture['sourceSha256']}\n"

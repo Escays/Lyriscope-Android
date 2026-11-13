@@ -10,4 +10,4 @@ fixture.write_text((ROOT / "tests/LocalLyricsRegression.java.in").read_text())
 cp = classpath(work, compiled_classes("shared"), android_jar())
 production = [SHARED / name for name in ("LocalLyricsStore.java", "LrcParser.java", "LyricsLine.java", "LyricsResult.java", "TrackSnapshot.java")]
 subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(work), *map(str, production), str(fixture)], check=True)
-subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.LocalLyricsRegression"], check=True)
+subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LocalLyricsRegression"], check=True)

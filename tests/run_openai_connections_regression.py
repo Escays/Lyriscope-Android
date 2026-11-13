@@ -23,7 +23,7 @@ snapshot_methods = "\n".join([
     section(settings, "        boolean hasApiKey()", "        boolean hasKeylessTranslationProvider()"),
     section(settings, "        List<Snapshot> openAIConnectionSnapshots()", "        boolean hasSpotifyApiCredentials()"),
 ])
-settings_fixture = '''package kr.ivlis.ivlyricsandroid;
+settings_fixture = '''package dev.lyriscope.core;
 import java.util.*;
 import org.json.*;
 class AiLyricsSettings {
@@ -78,9 +78,9 @@ settings_fixture = settings_fixture.replace("    // SETTINGS_METHODS", settings_
 (work / "AiLyricsSettings.java").write_text(settings_fixture)
 helper = section(repository, "    private interface ConnectionRequest<T>", "    private List<String> loadSupplementValuesStreamFirst(")
 helper = helper.replace("private interface", "interface").replace("private <T>", "<T>")
-(work / "ConnectionRunner.java").write_text("package kr.ivlis.ivlyricsandroid;\nimport java.io.IOException;\nclass ConnectionRunner {\n" + helper + "}\n")
-sources = [work / "AiLyricsSettings.java", work / "ConnectionRunner.java", ROOT / "tests/kr/ivlis/ivlyricsandroid/OpenAIConnectionsRegression.java"]
+(work / "ConnectionRunner.java").write_text("package dev.lyriscope.core;\nimport java.io.IOException;\nclass ConnectionRunner {\n" + helper + "}\n")
+sources = [work / "AiLyricsSettings.java", work / "ConnectionRunner.java", ROOT / "tests/dev/lyriscope/core/OpenAIConnectionsRegression.java"]
 sources += [SHARED / name for name in ("OpenAIConnection.java", "OpenAIConnectionI18n.java", "AppI18n.java", "FirstUseI18n.java", "SettingsTranslationOverrides.java", "LyricsToolsTranslationOverrides.java", "ResearchI18n.java", "VideoSelectionTranslations.java", "SettingsExperienceTranslations.java", "LocalAiI18n.java", "LocalLyricsI18n.java")]
 dependencies = classpath(work, json_jar())
 subprocess.run([java_tool("javac"), "-cp", dependencies, "-d", str(work), *map(str, sources)], check=True)
-subprocess.run([java_tool("java"), "-cp", dependencies, "kr.ivlis.ivlyricsandroid.OpenAIConnectionsRegression"], check=True)
+subprocess.run([java_tool("java"), "-cp", dependencies, "dev.lyriscope.core.OpenAIConnectionsRegression"], check=True)

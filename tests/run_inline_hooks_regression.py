@@ -23,8 +23,8 @@ public class ViewGroup extends View { public final List<View> children=new Array
  public void addView(View v,LayoutParams p){children.add(v);} public void removeView(View v){children.remove(v);} public void removeAllViews(){children.clear();}
 }''',
 "android/widget/FrameLayout.java": 'package android.widget; public class FrameLayout extends android.view.ViewGroup { public FrameLayout(android.content.Context c){super(c);} }',
-"kr/ivlis/ivlyricsandroid/IvLyricsBridge.java": 'package kr.ivlis.ivlyricsandroid; public class IvLyricsBridge { public static android.view.View createInlinePreview(android.content.Context c){return new android.view.View(c);} }',
-"dev/ivlyrics/spotify/ComposeAdapter.java": '''package dev.ivlyrics.spotify; public class ComposeAdapter {
+"dev/lyriscope/core/IvLyricsBridge.java": 'package dev.lyriscope.core; public class IvLyricsBridge { public static android.view.View createInlinePreview(android.content.Context c){return new android.view.View(c);} }',
+"dev/lyriscope/spotify/ComposeAdapter.java": '''package dev.lyriscope.spotify; public class ComposeAdapter {
  static int renders; static void prepareInline(Object c) throws ReflectiveOperationException {} public static void renderInline(Object c) throws ReflectiveOperationException {renders++;}
 }''',
 "de/robv/android/xposed/XC_MethodHook.java": '''package de.robv.android.xposed;
@@ -60,7 +60,7 @@ public class ContextTrack {private final String uri; private final Map<String,St
 "p/x181.java": 'package p; public class x181 {public static final Object a=new Object();}',
 "p/b9p0.java": 'package p; public class b9p0 {public Object apply(Object x){return null;}}',
 "p/d2w0.java": 'package p; public class d2w0 {public static boolean e(com.spotify.player.model.ContextTrack t){return false;}}',
-"dev/ivlyrics/spotify/InlineHooksRegression.java": r'''package dev.ivlyrics.spotify;
+"dev/lyriscope/spotify/InlineHooksRegression.java": r'''package dev.lyriscope.spotify;
 import java.lang.reflect.*; import java.util.*; import de.robv.android.xposed.*; import com.spotify.player.model.ContextTrack;
 public class InlineHooksRegression {
  static int checks;
@@ -116,10 +116,10 @@ for name, content in files.items():
     path = work / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
-source = ROOT / "spotify-module/src/main/java/dev/ivlyrics/spotify"
+source = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify"
 subprocess.run([java_tool("javac"), "-d", str(work), *(str(work / name) for name in files),
                 str(source / "SpotifyInlineLyrics.java"), str(source / "SpotifyInlineLyricsMenu.java")], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.ivlyrics.spotify.InlineHooksRegression"],
+result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.spotify.InlineHooksRegression"],
                         capture_output=True, text=True)
 report = "Production hooks with synthetic native/Android/Xposed fixtures; no device or account access.\n" + result.stdout + result.stderr
 (work / "result.txt").write_text(report)

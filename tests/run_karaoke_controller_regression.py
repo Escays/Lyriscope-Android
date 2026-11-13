@@ -11,7 +11,7 @@ import subprocess
 from regression_runtime import ROOT, REPORTS, java_tool
 
 
-SOURCE = ROOT / "spotify-module/src/main/java/dev/ivlyrics/spotify/SpotifyKaraokeController.java"
+SOURCE = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify/SpotifyKaraokeController.java"
 WORK = REPORTS / "karaoke-controller"
 FILES = {
     "android/os/Looper.java": r'''
@@ -69,8 +69,8 @@ public final class Log {
     public static int w(String tag, String message) { messages.add(message); return 0; }
 }
 ''',
-    "dev/ivlyrics/spotify/SpotifyKaraokeTransport.java": r'''
-package dev.ivlyrics.spotify;
+    "dev/lyriscope/spotify/SpotifyKaraokeTransport.java": r'''
+package dev.lyriscope.spotify;
 import java.util.ArrayList;
 import java.util.List;
 public final class SpotifyKaraokeTransport {
@@ -116,8 +116,8 @@ public final class SpotifyKaraokeTransport {
     static void reset() { operations.clear(); streams.clear(); order.clear(); ready = true; }
 }
 ''',
-    "dev/ivlyrics/spotify/SpotifyKaraokeEligibility.java": r'''
-package dev.ivlyrics.spotify;
+    "dev/lyriscope/spotify/SpotifyKaraokeEligibility.java": r'''
+package dev.lyriscope.spotify;
 public final class SpotifyKaraokeEligibility {
     public interface Listener { void onEligibility(String uri, boolean loaded, boolean supported); }
     static Listener listener;
@@ -129,8 +129,8 @@ public final class SpotifyKaraokeEligibility {
     }
 }
 ''',
-    "dev/ivlyrics/spotify/SpotifyKaraokePlayback.java": r'''
-package dev.ivlyrics.spotify;
+    "dev/lyriscope/spotify/SpotifyKaraokePlayback.java": r'''
+package dev.lyriscope.spotify;
 public final class SpotifyKaraokePlayback {
     interface Listener { void onPlayback(boolean known, boolean allowed, String reason); }
     static Listener listener;
@@ -140,16 +140,16 @@ public final class SpotifyKaraokePlayback {
     }
 }
 ''',
-    "dev/ivlyrics/spotify/KaraokeControllerRegression.java": r'''
-package dev.ivlyrics.spotify;
+    "dev/lyriscope/spotify/KaraokeControllerRegression.java": r'''
+package dev.lyriscope.spotify;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
-import static dev.ivlyrics.spotify.SpotifyKaraokeController.State;
-import static dev.ivlyrics.spotify.SpotifyKaraokeTransport.Operation;
-import static dev.ivlyrics.spotify.SpotifyKaraokeTransport.EventSubscription;
+import static dev.lyriscope.spotify.SpotifyKaraokeController.State;
+import static dev.lyriscope.spotify.SpotifyKaraokeTransport.Operation;
+import static dev.lyriscope.spotify.SpotifyKaraokeTransport.EventSubscription;
 
 public final class KaraokeControllerRegression {
     private static final String A = "spotify:track:AAAAAAAAAAAAAAAAAAAAAA";
@@ -742,7 +742,7 @@ def main():
     subprocess.run([java_tool("javac"), "--release", "17", "-d", str(classes),
                     str(SOURCE), *map(str, fixtures)], check=True)
     result = subprocess.run([java_tool("java"), "-cp", str(classes),
-                             "dev.ivlyrics.spotify.KaraokeControllerRegression"],
+                             "dev.lyriscope.spotify.KaraokeControllerRegression"],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     report = "Production karaoke controller; deterministic scheduling and synthetic native collaborators.\n"
     report += "Does not verify live Spotify service eligibility, routing, masks, or audio effects.\n"

@@ -93,7 +93,7 @@ test.write_text(fixture)
 files += [test] + [SHARED / name for name in ("LocalLyricsStore.java", "LrcParser.java", "LyricsLine.java", "LyricsResult.java", "TrackSnapshot.java")]
 cp = classpath(work, compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", cp, "-d", str(work), *map(str, files)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", cp, "kr.ivlis.ivlyricsandroid.LocalLyricsImportRegression"],
+result = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LocalLyricsImportRegression"],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=20)
 (work / "result.txt").write_text(result.stdout)
 print(result.stdout, end="")
