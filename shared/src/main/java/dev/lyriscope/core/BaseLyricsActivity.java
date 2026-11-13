@@ -133,6 +133,7 @@ public class BaseLyricsActivity extends Activity implements
     private static final long PREVIEW_INTERLUDE_MIN_DURATION_MS = 500L;
     private static final long PREVIEW_TRAILING_INTERLUDE_DELAY_MS = 3_500L;
     private static final long EMPTY_LYRICS_PREVIEW_VISIBLE_MS = 3_000L;
+    private static final String SETTINGS_TAB_CREDITS = "credits";
     private static final String SETTINGS_TAB_GENERAL = "general";
     private static final String SETTINGS_TAB_LYRICS = "lyrics";
     private static final String SETTINGS_TAB_PROVIDERS = "providers";
@@ -6375,6 +6376,7 @@ public class BaseLyricsActivity extends Activity implements
         buildBehaviorSettingsMenu(content);
         buildPlayerSettingsMenu(content);
         buildSystemSettingsMenu(content);
+        buildSettingsCredits(settingsMenuPage(content, SETTINGS_TAB_CREDITS));
         settingsBuildingMenu = "";
         settingsBuildingSection = "";
         buildSettingsHomeMenus();
@@ -6487,6 +6489,7 @@ public class BaseLyricsActivity extends Activity implements
                 || SETTINGS_TAB_APPEARANCE.equals(tabId)
                 || SETTINGS_TAB_PLAYER.equals(tabId)
                 || SETTINGS_TAB_AI.equals(tabId)
+                || SETTINGS_TAB_CREDITS.equals(tabId)
                 || SETTINGS_TAB_SYSTEM.equals(tabId)) {
             return tabId;
         }
@@ -6494,6 +6497,7 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private String settingsTabLabel(String tabId) {
+        if (SETTINGS_TAB_CREDITS.equals(tabId)) return ui("credits.section");
         if (SETTINGS_TAB_CURRENT_TRACK.equals(tabId)) return ui("tab.current_track");
         if (SETTINGS_TAB_PROVIDERS.equals(tabId)) return ui("tab.providers");
         if (SETTINGS_TAB_LYRICS.equals(tabId)) return ui("tab.lyrics");
@@ -6842,22 +6846,23 @@ public class BaseLyricsActivity extends Activity implements
     private void buildSettingsHomeMenus() {
         if (settingsHomeMenus == null) return;
         settingsHomeMenus.removeAllViews();
+        String homeTrackSummary = currentTrack != null && currentTrack.hasUsableMetadata()
+                ? currentTrack.title + " · " + currentTrack.artist : ui("status.waiting_current_track");
         String[][] groups = {
-                {ui("tab.general"), SETTINGS_TAB_CURRENT_TRACK, SETTINGS_TAB_GENERAL},
-                {ui("settings.group_sources"), SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_AI},
-                {ui("tab.display"), SETTINGS_TAB_APPEARANCE, SETTINGS_TAB_LYRICS, SETTINGS_TAB_PLAYER},
-                {ui("settings.group_manage"), SETTINGS_TAB_SYSTEM}
+                {ui("home.track"), SETTINGS_TAB_CURRENT_TRACK},
+                {ui("home.lyrics"), SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_GENERAL, SETTINGS_TAB_AI},
+                {ui("home.playback"), SETTINGS_TAB_APPEARANCE, SETTINGS_TAB_LYRICS, SETTINGS_TAB_PLAYER},
+                {ui("home.app"), SETTINGS_TAB_SYSTEM, SETTINGS_TAB_CREDITS}
         };
         for (String[] group : groups) {
             LinearLayout list = settingsKit.group();
             for (int index = 1; index < group.length; index++) {
                 String menuId = group[index];
                 if (!settingsMenuPages.containsKey(menuId)) continue;
-                List<String> sections = settingsMenuSections.get(menuId);
-                String summary = sections == null ? "" : TextUtils.join(" · ", sections);
+                String summary = SETTINGS_TAB_CURRENT_TRACK.equals(menuId) ? homeTrackSummary : "";
                 LinearLayout item = settingsKit.homeItem(settingsMenuIcon(menuId), settingsTabLabel(menuId), summary);
                 makeRemoteFocusable(item);
-                item.setContentDescription(settingsTabLabel(menuId) + ", " + summary);
+                item.setContentDescription(summary.isEmpty() ? settingsTabLabel(menuId) : settingsTabLabel(menuId) + ", " + summary);
                 item.setOnClickListener(view -> showSettingsRoute(menuId, true));
                 list.addView(item, matchWrap());
             }
@@ -6867,7 +6872,6 @@ public class BaseLyricsActivity extends Activity implements
             params.bottomMargin = dp(20);
             settingsHomeMenus.addView(list, params);
         }
-        buildSettingsCredits(settingsHomeMenus);
         TextView footer = settingsKit.text(ui(IvLyricsBridge.isEmbedded(this) ? "app.footer_module" : "app.footer_app"),
                 12f, settingsKit.p.text4, settingsKit.regular);
         footer.setGravity(Gravity.CENTER);
@@ -6881,15 +6885,14 @@ public class BaseLyricsActivity extends Activity implements
      */
     private void buildSettingsCredits(LinearLayout page) {
         LinearLayout group = settingsKit.vertical();
-        group.addView(settingsKit.sectionHeader(ui("credits.section"), ui("credits.desc")), matchWrap());
+        group.addView(settingsKit.rowDescription(ui("credits.desc")), matchWrap());
         LinearLayout rows = settingsKit.group();
         for (String[] entry : CREDITS) {
             String description = entry[1] + " \u00b7 " + ui(entry[2]);
             Button row = settingsKit.actionRow(entry[0], description, SettingsKit.ACTION_NORMAL);
             makeRemoteFocusable(row);
             row.setOnClickListener(view -> openCreditLink(entry[3]));
-            // Not indexed by search: these are links, and the home page is rebuilt often enough
-            // that index entries would pile up.
+            registerSetting(row, entry[0], description, null);
             rows.addView(row, matchWrap());
         }
         group.addView(rows, matchWrap());
@@ -7085,7 +7088,10 @@ public class BaseLyricsActivity extends Activity implements
         if (SETTINGS_TAB_CURRENT_TRACK.equals(settingsRoute)) adoptCurrentTrackPanelIntoPage();
         boolean hasTrack = currentTrack != null && currentTrack.hasUsableMetadata();
         String summary = hasTrack ? currentTrack.title + "\n" + currentTrack.artist : ui("status.waiting_current_track");
-        if (!TextUtils.equals(currentTrackSettingsSummary.getText(), summary)) currentTrackSettingsSummary.setText(summary);
+        if (!TextUtils.equals(currentTrackSettingsSummary.getText(), summary)) {
+            currentTrackSettingsSummary.setText(summary);
+            if (settingsHomeMenus != null) buildSettingsHomeMenus();
+        }
         if (lyricsLanguageSettingsPanel != null
                 && lyricsLanguageSettingsPanel.getParent() == settingsMenuPages.get(SETTINGS_TAB_CURRENT_TRACK)) {
             lyricsLanguageSettingsPanel.setVisibility(hasTrack && SETTINGS_TAB_CURRENT_TRACK.equals(settingsRoute)
@@ -7251,11 +7257,6 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_GENERAL);
         LinearLayout section = settingsSection(page, ui("section.language"), ui("section.language_desc"), -1);
         LinearLayout group = settingsGroup(section);
-
-        uiLanguageSelectButton = settingsKit.picker("");
-        makeRemoteFocusable(uiLanguageSelectButton);
-        uiLanguageSelectButton.setOnClickListener(view -> showSettingsUiLanguagePopup(uiLanguageSelectButton));
-        settingsStackRow(group, ui("setting.ui_language"), ui("setting.ui_language_desc"), uiLanguageSelectButton);
 
         outputLanguageSelectButton = settingsKit.picker("");
         makeRemoteFocusable(outputLanguageSelectButton);
@@ -8497,6 +8498,13 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_SYSTEM);
         boolean embedded = IvLyricsBridge.isEmbedded(this);
         LinearLayout section;
+        section = settingsSection(page, ui("section.language"), null, -1);
+        LinearLayout languageGroup = settingsGroup(section);
+        uiLanguageSelectButton = settingsKit.picker("");
+        makeRemoteFocusable(uiLanguageSelectButton);
+        uiLanguageSelectButton.setOnClickListener(view -> showSettingsUiLanguagePopup(uiLanguageSelectButton));
+        settingsStackRow(languageGroup, ui("setting.ui_language"), ui("setting.ui_language_desc"), uiLanguageSelectButton);
+
         buildNetworkRegionSection(page);
         if (!embedded) {
             section = settingsSection(page, ui("section.app_update"), ui("section.app_update_desc"), -1);

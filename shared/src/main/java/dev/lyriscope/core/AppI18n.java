@@ -159,6 +159,7 @@ final class AppI18n {
         addLrclibPlaybackSettingsStrings(languages);
         addCatalogueNameStrings(languages);
         addCreditStrings(languages);
+        fillUntranslatedStrings(languages);
         assertComplete(languages);
         return Collections.unmodifiableMap(languages);
     }
@@ -12057,6 +12058,43 @@ final class AppI18n {
         }
     }
 
+    /**
+     * Replaces an empty translation with the English one, and drops a key that is empty in English too.
+     *
+     * <p>A missing translation is a content problem, never a reason to kill the app: this class is
+     * initialised the first time the lyrics surface attaches, so throwing here means Spotify crashes
+     * the moment a card appears. Every contributor has already wrapped its table in an unmodifiable map
+     * by this point, so the fix is made on a copy and the copy replaces the table.
+     */
+    private static void fillUntranslatedStrings(Map<String, Map<String, String>> languages) {
+        Map<String, String> english = languages.get("en");
+        if (english == null) {
+            return;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : languages.entrySet()) {
+            Map<String, String> table = entry.getValue();
+            Map<String, String> repaired = null;
+            for (Map.Entry<String, String> string : table.entrySet()) {
+                String value = string.getValue();
+                if (value != null && !value.trim().isEmpty()) {
+                    continue;
+                }
+                String fallback = english.get(string.getKey());
+                if (repaired == null) {
+                    repaired = new LinkedHashMap<>(table);
+                }
+                if (fallback == null || fallback.trim().isEmpty()) {
+                    repaired.remove(string.getKey());
+                } else {
+                    repaired.put(string.getKey(), fallback);
+                }
+            }
+            if (repaired != null) {
+                entry.setValue(Collections.unmodifiableMap(repaired));
+            }
+        }
+    }
+
     private static void assertComplete(Map<String, Map<String, String>> languages) {
         Map<String, String> english = languages.get("en");
         if (english == null) {
@@ -12073,8 +12111,10 @@ final class AppI18n {
 
             for (Map.Entry<String, String> entry : table.entrySet()) {
                 if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
+                    // fillUntranslatedStrings() has already had its chance; only a table that was
+                    // wrapped and edited afterwards can still be empty, and that is a code error.
                     throw new IllegalStateException(
-                            "Blank i18n string: " + language.code + ":" + entry.getKey());
+                            "Blank i18n string after fallback: " + language.code + ":" + entry.getKey());
                 }
                 if (entry.getValue().matches(".*\\p{L}\\d{3,}$")) {
                     throw new IllegalStateException(

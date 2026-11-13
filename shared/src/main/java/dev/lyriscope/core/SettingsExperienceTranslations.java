@@ -59,5 +59,31 @@ final class SettingsExperienceTranslations {
             case "tr" -> "Çalan şarkının ayarları";
             default -> "Current track settings";
         });
+        // The home groups are named per language, but a language that has no wording of its own must
+        // still end up with text: an earlier version copied whatever key it hoped was translated, and
+        // a missing one wrote a blank string that killed the module at startup.
+        String[] englishHome = {"Current song", "Lyrics", "Display and playback", "Application",
+                "Translation and pronunciation", "Lyrics sources", "AI services", "Lyrics appearance",
+                "Playback and lyrics behavior", "Player styles", "App settings"};
+        String[] home = switch (language) {
+            case "zh-CN" -> new String[]{"当前歌曲", "歌词", "显示与播放", "应用", "翻译与注音", "歌词来源", "AI 服务", "歌词外观", "播放与歌词行为", "播放器样式", "应用设置"};
+            case "zh-TW" -> new String[]{"目前歌曲", "歌詞", "顯示與播放", "應用程式", "翻譯與注音", "歌詞來源", "AI 服務", "歌詞外觀", "播放與歌詞行為", "播放器樣式", "應用程式設定"};
+            case "en" -> englishHome;
+            default -> null;
+        };
+        String[] homeKeys = {"home.track", "home.lyrics", "home.playback", "home.app", "tab.general", "tab.providers", "tab.ai", "tab.appearance", "tab.lyrics", "tab.player", "tab.system"};
+        // Where a language already names the equivalent group elsewhere, reuse that wording.
+        String[] borrowedKeys = {"tab.current_track", "settings.group_sources", "tab.display", "settings.group_manage"};
+        for (int i = 0; i < homeKeys.length; i++) {
+            String value = home != null && i < home.length
+                    ? home[i]
+                    : i < borrowedKeys.length ? firstNonBlank(target.get(borrowedKeys[i]), englishHome[i])
+                    : firstNonBlank(target.get(homeKeys[i]), englishHome[i]);
+            target.put(homeKeys[i], value);
+        }
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred == null || preferred.trim().isEmpty() ? fallback : preferred;
     }
 }

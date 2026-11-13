@@ -1191,7 +1191,7 @@ final class SettingsKit {
     LinearLayout homeItem(String iconName, String title, String summary) {
         LinearLayout item = horizontal();
         item.setPaddingRelative(dp(14), dp(11), dp(12), dp(11));
-        item.setMinimumHeight(dp(64));
+        item.setMinimumHeight(dp(summary == null || summary.isEmpty() ? 54 : 66));
         item.setFocusable(true);
         item.setClickable(true);
         item.setBackground(pressable(rect(0x00000000, 0f), 0f));
