@@ -649,8 +649,6 @@ public class BaseLyricsActivity extends Activity implements
     private static final String MANUAL_SOURCE_LRCLIB = "lrclib";
     private String manualSearchSource = MANUAL_SOURCE_LRCLIB;
     private final java.util.List<TextView> manualSearchSourceChips = new java.util.ArrayList<>();
-    /** One line under the chips saying what the selected catalogue actually brings. */
-    private TextView manualSearchCapabilityView;
     private PlatformHttpTransport.Transport manualSearchTransport;
     private boolean pictureInPictureUiActive;
     private boolean pictureInPictureActionsInitialized;
@@ -6023,31 +6021,22 @@ public class BaseLyricsActivity extends Activity implements
         description.setLineSpacing(dp(2), 1f);
         content.addView(description, topMargin(matchWrap(), dp(5)));
 
-        // Four catalogues: LRCLIB keeps the old behaviour, the three Chinese platforms carry their
-        // own translations, which is often what a missing lyric needs. Each chip names what it brings,
-        // because "which one do I pick" is the only real question this panel asks.
-        //
-        // Two rows instead of one scrolling row: a sideways drag that scrolls also has to be told apart
-        // from the sheet's own tab swipe, and getting that wrong switched tabs mid-search. Two rows fit,
-        // so nobody has to drag here at all.
+        // Four catalogues, named plainly: every one of them replaces the whole lyric set and its
+        // timeline, so there is nothing to advertise per chip beyond the brand. The one difference
+        // worth knowing — NetEase and QQ bring a translation with them — is said in one line below.
         manualSearchSourceChips.clear();
         manualSearchSource = defaultManualSearchSource();
-        LinearLayout sourceGrid = new LinearLayout(this);
-        sourceGrid.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout sourceFirstRow = manualSearchSourceRow();
-        LinearLayout sourceSecondRow = manualSearchSourceRow();
-        addManualSearchSourceChip(sourceFirstRow, MANUAL_SOURCE_LRCLIB, manualSourceChipText(MANUAL_SOURCE_LRCLIB));
-        addManualSearchSourceChip(sourceFirstRow, "netease", manualSourceChipText("netease"));
-        addManualSearchSourceChip(sourceSecondRow, "qq", manualSourceChipText("qq"));
-        addManualSearchSourceChip(sourceSecondRow, "kugou", manualSourceChipText("kugou"));
-        sourceGrid.addView(sourceFirstRow, matchWrap());
-        sourceGrid.addView(sourceSecondRow, topMargin(matchWrap(), dp(6)));
-        content.addView(sourceGrid, topMargin(matchWrap(), dp(8)));
+        LinearLayout sourceRow = manualSearchSourceRow();
+        addManualSearchSourceChip(sourceRow, MANUAL_SOURCE_LRCLIB, manualSourceBrand(MANUAL_SOURCE_LRCLIB));
+        addManualSearchSourceChip(sourceRow, "netease", manualSourceBrand("netease"));
+        addManualSearchSourceChip(sourceRow, "qq", manualSourceBrand("qq"));
+        addManualSearchSourceChip(sourceRow, "kugou", manualSourceBrand("kugou"));
+        content.addView(sourceRow, topMargin(matchWrap(), dp(8)));
 
-        manualSearchCapabilityView = label(manualSourceHint(manualSearchSource), 11f,
+        TextView catalogueNote = label(ui("lyrics.lrclib_search.catalogue_note"), 11f,
                 withAlpha(panelPalette.text, 150), AppFonts.regular(this));
-        manualSearchCapabilityView.setLineSpacing(dp(2), 1f);
-        content.addView(manualSearchCapabilityView, topMargin(matchWrap(), dp(6)));
+        catalogueNote.setLineSpacing(dp(2), 1f);
+        content.addView(catalogueNote, topMargin(matchWrap(), dp(6)));
 
         lyricsManualSearchTitleInput = settingEditText(ui("lyrics.lrclib_search.title_hint"), false, false);
         lyricsManualSearchArtistInput = settingEditText(ui("lyrics.lrclib_search.artist_hint"), false, false);
@@ -12488,27 +12477,6 @@ public class BaseLyricsActivity extends Activity implements
         return ui("lyrics.lrclib_search.brand_lrclib");
     }
 
-    /** "网易云 · 译文": the brand plus what this catalogue actually carries. */
-    private String manualSourceChipText(String id) {
-        String capability = MANUAL_SOURCE_LRCLIB.equals(id) || "kugou".equals(id)
-                ? ui("lyrics.lrclib_search.cap_timeline")
-                : ui("lyrics.lrclib_search.cap_translation");
-        return manualSourceBrand(id) + " \u00b7 " + capability;
-    }
-
-    private String manualSourceHint(String id) {
-        if ("netease".equals(id)) {
-            return ui("lyrics.lrclib_search.hint_netease");
-        }
-        if ("qq".equals(id)) {
-            return ui("lyrics.lrclib_search.hint_qq");
-        }
-        if ("kugou".equals(id)) {
-            return ui("lyrics.lrclib_search.hint_kugou");
-        }
-        return ui("lyrics.lrclib_search.hint_lrclib");
-    }
-
     private PlatformLyricSource manualLyricSource(String id) {
         if (manualSearchTransport == null) {
             manualSearchTransport = PlatformHttpTransport.http();
@@ -12555,9 +12523,6 @@ public class BaseLyricsActivity extends Activity implements
         manualSearchSource = id == null ? MANUAL_SOURCE_LRCLIB : id;
         for (TextView chip : manualSearchSourceChips) {
             setSelectableButtonState(chip, manualSearchSource.equals(chip.getTag()), 14f);
-        }
-        if (manualSearchCapabilityView != null) {
-            manualSearchCapabilityView.setText(manualSourceHint(manualSearchSource));
         }
         if (lyricsManualSearchResultsContainer != null) {
             lyricsManualSearchResultsContainer.removeAllViews();
