@@ -45,3 +45,6 @@ __pycache__/
 
 # WorkBuddy desk memory (local notes, not part of the product)
 .workbuddy/
+
+# Release upload staging (built artifacts, published as GitHub release assets)
+release-assets/
