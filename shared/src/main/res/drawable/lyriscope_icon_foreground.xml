@@ -1,59 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lyriscope mark: a viewfinder reticle (the "scope") around the current
-     lyric line, whose bright left part is the part already sung. -->
+<!-- Lyriscope: a viewfinder reticle around the current lyric line. The solid
+     part of the first line is what has already been sung, the faint tail and
+     the second line follow it. Everything stays inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M64.302,28.502 A27.5,27.5 0,0,1 79.498,43.698"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M63.552,30.357 A25.5,25.5 0,0,1 77.643,44.448"
+        android:strokeColor="#08160E"
         android:strokeWidth="6.0"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:strokeAlpha="1.0" />
+        android:fillColor="#00000000" />
     <path
-        android:pathData="M79.498,64.302 A27.5,27.5 0,0,1 64.302,79.498"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M77.643,63.552 A25.5,25.5 0,0,1 63.552,77.643"
+        android:strokeColor="#08160E"
         android:strokeWidth="6.0"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:strokeAlpha="1.0" />
+        android:fillColor="#00000000" />
     <path
-        android:pathData="M43.698,79.498 A27.5,27.5 0,0,1 28.502,64.302"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M44.448,77.643 A25.5,25.5 0,0,1 30.357,63.552"
+        android:strokeColor="#08160E"
         android:strokeWidth="6.0"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:strokeAlpha="1.0" />
+        android:fillColor="#00000000" />
     <path
-        android:pathData="M28.502,43.698 A27.5,27.5 0,0,1 43.698,28.502"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M30.357,44.448 A25.5,25.5 0,0,1 44.448,30.357"
+        android:strokeColor="#08160E"
         android:strokeWidth="6.0"
         android:strokeLineCap="round"
-        android:fillColor="#00000000"
-        android:strokeAlpha="1.0" />
+        android:fillColor="#00000000" />
     <path
-        android:fillColor="#42FFFFFF"
-        android:pathData="M37.600,43.000 H70.400 A2.600,2.600 0,0,1 73.000,45.600 V49.900 A2.600,2.600 0,0,1 70.400,52.500 H37.600 A2.600,2.600 0,0,1 35.000,49.900 V45.600 A2.600,2.600 0,0,1 37.600,43.000 Z" />
+        android:fillColor="#3808160E"
+        android:pathData="M39.600,42.750 H68.400 A2.600,2.600 0,0,1 71.000,45.350 V49.650 A2.600,2.600 0,0,1 68.400,52.250 H39.600 A2.600,2.600 0,0,1 37.000,49.650 V45.350 A2.600,2.600 0,0,1 39.600,42.750 Z" />
     <path
-        android:pathData="M37.600,43.000 H56.400 A2.600,2.600 0,0,1 59.000,45.600 V49.900 A2.600,2.600 0,0,1 56.400,52.500 H37.600 A2.600,2.600 0,0,1 35.000,49.900 V45.600 A2.600,2.600 0,0,1 37.600,43.000 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="35.0"
-                android:startY="47.8"
-                android:endX="59.0"
-                android:endY="47.8"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#FFFFFFFF" />
-                <item android:offset="0.94" android:color="#FFFFFFFF" />
-                <item android:offset="1.0" android:color="#FFE4F6FF" />
-            </gradient>
-        </aapt:attr>
-    </path>
+        android:fillColor="#08160E"
+        android:pathData="M39.600,42.750 H55.400 A2.600,2.600 0,0,1 58.000,45.350 V49.650 A2.600,2.600 0,0,1 55.400,52.250 H39.600 A2.600,2.600 0,0,1 37.000,49.650 V45.350 A2.600,2.600 0,0,1 39.600,42.750 Z" />
     <path
-        android:fillColor="#38FFFFFF"
-        android:pathData="M37.600,59.000 H60.400 A2.600,2.600 0,0,1 63.000,61.600 V62.900 A2.600,2.600 0,0,1 60.400,65.500 H37.600 A2.600,2.600 0,0,1 35.000,62.900 V61.600 A2.600,2.600 0,0,1 37.600,59.000 Z" />
+        android:fillColor="#1F08160E"
+        android:pathData="M39.600,58.250 H62.400 A2.600,2.600 0,0,1 65.000,60.850 V61.650 A2.600,2.600 0,0,1 62.400,64.250 H39.600 A2.600,2.600 0,0,1 37.000,61.650 V60.850 A2.600,2.600 0,0,1 39.600,58.250 Z" />
 </vector>

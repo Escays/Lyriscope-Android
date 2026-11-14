@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Deep violet body with a soft glow behind the mark. -->
+<!-- Spotify green body: vertical field plus a hue-preserving vignette, so the
+     mark keeps a 7:1 contrast edge instead of sitting on washed-out mint. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -14,9 +15,9 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FF2A1A63" />
-                <item android:offset="0.5" android:color="#FF150D33" />
-                <item android:offset="1.0" android:color="#FF08060F" />
+                <item android:offset="0.0" android:color="#FF24C65F" />
+                <item android:offset="0.42" android:color="#FF1DB954" />
+                <item android:offset="1.0" android:color="#FF139340" />
             </gradient>
         </aapt:attr>
     </path>
@@ -24,12 +25,12 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:centerX="54"
-                android:centerY="44"
-                android:gradientRadius="62"
+                android:centerY="50"
+                android:gradientRadius="78"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#B37C3AED" />
-                <item android:offset="0.58" android:color="#404C1D95" />
-                <item android:offset="1.0" android:color="#004C1D95" />
+                <item android:offset="0.0" android:color="#00000000" />
+                <item android:offset="0.62" android:color="#0A000000" />
+                <item android:offset="1.0" android:color="#33000000" />
             </gradient>
         </aapt:attr>
     </path>
