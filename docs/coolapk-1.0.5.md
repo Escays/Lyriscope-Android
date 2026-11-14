@@ -1,4 +1,4 @@
-# 酷安文案 · Lyriscope for Spotify 1.0.1
+# 酷安文案 · Lyriscope for Spotify 1.0.5
 
 > 用途：发酷安动态 / 图文帖，向国内朋友介绍并上手这个 LSPosed 模块。
 > 建议配图：① 播放页歌词卡片（原文 + 译文）② 长按标题弹出的底部卡片 ③ 灯泡面板的逐句歌词 ④ 设置首页四组 ⑤ 连接体检结果。截图里别露出自己的账号信息。
@@ -30,7 +30,7 @@ Spotify 官方歌词只有「一行行滚」，没有译文、没有罗马音、
 
 **三步装好**
 
-1. 下载 `Lyriscope-Spotify-1.0.1-release.apk` 并安装
+1. 下载 `Lyriscope-Spotify-1.0.5-release.apk` 并安装
 2. 打开 LSPosed → 启用「Lyriscope for Spotify」→ 作用域勾选 **Spotify**
 3. 强制停止 Spotify（设置 → 应用 → Spotify → 强行停止），重新打开
 
@@ -63,13 +63,14 @@ Spotify 官方歌词只有「一行行滚」，没有译文、没有罗马音、
 2. **只放了模块包**：独立应用（不依赖 Spotify 的那个）这次没有发布，需要自己编译。
 3. **歌词版权**：歌词、译文、视频都来自第三方，版权归各自权利人，自己听着玩没问题，别拿去商用或者二次分发。
 4. **非官方**：和 Spotify、和 ivLyrics 作者都没有隶属关系。这个项目是从 ivLyrics 分叉出来自己往下改的，改到最后干脆独立成新仓库了。
-5. **歌词对不上是常事**：不同平台的同一首歌时长差几秒，自动匹配就会错行。别急着骂，用「手动找歌词」指定一条就行。
+5. **歌词对不上是常事**：不同平台的同一首歌时长差几秒，自动匹配就会错行。别急着骂，用「手动找歌词」指定一条就行——选中的那条会被记住，切歌回来也还是它。
+6. **歌词不动、点不了**：你选的那条大概是"纯文本"（只有文字、没有时间轴）。列表里带「同步」标记的才会跟随播放，换成网易云、QQ 这类平台源基本都有时间轴。
 
 **下载**
 
-GitHub：https://github.com/Escays/Lyriscope-Android/releases/tag/v1.0.1
+GitHub：https://github.com/Escays/Lyriscope-Android/releases/tag/v1.0.5
 
-SHA-256：`5b8a1fa98000f42189ee63f515bbcbbc7c4e279792f37f3c65408904934a2df1`
+SHA-256：`df660a1f33f2c72333b41b54c1720866fce95aa1966cb52b7a9cdf5509a72c8e`
 
 有问题直接在这条动态下面说，或者去仓库提 issue，附上机型、系统版本、Spotify 版本，能省很多来回。
 
@@ -89,7 +90,7 @@ LSPosed 模块，装完勾上作用域、强制停止 Spotify 就生效，不用
 
 只放了模块包，独立应用要自己编译。调试签名，以后升级可能要卸载重装。
 
-https://github.com/Escays/Lyriscope-Android/releases/tag/v1.0.1
+https://github.com/Escays/Lyriscope-Android/releases/tag/v1.0.5
 
 #Spotify# #LSPosed#
 
@@ -98,6 +99,6 @@ https://github.com/Escays/Lyriscope-Android/releases/tag/v1.0.1
 ## 发布前自查
 
 - [ ] 下载链接在新的 GitHub 仓库，且 release 里有 `-release.apk` 与 `-version.json` 两个文件
-- [ ] SHA-256 与实际文件一致（`sha256sum Lyriscope-Spotify-1.0.1-release.apk`）
+- [ ] SHA-256 与实际文件一致（`sha256sum Lyriscope-Spotify-1.0.5-release.apk`）
 - [ ] 配图里没有账号、歌单等个人信息
 - [ ] 如果之后换了签名或发了独立应用，回来更新「几个坑」里第 1、2 条
