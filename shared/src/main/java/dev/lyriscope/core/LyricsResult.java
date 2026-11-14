@@ -180,6 +180,16 @@ final class LyricsResult {
         );
     }
 
+    /** Same lyrics, a status line that explains why this source returned this lyric type. */
+    LyricsResult withDetail(String newDetail) {
+        if (newDetail == null || newDetail.equals(detail)) {
+            return this;
+        }
+        return new LyricsResult(lines, providerLabel, newDetail, karaoke, isrc, spotifyTrackId,
+                contributors, providerId, selectionPolicyKey, syncType, syncPoints,
+                pronunciationProviderLabel, translationProviderLabel);
+    }
+
     LyricsResult withMetadata(String isrc, String spotifyTrackId) {
         return new LyricsResult(lines, providerLabel, detail, karaoke, isrc, spotifyTrackId,
                 contributors, providerId, selectionPolicyKey, syncType, syncPoints,

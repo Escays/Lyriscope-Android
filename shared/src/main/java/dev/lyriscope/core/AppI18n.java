@@ -2355,7 +2355,53 @@ final class AppI18n {
             copy.put("toast.lyrics_provider_settings_saved", korean
                     ? "가사 제공자 설정이 저장되었습니다"
                     : "Lyrics provider settings saved");
+            addLyricsProviderTypeGateStrings(copy, language.code);
             languages.put(language.code, Collections.unmodifiableMap(copy));
+        }
+    }
+
+    /**
+     * The two sentences a source earns when its own type switch is what kept a timeline away. Both
+     * take the source label and the chip label the reader has to turn on, so the wording always
+     * quotes the switch as it is drawn. English covers every language but the four below.
+     */
+    private static void addLyricsProviderTypeGateStrings(Map<String, String> copy, String lang) {
+        switch (lang == null ? "" : lang) {
+            case "ko":
+                copy.put("repo.detail.synced_type_off_format",
+                        "%1$s 가사입니다. %1$s의 '%2$s' 형식이 꺼져 있어 타임라인이 없습니다. 켜면 시간축이 있는 가사를 사용합니다.");
+                copy.put("repo.detail.karaoke_type_off_format",
+                        "%1$s 싱크 가사입니다. %1$s의 '%2$s' 형식이 꺼져 있어 글자별 채우기가 없습니다. 켜면 글자 타이밍을 사용합니다.");
+                copy.put("lyrics_provider.type_off_hint_format",
+                        "현재 가사는 %1$s에서 왔지만 타임라인이 없습니다. %1$s의 '%2$s' 형식이 꺼져 있습니다.");
+                copy.put("lyrics_provider.type_off_action_format", "'%1$s' 켜고 다시 불러오기");
+                return;
+            case "zh-CN":
+                copy.put("repo.detail.synced_type_off_format",
+                        "%1$s 歌词。%1$s 的「%2$s」类型已关闭，所以没有时间轴；开启后即可使用带时间轴的歌词。");
+                copy.put("repo.detail.karaoke_type_off_format",
+                        "%1$s 同步歌词。%1$s 的「%2$s」类型已关闭，所以没有逐字填色；开启后即可使用逐字时间。");
+                copy.put("lyrics_provider.type_off_hint_format",
+                        "当前歌词来自 %1$s，但没有时间轴：%1$s 的「%2$s」类型已关闭。");
+                copy.put("lyrics_provider.type_off_action_format", "开启「%1$s」并重新加载");
+                return;
+            case "zh-TW":
+                copy.put("repo.detail.synced_type_off_format",
+                        "%1$s 歌詞。%1$s 的「%2$s」類型已關閉，所以沒有時間軸；開啟後即可使用有時間軸的歌詞。");
+                copy.put("repo.detail.karaoke_type_off_format",
+                        "%1$s 同步歌詞。%1$s 的「%2$s」類型已關閉，所以沒有逐字填色；開啟後即可使用逐字時間。");
+                copy.put("lyrics_provider.type_off_hint_format",
+                        "目前歌詞來自 %1$s，但沒有時間軸：%1$s 的「%2$s」類型已關閉。");
+                copy.put("lyrics_provider.type_off_action_format", "開啟「%1$s」並重新載入");
+                return;
+            default:
+                copy.put("repo.detail.synced_type_off_format",
+                        "Lyrics from %1$s. Its \u201c%2$s\u201d type is off, so these lines have no timeline; turn it on to use lyrics with timing.");
+                copy.put("repo.detail.karaoke_type_off_format",
+                        "Synced lyrics from %1$s. Its \u201c%2$s\u201d type is off, so there is no word-by-word fill; turn it on to use word timing.");
+                copy.put("lyrics_provider.type_off_hint_format",
+                        "These lyrics came from %1$s without a timeline because its \u201c%2$s\u201d type is off.");
+                copy.put("lyrics_provider.type_off_action_format", "Turn on \u201c%1$s\u201d and reload");
         }
     }
 

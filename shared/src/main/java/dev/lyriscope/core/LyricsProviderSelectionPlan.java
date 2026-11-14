@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Set;
 
 final class LyricsProviderSelectionPlan {
+    /** The selection key a reader's own catalogue pick and a manual search both carry. */
+    static final String MANUAL_SELECTION = "manual";
+
     private static final String[] TYPES = new String[]{
             LyricsProviderSettings.TYPE_KARAOKE,
             LyricsProviderSettings.TYPE_SYNCED,
@@ -57,6 +60,45 @@ final class LyricsProviderSelectionPlan {
         return new LyricsProviderSelectionPlan(providers, attempts);
     }
 
+    /**
+     * The richer lyric type this result's own source could have returned but the reader switched off.
+     * A source shown without a timeline while its "synced" chip is off is not a catalogue gap: the
+     * status line has to say so and offer the switch, or the reader searches elsewhere for nothing.
+     * A per-track pick and a manual search both bypass the type switches, so neither is flagged.
+     */
+    static String blockedRicherType(
+            LyricsResult result,
+            LyricsProviderSettings.Snapshot settings
+    ) {
+        if (result == null || result.lines.isEmpty() || result.karaoke || settings == null) {
+            return "";
+        }
+        if (MANUAL_SELECTION.equals(result.selectionPolicyKey)) {
+            return "";
+        }
+        LyricsProviderSettings.ProviderConfig config = settings.config(result.providerId);
+        if (config == null || !config.enabled) {
+            return "";
+        }
+        if (LyricsProviderSettings.PROVIDER_LRC_RED.equals(config.provider.id)) {
+            // lrc.red generates word timing on demand, so its karaoke chip never withholds a timeline.
+            return "";
+        }
+        if (!hasTimedLines(result.lines)) {
+            if (config.provider.synced && !config.synced) return LyricsProviderSettings.TYPE_SYNCED;
+            if (config.provider.nativeKaraoke && !config.karaoke) return LyricsProviderSettings.TYPE_KARAOKE;
+            return "";
+        }
+        return config.provider.nativeKaraoke && !config.karaoke ? LyricsProviderSettings.TYPE_KARAOKE : "";
+    }
+
+    private static boolean hasTimedLines(List<LyricsLine> lines) {
+        for (LyricsLine line : lines) {
+            if (line != null && line.isTimed()) return true;
+        }
+        return false;
+    }
+
     static boolean canApplyIvLyricsSyncToCachedResult(
             LyricsResult result,
             LyricsProviderSettings.Snapshot settings
@@ -76,7 +118,7 @@ final class LyricsProviderSelectionPlan {
             String resolvedIsrc
     ) {
         if (result == null || result.lines.isEmpty() || settings == null
-                || "manual".equals(result.selectionPolicyKey)) {
+                || MANUAL_SELECTION.equals(result.selectionPolicyKey)) {
             return false;
         }
         if (canApplyIvLyricsSyncToCachedResult(result, settings)) return true;

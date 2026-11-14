@@ -398,14 +398,17 @@ final class LyricsRepository {
         if (cached != null && !shouldRevalidateCachedResult(cached, providerSettings, track)) {
             emitLog(key, callback, "cache hit: " + track.title + " / " + track.artist, request);
             LyricsResult cachedPresentation = privacySafeContributorFallback(cached);
-            callback.onLyricsLoaded(key, cachedPresentation);
+            callback.onLyricsLoaded(key, withBlockedTypeHint(cachedPresentation, key, null));
             requestSpotifyArtwork(track, cached, key, callback, request);
             wordSync.request(track, key, cachedPresentation, callback, true);
             return;
         }
         if (cached != null) {
             emitLog(key, callback, "cache hit: base lyrics served immediately; rechecking OpenDB sync-data in background", request);
-            callback.onLyricsLoaded(key, withoutCachedContributorIdentities(cached));
+            callback.onLyricsLoaded(
+                    key,
+                    withBlockedTypeHint(withoutCachedContributorIdentities(cached), key, null)
+            );
         }
 
         emitLog(key, callback, "track: \"" + track.title + "\" / \"" + track.artist + "\""
@@ -510,7 +513,7 @@ final class LyricsRepository {
     ) {
         mainHandler.post(() -> {
             if (requestGeneration == providerPolicyGeneration.get()) {
-                callback.onLyricsLoaded(key, result);
+                callback.onLyricsLoaded(key, withBlockedTypeHint(result, key, null));
             }
         });
     }
@@ -1016,6 +1019,50 @@ final class LyricsRepository {
             lookups.cancel();
         }
         return LyricsResult.empty(ui("repo.lyrics_not_found"));
+    }
+
+    /**
+     * States the one reason the reader can act on when the winning source was held back by its own
+     * type switch, instead of blaming the catalogue or the Spotify ISRC lookup for a missing timeline.
+     * Applied where a result reaches the page rather than where it is looked up, so a cached result
+     * is described by today's switches and the stored detail stays the catalogue's own answer.
+     */
+    private LyricsResult withBlockedTypeHint(LyricsResult result, String trackKey, LogSink log) {
+        if (result == null || lyricsProviderSettings == null) {
+            return result;
+        }
+        String blocked = LyricsProviderSelectionPlan.blockedRicherType(
+                result,
+                lyricsProviderSettings.snapshotForTrack(trackKey)
+        );
+        if (blocked.isEmpty()) {
+            return result;
+        }
+        String providerLabel = configProviderLabel(result.providerId);
+        if (providerLabel.isEmpty()) {
+            providerLabel = providerBaseLabel(result.providerLabel);
+        }
+        boolean karaoke = LyricsProviderSettings.TYPE_KARAOKE.equals(blocked);
+        String hint = uiFormat(
+                karaoke ? "repo.detail.karaoke_type_off_format" : "repo.detail.synced_type_off_format",
+                providerLabel,
+                ui(karaoke ? "lyrics_provider.karaoke" : "lyrics_provider.synced")
+        );
+        if (log != null) {
+            log.write("type switch off: " + result.providerId + " / " + blocked
+                    + " / the status line offers the switch");
+        }
+        String detail = result.detail.isEmpty() ? hint : hint + "\n" + result.detail;
+        return result.withDetail(detail);
+    }
+
+    private String uiFormat(String key, Object... args) {
+        String pattern = ui(key);
+        try {
+            return String.format(Locale.ROOT, pattern, args);
+        } catch (java.util.IllegalFormatException error) {
+            return pattern;
+        }
     }
 
     private ProviderCandidate loadProviderOnce(

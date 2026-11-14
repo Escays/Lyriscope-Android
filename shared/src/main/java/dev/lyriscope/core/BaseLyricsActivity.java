@@ -679,6 +679,11 @@ public class BaseLyricsActivity extends Activity implements
     private static final String MANUAL_SOURCE_LRCLIB = "lrclib";
     private String manualSearchSource = MANUAL_SOURCE_LRCLIB;
     private final java.util.List<TextView> manualSearchSourceChips = new java.util.ArrayList<>();
+    /** The "your type switch is off" card in the lyrics sheet, and the switch it points at. */
+    private LinearLayout lyricsTypeGateCard;
+    private TextView lyricsTypeGateMessage;
+    private TextView lyricsTypeGateAction;
+    private String[] lyricsTypeGateTarget;
     /** The reader's hand-picked catalogue result per track, kept outside the lyric cache. */
     private ManualLyricsPicks manualLyricsPicks;
     /** Guards a replay so a restored pick cannot re-trigger itself. */
@@ -1886,6 +1891,7 @@ public class BaseLyricsActivity extends Activity implements
         statusView.setText(result.detail);
         updateDetectedLyricsSourceLanguage(result);
         updateLyricsLanguageSettingsUi();
+        updateLyricsTypeGateCard();
         requestMetadataTranslation(false);
         if (!maybeShowFirstLanguagePrompt()) {
             requestAiLyrics(false);
@@ -6143,6 +6149,10 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
 
+        // First, because it is the answer to "why is this lyric set the one I got".
+        View typeGateCard = buildLyricsTypeGateCard();
+        content.addView(typeGateCard, topMargin(matchWrap(), dp(4)));
+
         TextView importLyrics = languageButton(ui("lyrics.local.import"), false);
         importLyrics.setOnClickListener(view -> chooseLocalLyrics());
         content.addView(importLyrics, topMargin(matchWrap(), dp(8)));
@@ -6212,6 +6222,91 @@ public class BaseLyricsActivity extends Activity implements
         populateManualLrclibSearchDefaults(false);
         setManualLrclibStatus(ui("lyrics.lrclib_search.ready"));
         return content;
+    }
+
+    /**
+     * Says which lyric type the shown source was not allowed to give, and unlocks it in one tap.
+     * The reader's own catalogue pick and a manual search bypass the switches on purpose, so they
+     * never produce this card. It stays in the tree and folds away, so a sheet opened a second time
+     * shows the current state without a rebuild.
+     */
+    private View buildLyricsTypeGateCard() {
+        lyricsTypeGateCard = new LinearLayout(this);
+        lyricsTypeGateCard.setOrientation(LinearLayout.VERTICAL);
+        lyricsTypeGateCard.setPadding(dp(12), dp(10), dp(12), dp(10));
+        lyricsTypeGateCard.setBackground(roundDrawable(panelPalette.accentSoft, dp(12)));
+
+        lyricsTypeGateMessage = label("", 11.5f, withAlpha(panelPalette.text, 226), AppFonts.regular(this));
+        lyricsTypeGateMessage.setLineSpacing(dp(2), 1f);
+        lyricsTypeGateCard.addView(lyricsTypeGateMessage, matchWrap());
+
+        lyricsTypeGateAction = languageButton("", false);
+        lyricsTypeGateAction.setOnClickListener(view -> {
+            if (lyricsTypeGateTarget != null) {
+                enableBlockedLyricsType(lyricsTypeGateTarget[0], lyricsTypeGateTarget[1]);
+            }
+        });
+        lyricsTypeGateCard.addView(lyricsTypeGateAction, topMargin(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(40)
+        ), dp(8)));
+        updateLyricsTypeGateCard();
+        return lyricsTypeGateCard;
+    }
+
+    private void updateLyricsTypeGateCard() {
+        if (lyricsTypeGateCard == null || lyricsTypeGateMessage == null || lyricsTypeGateAction == null) {
+            return;
+        }
+        String[] blocked = blockedLyricsType();
+        lyricsTypeGateTarget = blocked;
+        if (blocked == null) {
+            lyricsTypeGateCard.setVisibility(View.GONE);
+            return;
+        }
+        String providerLabel = lyricsProviderLabel(blocked[0]);
+        String typeLabel = lyricsTypeLabel(blocked[1]);
+        lyricsTypeGateMessage.setText(
+                uiFormat("lyrics_provider.type_off_hint_format", providerLabel, typeLabel));
+        lyricsTypeGateAction.setText(
+                uiFormat("lyrics_provider.type_off_action_format", typeLabel));
+        lyricsTypeGateCard.setVisibility(View.VISIBLE);
+    }
+
+    /** {@code [providerId, type]} for a source held back by its own type switch, else null. */
+    private String[] blockedLyricsType() {
+        if (currentLyricsResult == null || lyricsProviderSettings == null || currentTrack == null) {
+            return null;
+        }
+        String type = LyricsProviderSelectionPlan.blockedRicherType(
+                currentLyricsResult,
+                lyricsProviderSettings.snapshotForTrack(currentTrack.stableKey())
+        );
+        if (type.isEmpty()) {
+            return null;
+        }
+        return new String[]{currentLyricsResult.providerId, type};
+    }
+
+    private String lyricsProviderLabel(String providerId) {
+        LyricsProviderSettings.Provider provider = LyricsProviderSettings.provider(providerId);
+        return provider == null ? providerId : provider.label;
+    }
+
+    private String lyricsTypeLabel(String type) {
+        return ui(LyricsProviderSettings.TYPE_KARAOKE.equals(type)
+                ? "lyrics_provider.karaoke"
+                : "lyrics_provider.synced");
+    }
+
+    /** One tap: the switch is on, the cache is stale, so the same track is looked up again. */
+    private void enableBlockedLyricsType(String providerId, String type) {
+        if (lyricsProviderSettings == null || providerId == null || providerId.isEmpty()) {
+            return;
+        }
+        lyricsProviderSettings.setTypeAllowed(providerId, type, true);
+        dismissLyricsMetaMenuPopup();
+        onLyricsProviderSettingsChanged(true);
     }
 
     @SuppressWarnings("deprecation")
@@ -13782,6 +13877,7 @@ public class BaseLyricsActivity extends Activity implements
         dismissLyricsMetaMenuPopup();
         updateLyricsLanguageSettingsUi();
         updateLyricsMatchStatusBlock();
+        updateLyricsTypeGateCard();
         switchLyricsPopupTab(activeLyricsPopupTab);
         // Take the settings page's slot first: the panel is about to be replaced by a cover-coloured
         // copy, and the page must get its own back when the sheet closes.
