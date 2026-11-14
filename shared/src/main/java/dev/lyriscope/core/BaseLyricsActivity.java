@@ -465,6 +465,9 @@ public class BaseLyricsActivity extends Activity implements
     private LinearLayout backgroundPaletteRow;
     private LinearLayout lyricsBackgroundPaletteRow;
     private View lyricsBackgroundPaletteGroup;
+    /** Explains what the swatches do while the background is following the cover on its own. */
+    private TextView backgroundPaletteHint;
+    private TextView lyricsBackgroundPaletteHint;
     private View lyricsBackgroundSolidColorGroup;
     private EditText spotifyClientIdInput;
     private EditText spotifyClientSecretInput;
@@ -7846,7 +7849,7 @@ public class BaseLyricsActivity extends Activity implements
         View paletteRow = buildArtworkPaletteGroup(false);
         details.addView(paletteRow, matchWrap());
         registerSetting(paletteRow, ui("field.cover_palette"), ui("field.cover_palette_desc"), null);
-        settingsConditional(paletteRow, this::isGlobalSolidBackground, backgroundLabel);
+        settingsConditional(paletteRow, this::isBackgroundPaletteVisible, backgroundLabel);
         View solidColorRow = settingsKit.inlineRow(ui("field.solid_color"), ui("field.solid_color_desc"),
                 buildBackgroundSolidColorControl());
         details.addView(solidColorRow, matchWrap());
@@ -7864,6 +7867,7 @@ public class BaseLyricsActivity extends Activity implements
             lyricsPageSettings.setArtworkSolidBackground(checked);
             stableBackgroundTrackKey = "";
             stableBackgroundHadArtwork = false;
+            updateArtworkPaletteHint();
             applyStableBackgroundColor(currentTrack == null ? null : currentTrack.artwork);
             // With a colour taken from the cover the manual picker no longer applies.
             refreshSettingsVisibility();
@@ -10101,16 +10105,48 @@ public class BaseLyricsActivity extends Activity implements
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(dp(48));
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.addView(row, matchWrap());
+        TextView hint = label("", 11.5f, withAlpha(panelPalette.text, 150), AppFonts.regular(this));
+        hint.setLineSpacing(dp(1), 1f);
+        hint.setVisibility(View.GONE);
+        column.addView(hint, topMargin(matchWrap(), dp(6)));
         View group;
         if (panelStyle) {
             lyricsBackgroundPaletteRow = row;
-            group = settingGroup(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
+            lyricsBackgroundPaletteHint = hint;
+            group = settingGroup(ui("field.cover_palette"), ui("field.cover_palette_desc"), column);
         } else {
             backgroundPaletteRow = row;
-            group = settingsKit.inlineRow(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
+            backgroundPaletteHint = hint;
+            group = settingsKit.inlineRow(ui("field.cover_palette"), ui("field.cover_palette_desc"), column);
         }
         refreshArtworkPalette(row, currentPaletteSelection());
+        updateArtworkPaletteHint();
         return group;
+    }
+
+    /** "Following the cover automatically": the swatches still work, they just override it. */
+    private void updateArtworkPaletteHint() {
+        boolean automatic = lyricsPageSettings != null && lyricsPageSettings.artworkSolidBackground();
+        String text = automatic ? ui("field.cover_palette_hint") : "";
+        for (TextView hint : new TextView[]{backgroundPaletteHint, lyricsBackgroundPaletteHint}) {
+            if (hint == null) {
+                continue;
+            }
+            hint.setText(text);
+            hint.setVisibility(automatic ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /** The palette belongs to the solid background, whether or not the cover also drives it by itself. */
+    private boolean isBackgroundPaletteVisible() {
+        if (aiLyricsSettings == null || lyricsPageSettings == null) {
+            return false;
+        }
+        String mode = AiLyricsSettings.normalizeBackgroundMode(aiLyricsSettings.snapshot().background.mode);
+        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(mode);
     }
 
     /** Colours the swatch row from the cover on screen, marking the one in use. */
@@ -10157,6 +10193,9 @@ public class BaseLyricsActivity extends Activity implements
         if (aiLyricsSettings == null) {
             return;
         }
+        // An explicit pick is a decision, not a hint: it replaces the automatic cover colour instead of
+        // being silently ignored by it.
+        stopFollowingCoverColour();
         if (trackScope) {
             AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
             if (current == null) {
@@ -10179,6 +10218,20 @@ public class BaseLyricsActivity extends Activity implements
         updateBackgroundSettingsUi(snapshot, true);
         applyBackgroundSettings(snapshot);
         showSavedToast(ui("toast.background_saved"));
+    }
+
+    /** Turns "use the cover's colour" off, so a colour picked by hand is the one that shows. */
+    private void stopFollowingCoverColour() {
+        if (lyricsPageSettings == null || !lyricsPageSettings.artworkSolidBackground()) {
+            return;
+        }
+        lyricsPageSettings.setArtworkSolidBackground(false);
+        stableBackgroundTrackKey = "";
+        stableBackgroundHadArtwork = false;
+        if (backgroundView != null) {
+            backgroundView.setStableSolidColor(0);
+        }
+        updateArtworkPaletteHint();
     }
 
     private View buildBackgroundSolidColorControl() {
@@ -11793,6 +11846,7 @@ public class BaseLyricsActivity extends Activity implements
         }
         suppressSettingsEvents = false;
         refreshArtworkPalette(backgroundPaletteRow, background.solidColor);
+        updateArtworkPaletteHint();
         refreshSettingsVisibility();
     }
 
@@ -11833,6 +11887,7 @@ public class BaseLyricsActivity extends Activity implements
         suppressSettingsEvents = false;
         boolean solidMode = AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode);
         refreshArtworkPalette(lyricsBackgroundPaletteRow, background.solidColor);
+        updateArtworkPaletteHint();
         setBackgroundOptionVisibility(lyricsBackgroundSolidColorGroup, solidMode);
         setBackgroundOptionVisibility(lyricsBackgroundPaletteGroup, solidMode);
         if (lyricsBackgroundBrightnessValueView != null) {

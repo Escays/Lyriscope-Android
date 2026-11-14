@@ -2482,19 +2482,24 @@ final class AppI18n {
             case "ko":
                 copy.put("field.cover_palette", "앨범 커버 색상");
                 copy.put("field.cover_palette_desc", "현재 앨범 커버에서 뽑은 색입니다. 누르면 그 색으로 배경이 바뀝니다.");
+                copy.put("field.cover_palette_hint", "지금은 앨범 커버 색을 자동으로 따릅니다. 색을 고르면 그 색으로 고정됩니다.");
                 return;
             case "zh-CN":
                 copy.put("field.cover_palette", "封面配色");
                 copy.put("field.cover_palette_desc", "从当前封面取的五个颜色，点一下就换成纯色背景。");
+                copy.put("field.cover_palette_hint", "当前跟随封面自动取色；点任一色块会改为固定这个颜色。");
                 return;
             case "zh-TW":
                 copy.put("field.cover_palette", "封面配色");
                 copy.put("field.cover_palette_desc", "從目前封面取的五個顏色，點一下就換成純色背景。");
+                copy.put("field.cover_palette_hint", "目前跟隨封面自動取色；點任一色塊會改為固定這個顏色。");
                 return;
             default:
                 copy.put("field.cover_palette", "Cover colours");
                 copy.put("field.cover_palette_desc",
                         "Five colours taken from this cover; tap one to use it as the solid background.");
+                copy.put("field.cover_palette_hint",
+                        "The background is following the cover automatically; picking a colour pins it instead.");
         }
     }
 
