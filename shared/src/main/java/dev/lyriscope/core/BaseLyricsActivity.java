@@ -7891,10 +7891,9 @@ public class BaseLyricsActivity extends Activity implements
                     showSavedToast(ui("toast.settings_saved"));
                 });
         focusableItems(solidSourceChoice);
+        // settingsStackRow already attaches and registers the row; adding it again throws.
         View solidSourceRow = settingsStackRow(details, ui("setting.solid_source"),
                 ui("setting.solid_source_desc"), solidSourceChoice.view);
-        details.addView(solidSourceRow, matchWrap());
-        registerSetting(solidSourceRow, ui("setting.solid_source"), ui("setting.solid_source_desc"), null);
         settingsConditional(solidSourceRow, this::isSolidBackgroundSelected, backgroundLabel);
         backgroundSolidSourceChoice = solidSourceChoice;
 

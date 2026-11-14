@@ -47,6 +47,13 @@ assert "assertEditorHitFrame((EditText) target)" in native
 editor_frame = declaration(native, "private void assertEditorHitFrame(")
 assert "new int[]{-dp(400), dp(400)}" in editor_frame and "visibleHitFrame(editor)" in editor_frame
 assert "finally { editor.scrollTo(scrollX, scrollY); }" in editor_frame
+# settingsStackRow attaches and registers its own row. Adding it again throws
+# "The specified child already has a parent" during onCreate — that crashed the
+# lyrics page on launch once, so the pattern is now a build-time failure.
+for match in re.finditer(r"\b(?:View|LinearLayout)\s+(\w+)\s*=\s*settingsStackRow\(", source):
+    doubled = match.group(1)
+    assert "addView(" + doubled not in source, (
+        "settingsStackRow already attaches " + doubled + "; adding it again crashes onCreate")
 assert 'getExternalFilesDir("ui-regressions")' in native
 assert "peakAlpha * .9f" in native and "aspect >= .88f && aspect <= 1.14f" in native
 assert "genuineWindowCaptures >= 8" in native
