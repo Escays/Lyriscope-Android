@@ -12,6 +12,9 @@ work = REPORTS / "sync-metadata-reporting"
 work.mkdir(parents=True, exist_ok=True)
 production = SHARED / "LyricsRepository.java"
 baseline = subprocess.check_output(["git", "show", f"{BASELINE}:shared/src/main/java/kr/ivlis/ivlyricsandroid/LyricsRepository.java"], cwd=ROOT, text=True)
+# The frozen commit predates the package rename, so its declaration still says kr.ivlis. Only that
+# line follows the move; the implementation being compared stays byte-identical.
+baseline = baseline.replace("package kr.ivlis.ivlyricsandroid;", "package dev.lyriscope.core;", 1)
 # Provider renames outside the frozen sync transport are not part of this
 # comparison. Bind that unrelated branch to the current registry symbols so
 # the historical HTTP/parsing implementation can compile without old classes.

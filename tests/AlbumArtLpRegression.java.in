@@ -181,6 +181,11 @@ public final class AlbumArtLpRegression {
         void registerSetting(View target, String label, String description, Runnable reveal) {
             registeredSettings.put(target, label);
         }
+        // Which surface the settings panel is painted on is outside this fixture's scope: the
+        // assertions here are about the LP gate, so these three are inert.
+        boolean isMetaSheetShowing() { return false; }
+        void ensureCurrentTrackPanelSurface(boolean overArtwork) {}
+        void styleCurrentTrackPanel(boolean solid) {}
         // PRODUCTION_MENU
     }
 

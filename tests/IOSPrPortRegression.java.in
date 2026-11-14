@@ -347,7 +347,8 @@ public final class IOSPrPortRegression {
         final SpotifyDjLyricsTimeline spotifyDjLyricsTimeline = new SpotifyDjLyricsTimeline();
         long pendingSeekPositionMs = -1, pendingSeekUptimeMs, lastSeekCommandUptimeMs, lastSeekCommandPositionMs;
         long currentSpotifyDjLyricsOffsetMs = 300, paintedLyrics, paintedProgress;
-        int currentGlobalSyncOffsetMs = 100, currentTrackSyncOffsetMs = 200, currentBluetoothLyricsOffsetMs = 50;
+        // Only the two offsets the app still has: Spotify DJ's own lyric offset and the per-track one.
+        int currentTrackSyncOffsetMs = 200;
         static final long PENDING_SEEK_ACK_TOLERANCE_MS = 700, PENDING_SEEK_HOLD_MS = 1500;
         final List<Runnable> commands = new ArrayList<>();
         public void onNowPlayingChanged(TrackSnapshot snapshot) {}
@@ -374,15 +375,19 @@ public final class IOSPrPortRegression {
         NowPlayingService.LISTENERS.clear(); NowPlayingService.LISTENERS.add(page); NowPlayingService.LISTENERS.add(engine);
         NowPlayingService.activeController = new MediaController(); NowPlayingService.latestSnapshot = page.currentTrack;
         SystemClock.now = 1050;
-        page.seekToPosition(1650); // lyric time maps to player time 1000 with all existing offsets.
-        check(page.pendingSeekPositionMs == 1000 && page.paintedLyrics == 1650 && page.paintedProgress == 1000,
-                "Lyric seek preserves source timing and existing offsets");
+        page.seekToPosition(1650); // lyric time maps to player time 1150: 300 (Spotify DJ) + 200 (track).
+        check(page.pendingSeekPositionMs == 1150 && page.paintedLyrics == 1650 && page.paintedProgress == 1150,
+                "Lyric seek preserves source timing and the remaining offsets");
         for (SpotifyDjLyricsTimeline timeline : List.of(page.spotifyDjLyricsTimeline, engine.timeline)) {
             check(timeline.update(key,1000,false,true,false,true,300,1300,0,1100)==1300,
                     "Shared page and inline engine both register explicit seek before acknowledgement");
         }
+        // The skip starts from the optimistic position the user just seeked to (1150), not from the
+        // position the player still reports (6000), and the track is long enough not to clamp.
         page.seekPlayerBy(5000);
-        check(page.pendingSeekPositionMs == 6000, "Relative skip starts at optimistic seek position");
+        check(page.pendingSeekPositionMs == 6150, "Relative skip starts at optimistic seek position");
+        // 6150 is within the acknowledgement tolerance of the 6000 the player reports, so the second
+        // skip counts from the reported position instead of the optimistic one.
         page.seekPlayerBy(-5000);
         check(page.pendingSeekPositionMs == 1000, "Repeated relative skip preserves pending navigation");
         // Commands run after the user selected a different track: do not seek or cancel that handoff.
