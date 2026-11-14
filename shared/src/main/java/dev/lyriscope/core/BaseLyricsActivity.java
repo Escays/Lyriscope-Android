@@ -507,8 +507,18 @@ public class BaseLyricsActivity extends Activity implements
     private final AccessibilityManager.TouchExplorationStateChangeListener onboardingTouchExplorationListener =
             enabled -> updateOnboardingGreetingActivity();
     private final ContentObserver onboardingMotionObserver = new ContentObserver(handler) {
-        @Override public void onChange(boolean selfChange) { updateOnboardingGreetingActivity(); }
+        @Override public void onChange(boolean selfChange) { onMotionPreferencesChanged(); }
     };
+
+    private void onMotionPreferencesChanged() {
+        updateOnboardingGreetingActivity();
+        if (lyricsView != null) lyricsView.invalidate();
+        if (landscapeLyricsView != null) landscapeLyricsView.invalidate();
+        if (pictureInPictureLyricsView != null) pictureInPictureLyricsView.invalidate();
+        if (lyricPreviewView != null) lyricPreviewView.invalidate();
+        if (vinylPlayerModeView != null) vinylPlayerModeView.lyricView().invalidate();
+        requestPlaybackFrame();
+    }
     private Runnable onboardingAnimatorScaleCleanup;
 
     @android.annotation.TargetApi(33)
@@ -705,23 +715,46 @@ public class BaseLyricsActivity extends Activity implements
     private final Runnable landscapeControlsAutoHideRunnable = () -> setLandscapeControlsVisible(false, true);
 
     private boolean playbackClockActive;
+    private boolean playbackFramePosted;
+    private final Runnable idlePlaybackTick = this::requestPlaybackFrame;
     private final Choreographer.FrameCallback ticker = new Choreographer.FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
+            playbackFramePosted = false;
             if (!playbackClockActive) return;
             updatePlaybackUi(frameTimeNanos);
-            if (playbackClockActive) Choreographer.getInstance().postFrameCallback(this);
+            if (!playbackClockActive) return;
+            if (playbackNeedsFrames()) requestPlaybackFrame();
+            else handler.postDelayed(idlePlaybackTick, 500L);
         }
     };
+
+    private boolean playbackNeedsFrames() {
+        return (currentTrack != null && currentTrack.playing) || pendingSeekPositionMs >= 0L
+                || (lyricPreviewView != null && lyricPreviewView.isShown() && lyricPreviewView.needsHostFrames())
+                || (vinylPlayerModeView != null && vinylModeVisible
+                    && vinylPlayerModeView.lyricView().isShown() && vinylPlayerModeView.lyricView().needsHostFrames());
+    }
+
+    private void requestPlaybackFrame() {
+        if (!playbackClockActive) return;
+        handler.removeCallbacks(idlePlaybackTick);
+        if (playbackFramePosted) return;
+        playbackFramePosted = true;
+        Choreographer.getInstance().postFrameCallback(ticker);
+    }
 
     private void startPlaybackClock() {
         stopPlaybackClock();
         playbackClockActive = true;
-        Choreographer.getInstance().postFrameCallback(ticker);
+        lastProgressUiUpdateMs = 0L;
+        requestPlaybackFrame();
     }
 
     private void stopPlaybackClock() {
         playbackClockActive = false;
+        playbackFramePosted = false;
+        handler.removeCallbacks(idlePlaybackTick);
         Choreographer.getInstance().removeFrameCallback(ticker);
     }
 
@@ -797,7 +830,7 @@ public class BaseLyricsActivity extends Activity implements
         if (Build.VERSION.SDK_INT >= 33) {
             // Settings can notify before ValueAnimator updates its cached scale. Observe
             // that update too, so re-enabling motion resumes a still-untouched welcome.
-            onboardingAnimatorScaleCleanup = OnboardingAnimatorScaleObserver.register(handler, this::updateOnboardingGreetingActivity);
+            onboardingAnimatorScaleCleanup = OnboardingAnimatorScaleObserver.register(handler, this::onMotionPreferencesChanged);
         }
         // Spoken-feedback services can change while another accessibility service is already
         // enabled, without an accessibility-enabled or touch-exploration state transition.
@@ -1434,6 +1467,8 @@ public class BaseLyricsActivity extends Activity implements
         boolean meaningTrackChanged = currentTrack == null || snapshot == null
                 || !currentTrack.stableKey().equals(snapshot.stableKey());
         currentTrack = snapshot;
+        lastProgressUiUpdateMs = 0L;
+        requestPlaybackFrame();
         if (meaningTrackChanged) {
             resetSongMeaningForTrackChange();
         }
@@ -11187,7 +11222,6 @@ public class BaseLyricsActivity extends Activity implements
                     showSavedToast(ui("toast.model_empty"));
                     return;
                 }
-                if (loaded.builtIn) showSavedToast(ui("status.models_builtin_sonar"));
                 showAiModelDialog(loaded.models, requestId, snapshot);
             });
         });
@@ -18270,15 +18304,21 @@ public class BaseLyricsActivity extends Activity implements
 
     private void updateProgressLabels(long position, long duration) {
         updateLyricsTransport(position, duration);
+        // Called every 250 ms; the labels change once a second, and an equal setText still
+        // lays the label out again and repaints it.
         if (elapsedView != null) {
-            elapsedView.setText(formatTime(position));
+            setTextIfChanged(elapsedView, formatTime(position));
         }
         if (remainingView != null) {
-            remainingView.setText(formatRemaining(position, duration));
+            setTextIfChanged(remainingView, formatRemaining(position, duration));
         }
         if (debugProgressView != null) {
-            debugProgressView.setText(formatTime(position) + " / " + formatTime(duration));
+            setTextIfChanged(debugProgressView, formatTime(position) + " / " + formatTime(duration));
         }
+    }
+
+    private static void setTextIfChanged(TextView view, CharSequence text) {
+        if (!TextUtils.equals(view.getText(), text)) view.setText(text);
     }
 
     private void updateLyricPreview(long positionMs) {
@@ -18396,6 +18436,8 @@ public class BaseLyricsActivity extends Activity implements
                     playing
             );
         }
+        // A loading/effect row may arrive asynchronously while the paused host is asleep.
+        if (playbackNeedsFrames()) requestPlaybackFrame();
     }
 
     private List<MainLyricPreviewView.PreviewLine> vinylPreviewRows(
@@ -20623,6 +20665,7 @@ public class BaseLyricsActivity extends Activity implements
 
     /** The per-frame part of updatePlaybackUi for the player page, at the latest frame clock. */
     private void refreshMainPagePlayback() {
+        requestPlaybackFrame();
         TrackSnapshot snapshot = currentTrack != null ? currentTrack : NowPlayingService.getLatestSnapshot();
         if (snapshot == null || !snapshot.hasUsableMetadata()) {
             return;
@@ -20630,7 +20673,7 @@ public class BaseLyricsActivity extends Activity implements
         if (playerProgressView != null && playerProgressView.isShown()) {
             playerProgressView.setProgress(currentPlaybackPosition(snapshot), snapshot.durationMs);
         }
-        long frameTimeNanos = playbackFrameTimeNanos;
+        long frameTimeNanos = System.nanoTime();
         if (frameTimeNanos > 0L) {
             setLyricPreviewFramePosition(lyricsPlaybackFramePosition(
                     currentPlaybackFramePosition(snapshot, frameTimeNanos), snapshot.durationMs), frameTimeNanos);
@@ -20683,6 +20726,7 @@ public class BaseLyricsActivity extends Activity implements
         long now = SystemClock.uptimeMillis();
         pendingSeekPositionMs = target;
         pendingSeekUptimeMs = now;
+        requestPlaybackFrame();
         long lyricsPosition = lyricsPlaybackPosition(target, duration);
         setLyricsPlaybackPositionOnViews(lyricsPosition);
         updateLyricPreview(lyricsPosition);

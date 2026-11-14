@@ -85,6 +85,7 @@ final class MainLyricPreviewView extends View {
     private AiLyricsSettings.TypographySettings typographySettings = AiLyricsSettings.TypographySettings.defaults();
     // Playback clock: basePositionMs at baseTimeNanos (System.nanoTime() clock).
     private double basePositionMs;
+    private final PlaybackRenderWindow playbackRenderWindow = new PlaybackRenderWindow();
     private long baseTimeNanos;
     /** Choreographer frame time of the last frame-synchronized position. */
     private long hostFrameTimeNanos;
@@ -132,6 +133,17 @@ final class MainLyricPreviewView extends View {
         boolean layoutChanged = (previewMatches & PREVIEW_LAYOUT_MATCH) == 0;
         boolean segmentInputsChanged = (previewMatches & PREVIEW_INSTANCES_MATCH) == 0;
         boolean lineWidthInputsChanged = (previewMatches & PREVIEW_WIDTH_INPUTS_MATCH) == 0;
+        if (segmentInputsChanged || lineStartMs != Math.max(0L, startTimeMs)
+                || lineEndMs != Math.max(Math.max(0L, startTimeMs), endTimeMs) || playing != isPlaying) {
+            playbackRenderWindow.invalidate();
+        }
+        // The host republishes the preview every 250 ms. Paused on the same rows and position,
+        // the frame it would draw is the one already on screen (see setPlaybackFrame).
+        boolean unchangedPaused = previewMatches == (PREVIEW_LAYOUT_MATCH | PREVIEW_INSTANCES_MATCH | PREVIEW_WIDTH_INPUTS_MATCH)
+                && !playing && !isPlaying
+                && basePositionMs == Math.max(0L, positionMs)
+                && lineStartMs == Math.max(0L, startTimeMs)
+                && lineEndMs == Math.max(lineStartMs, endTimeMs);
         lines.clear();
         lines.addAll(safeLines);
         timeDrivenVisuals = false;
@@ -152,13 +164,18 @@ final class MainLyricPreviewView extends View {
         if (layoutChanged) {
             requestLayout();
         }
+        if (unchangedPaused && !timeDrivenVisuals
+                && frameAnimationsEnabled == MotionPreferences.animationsEnabled(getContext())) return;
+        if (canReusePlaybackFrame(basePositionMs)) return;
         postInvalidateOnAnimation();
     }
 
     void clear() {
+        boolean exitShown = exitingInterlude != null;
         lastDrawnInterlude = null;
         exitingInterlude = null;
         setPreview(Collections.emptyList(), 0L, 0L, 0L, false);
+        if (exitShown) postInvalidateOnAnimation();
     }
 
     /** Native inline lyrics reserve only their selected rows, without player-page spacing. */
@@ -187,6 +204,7 @@ final class MainLyricPreviewView extends View {
         playing = isPlaying;
         if (unchangedPaused && !timeDrivenVisuals
                 && frameAnimationsEnabled == MotionPreferences.animationsEnabled(getContext())) return;
+        if (canReusePlaybackFrame(basePositionMs)) return;
         postInvalidateOnAnimation();
     }
 
@@ -210,7 +228,17 @@ final class MainLyricPreviewView extends View {
         hostFrameFresh = frameTimeNanos > 0L;
         if (unchangedPaused && !timeDrivenVisuals
                 && frameAnimationsEnabled == MotionPreferences.animationsEnabled(getContext())) return;
+        if (canReusePlaybackFrame(nextPositionMs)) return;
         postInvalidateOnAnimation();
+    }
+
+    private boolean canReusePlaybackFrame(double position) {
+        return measuredLineWidthsValid && playbackRenderWindow.contains(position);
+    }
+
+    /** Effects such as wave/pulse also animate while playback is paused. */
+    boolean needsHostFrames() {
+        return timeDrivenVisuals && MotionPreferences.animationsEnabled(getContext());
     }
 
     void setTextScale(float scale) {
@@ -306,6 +334,7 @@ final class MainLyricPreviewView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        playbackRenderWindow.invalidate();
         if (lines.isEmpty()) {
             lastDrawnInterlude = null;
             exitingInterlude = null;
@@ -375,6 +404,10 @@ final class MainLyricPreviewView extends View {
             applyEdgeFadeMask(canvas, left, width);
         }
         canvas.restoreToCount(save);
+        playbackRenderWindow.begin(position);
+        if (timeDrivenVisuals || exitingInterlude != null || hasKaraokeLine() || overflow) {
+            playbackRenderWindow.invalidate();
+        }
         if (exitingInterlude != null && frameAnimationsEnabled) postInvalidateOnAnimation();
         if (frameProbeEnabled) {
             logFrameProbe(frameProbeStartNs, position, frameProbeHostTime, frameNanos);

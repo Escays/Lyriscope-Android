@@ -32,6 +32,6 @@ static class Snapshot {
 '''.replace('// PROVIDERS', providers).replace('// PROVIDER', provider).replace('// GATES', gates)
 (work / 'ProviderGates.java').write_text(fixture)
 deps = classpath(work, json_jar())
-sources = [SHARED / 'DeepLTranslationProvider.java', work / 'ProviderGates.java', ROOT / 'tests/dev/lyriscope/core/DeepLRegression.java']
+sources = [SHARED / 'DeepLTranslationProvider.java', SHARED / 'PerplexityAgentApi.java', work / 'ProviderGates.java', ROOT / 'tests/dev/lyriscope/core/DeepLRegression.java']
 subprocess.run([java_tool('javac'), '-cp', deps, '-d', str(work), *map(str, sources)], check=True)
 subprocess.run([java_tool('java'), '-cp', deps, 'dev.lyriscope.core.DeepLRegression'], check=True)

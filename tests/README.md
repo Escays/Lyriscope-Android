@@ -24,11 +24,16 @@ python3 tests/run_local_lyrics_bridge_regression.py
 python3 tests/run_renderer_overlap_regression.py
 python3 tests/run_frame_layout_pool_regression.py
 python3 tests/run_render_idle_regression.py
+python3 tests/run_playback_scheduler_regression.py
 python3 tests/run_card_presence_regression.py
 python3 tests/run_karaoke_controller_regression.py
 python3 tests/run_inline_gate_regression.py
 python3 tests/run_inline_hooks_regression.py
 python3 tests/run_inline_lifecycle_regression.py
+python3 tests/run_mapping_probe_regression.py
+
+# Optional: audit SpotifyMapping.java against a Spotify APK (needs no device).
+# python3 tests/run_mapping_audit.py --apk /path/to/Spotify.apk
 python3 tests/run_supplement_loading_regression.py
 python3 tests/run_repository_completion_regression.py
 python3 tests/run_furigana_loading_regression.py
@@ -45,6 +50,11 @@ production label bounds, translated accessibility text and spin clock with synth
 The interlude regression replays a 120 Hz handoff through the actual full-page retention and
 preview methods, including seeks, reduced motion and unchanged lyric row/anchor geometry.
 These three checks also run before release signing in Android Release.
+
+The playback scheduler regression executes the production Activity scheduler with a deterministic
+vsync/timer queue: coalesced wakes, immediate resume, idle polling, pending seeks, effect rows and
+lifecycle cancellation. Frame reuse itself is gated by `PlaybackRenderWindow`, which is rebuilt
+from the rows a frame actually painted.
 
 `shared/src/test` contains the common JUnit checks, including initialization of
 every language table. The host-side regressions execute production Java or

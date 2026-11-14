@@ -66,5 +66,6 @@ source.write_text((ROOT / "tests/OpenAIRequestParamsRegression.java.in").read_te
 dependencies = classpath(work, json_jar())
 # PaxsenixAiModels builds its request identity from ProjectLinks, so that class has to come along.
 subprocess.run([java_tool("javac"), "-cp", dependencies, "-d", str(work), str(source),
-                str(SHARED / "PaxsenixAiModels.java"), str(SHARED / "ProjectLinks.java")], check=True)
+                str(SHARED / "PaxsenixAiModels.java"), str(SHARED / "ProjectLinks.java"),
+                str(SHARED / "PerplexityAgentApi.java")], check=True)
 subprocess.run([java_tool("java"), "-cp", dependencies, "dev.lyriscope.core.OpenAIRequestParamsRegression"], check=True)
