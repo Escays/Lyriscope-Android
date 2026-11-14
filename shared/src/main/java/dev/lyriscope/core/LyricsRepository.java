@@ -80,6 +80,12 @@ final class LyricsRepository {
     private static final double DURATION_TOLERANCE_SECONDS = 15.0;
     /** Score given to a candidate that cannot be the same recording; below every real score. */
     private static final double REJECTED_CANDIDATE_SCORE = -1.0;
+    /**
+     * Whether an empty lookup may ask NetEase and QQ one last time (see {@link #probeInstrumental}).
+     * Regressions that answer every host with a strict mock switch it off, so a test can never reach
+     * the real internet by accident.
+     */
+    static volatile boolean instrumentalProbeEnabled = true;
     private static final double LRCLIB_SYNCED_FALLBACK_SCORE_WINDOW = 0.50;
     private static final double LRCLIB_SYNCED_FALLBACK_MIN_TITLE_SCORE = 0.78;
     private static final double LRCLIB_SYNCED_FALLBACK_MIN_ARTIST_SCORE = 0.45;
@@ -1089,7 +1095,61 @@ final class LyricsRepository {
         } finally {
             lookups.cancel();
         }
-        return LyricsResult.empty(ui("repo.lyrics_not_found"));
+        return probeInstrumental(track, log);
+    }
+
+    /**
+     * Last question before giving up: does a catalogue that knows this recording say it has no words?
+     *
+     * <p>An instrumental is not a lookup failure, but the lyric providers cannot tell one apart from a
+     * track nobody has written up — only NetEase's {@code nolyric} flag and QQ's "这首歌是纯音乐请欣赏"
+     * notice say so. Both are asked here, once, and only when every provider has already come back
+     * empty, so the cost is a request that would otherwise have been spent showing "no lyrics found".
+     * An instrumental answer is remembered, which is what stops the next visit from asking at all.
+     */
+    private LyricsResult probeInstrumental(TrackSnapshot track, LogSink log) {
+        LyricsResult notFound = LyricsResult.empty(ui("repo.lyrics_not_found"));
+        if (!instrumentalProbeEnabled || track == null || track.title.trim().isEmpty()) {
+            return notFound;
+        }
+        PlatformHttpTransport.Transport transport = PlatformHttpTransport.http();
+        for (PlatformLyricSource source : new PlatformLyricSource[]{
+                new NeteaseLyricSource(transport),
+                new QqLyricSource(transport)}) {
+            try {
+                String query = track.artist.trim().isEmpty()
+                        ? track.title.trim()
+                        : track.title.trim() + " " + track.artist.trim();
+                PlatformRecordingMatcher.Score best = null;
+                for (PlatformRecordingMatcher.Score score : PlatformRecordingMatcher.rank(
+                        track.title,
+                        track.artist,
+                        track.album,
+                        track.durationMs,
+                        source.search(query, 6)
+                )) {
+                    if (score.acceptable()) {
+                        best = score;
+                        break;
+                    }
+                }
+                if (best == null) {
+                    log.write("instrumental probe: " + source.label() + " has no recording that matches");
+                    continue;
+                }
+                PlatformLyricSource.PlatformLyricDocument document = source.fetch(best.candidate.id);
+                InstrumentalDetector.Verdict verdict = document.verdict();
+                log.write("instrumental probe: " + source.label() + " answered " + verdict
+                        + " for \"" + best.candidate.title + "\" / \"" + best.candidate.artist + "\"");
+                if (verdict == InstrumentalDetector.Verdict.INSTRUMENTAL) {
+                    return instrumentalResult(track);
+                }
+            } catch (Exception error) {
+                String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                log.write("instrumental probe: " + source.label() + " unavailable (" + message + ")");
+            }
+        }
+        return notFound;
     }
 
     /**
@@ -1972,6 +2032,13 @@ final class LyricsRepository {
                 candidates.get(0),
                 log
         );
+        if (best != null && best.rejectedAsDifferentRecording) {
+            // The synced-fallback path can hand back the top candidate even though the identity rule
+            // rejected it; a candidate that is not this recording must never be selected, synced or not.
+            log.write("lrclib selected: rejected top candidate, different recording: "
+                    + describeLrclibCandidate(best));
+            return null;
+        }
         if (best.score <= 2.2 && best.syncSourceMatchScore <= 0 && !best.syncLineExactMatch) {
             log.write("lrclib selected: rejected top candidate, score below threshold: " + fmt(best.score));
             return null;
@@ -3492,7 +3559,7 @@ final class LyricsRepository {
         // outranks any similarity measured from strings, including a mismatch in the credited artist.
         boolean syncDataNamesThisRecording = candidate.syncSourceMatchScore > 0 || candidate.syncLineExactMatch;
         if (strict && !syncDataNamesThisRecording
-                && isDifferentRecording(track, candidate, artistScore, albumScore)) {
+                && isDifferentRecording(track, candidate, titleScore, artistScore, albumScore)) {
             return REJECTED_CANDIDATE_SCORE;
         }
         return score;
@@ -3502,17 +3569,24 @@ final class LyricsRepository {
      * True when the candidate's credit and length both say it is another recording.
      *
      * <p>The rule itself lives in {@link RecordingIdentity} so it can be exercised without a device; see
-     * there for why a title alone must never be enough.
+     * there for why a title alone must never be enough. An ISRC both sides carry is checked first: two
+     * different ISRCs are two different recordings, whatever the titles say.
      */
     private boolean isDifferentRecording(
             TrackSnapshot track,
             LrclibCandidate candidate,
+            double titleScore,
             double artistScore,
             double albumScore
     ) {
+        if (!track.isrc.isEmpty() && !candidate.isrc.isEmpty()
+                && !track.isrc.equalsIgnoreCase(candidate.isrc)) {
+            return true;
+        }
         return RecordingIdentity.isDifferentRecording(
                 track.durationMs,
                 candidate.durationSeconds,
+                titleScore,
                 artistScore,
                 albumScore
         );

@@ -114,32 +114,37 @@ public final class InstrumentalVerdictRegression {
                 "a document with lyrics has no verdict");
     }
 
-    /** The reported bug: another band's song with the same title, matched on the title alone. */
+    /** The reported bug: another band's song with a similar title, matched on the title alone. */
     private static void namesakesAreRejected() {
-        // The whole point of the fix — TONE's instrumental against a same-named song by another act,
-        // 40 seconds apart. The title alone used to be worth 4.0 and the acceptance threshold is 2.2.
-        check(RecordingIdentity.isDifferentRecording(200_000L, 240.0, 0.0, 0.0),
-                "a different act 40 seconds away is another recording");
-        check(RecordingIdentity.isDifferentRecording(200_000L, 206.0, 0.05, 0.0),
-                "a different act six seconds away is still another recording");
-        check(RecordingIdentity.isDifferentRecording(200_000L, 240.0, 0.30, 1.0),
-                "a dissimilar credit with a far length is another recording");
-        check(RecordingIdentity.isDifferentRecording(0L, 240.0, 0.1, 0.0),
-                "with no length to compare, a clearly different act is enough");
+        // The exact case: "Tone Twilight Zone" by Cornelius / album "Point" / 234.3s against
+        // "Twilight Zone / Twilight Tone" by The Manhattan Transfer / album "1980" / 235.0s.
+        // The title is a near miss and the lengths agree by coincidence; the credit is another act.
+        check(RecordingIdentity.isDifferentRecording(234_266L, 235.0, 0.85, 0.50, 0.0),
+                "a near-miss title with an unrelated act and another album is a different recording");
+        check(RecordingIdentity.isDifferentRecording(234_266L, 238.0, 0.85, 0.50, 0.0),
+                "the synced namesake must be rejected as well");
+        check(RecordingIdentity.isDifferentRecording(0L, 235.0, 0.85, 0.50, 0.0),
+                "without a length, a near-miss title and another album are still another recording");
+        check(RecordingIdentity.isDifferentRecording(200_000L, 240.0, 0.40, 0.10, 0.0),
+                "a different act with a much shorter length is another recording");
+        check(RecordingIdentity.isDifferentRecording(200_000L, 226.0, 1.0, 0.30, 0.72),
+                "an unrelated act far from the length is another take even on the same album");
     }
 
     /** The rules must not start rejecting the matches that are right. */
     private static void genuineMatchesSurvive() {
-        check(!RecordingIdentity.isDifferentRecording(200_000L, 200.5, 0.95, 1.0),
+        check(!RecordingIdentity.isDifferentRecording(234_266L, 234.6, 1.0, 1.0, 1.0),
+                "the same act, title and album is the same recording");
+        check(!RecordingIdentity.isDifferentRecording(200_000L, 200.5, 1.0, 0.95, 1.0),
                 "the same act and the same length is the same recording");
-        check(!RecordingIdentity.isDifferentRecording(200_000L, 201.0, 0.0, 1.0),
-                "another credit with an identical length and album is the same recording");
-        check(!RecordingIdentity.isDifferentRecording(200_000L, 206.0, 0.5, 0.0),
-                "a similar credit survives a six-second gap");
-        check(!RecordingIdentity.isDifferentRecording(0L, 240.0, 0.8, 0.0),
+        check(!RecordingIdentity.isDifferentRecording(234_266L, 235.0, 0.85, 0.50, 0.72),
+                "another credit on the same album is the same recording");
+        check(!RecordingIdentity.isDifferentRecording(234_266L, 234.9, 1.0, 0.20, 0.0),
+                "an identical title and length is the same recording under another credit");
+        check(!RecordingIdentity.isDifferentRecording(0L, 240.0, 0.85, 0.90, 0.0),
                 "an unknown length must not sink a matching act");
-        check(!RecordingIdentity.isDifferentRecording(200_000L, 200.0, 0.2, 0.6),
-                "a borderline credit with a matching length survives");
+        check(!RecordingIdentity.isDifferentRecording(200_000L, 206.0, 0.95, 0.65, 0.0),
+                "a matching act survives a six-second gap");
     }
 
     /** A verdict has to be recognisable on the page, or the card cannot offer to undo it. */

@@ -32,6 +32,9 @@ public final class LrclibPlaybackRegression {
             "", 180000, 0, 1, 1f, false, null, "");
     record Reply(int status, String body) { }
     static {
+        // Every host is answered by the mock below, so the empty-lookup probe has to stay off: it asks
+        // NetEase and QQ, and the mock rightly refuses a host it was not told about.
+        LyricsRepository.instrumentalProbeEnabled = false;
         try {
             Field f = Unsafe.class.getDeclaredField("theUnsafe"); f.setAccessible(true); UNSAFE = (Unsafe) f.get(null);
             Class<?> type = Class.forName("dev.lyriscope.core.LyricsRepository$LogSink");

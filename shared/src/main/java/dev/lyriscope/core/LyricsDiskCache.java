@@ -16,7 +16,12 @@ import java.util.Locale;
 
 final class LyricsDiskCache {
     private static final int VERSION = 1;
-    private static final int BASE_CONTRIBUTOR_SCHEMA_VERSION = 13;
+    /**
+     * Bumped whenever the identity rules change. Entries written before the bump were matched by the
+     * old rules, and a cache hit skips selection entirely — which is how a wrong match survived a fix
+     * until the reader cleared it by hand.
+     */
+    private static final int BASE_CONTRIBUTOR_SCHEMA_VERSION = 14;
     private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
 
     private final File directory;
