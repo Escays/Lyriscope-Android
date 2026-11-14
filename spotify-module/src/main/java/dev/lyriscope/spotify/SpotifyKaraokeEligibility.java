@@ -27,6 +27,8 @@ public final class SpotifyKaraokeEligibility {
     private static final Pattern TRACK_URI = Pattern.compile("spotify:track:[A-Za-z0-9]{22}");
     private static volatile ProviderBinding providerBinding;
     private static volatile ProviderDependencies providerDependencies;
+    /** Anchors for this build; set with the first provider capture. */
+    private static volatile SpotifyMapping.Karaoke karaoke;
     private static final Map<String, Cached> CACHE = new LinkedHashMap<String, Cached>(16, .75f, true) {
         @Override protected boolean removeEldestEntry(Map.Entry<String, Cached> entry) {
             return size() > 128;
@@ -75,8 +77,10 @@ public final class SpotifyKaraokeEligibility {
     }
 
     /** Captures dependencies from a provider constructor (null track) or availability call. */
-    public static void onCardProvider(Object provider, Object track) {
-        if (provider == null || !provider.getClass().getName().equals("p.yca0")) return;
+    public static void onCardProvider(SpotifyMapping mapping, Object provider, Object track) {
+        if (provider == null || mapping.karaoke == null
+                || !provider.getClass().getName().equals(mapping.availability.owner)) return;
+        karaoke = mapping.karaoke;
         try {
             ProviderBinding binding = providerBindingFor(provider.getClass());
             if (track != null) {
@@ -193,13 +197,13 @@ public final class SpotifyKaraokeEligibility {
     private static void consume(int expectedGeneration, String uri, Object response) {
         if (!isCurrent(expectedGeneration, uri)) return;
         try {
-            if (response == null || !response.getClass().getName().equals("p.eve")) {
+            if (response == null || !response.getClass().getName().equals(karaoke.response)) {
                 throw new IllegalStateException("Native lyrics response shape changed");
             }
             Object lyrics = field(response, "a");
-            if (!lyrics.getClass().getName().equals("p.q4a0")) throw new IllegalStateException("Native lyrics shape changed");
+            if (!lyrics.getClass().getName().equals(karaoke.lyricsShape)) throw new IllegalStateException("Native lyrics shape changed");
             Object vocalRemoval = field(lyrics, "g");
-            if (!vocalRemoval.getClass().getName().equals("p.p4a0")) throw new IllegalStateException("Native support shape changed");
+            if (!vocalRemoval.getClass().getName().equals(karaoke.supportShape)) throw new IllegalStateException("Native support shape changed");
             finish(expectedGeneration, uri, true, (Boolean) field(vocalRemoval, "a"));
         } catch (ReflectiveOperationException | RuntimeException error) {
             finish(expectedGeneration, uri, false, false);
@@ -261,7 +265,7 @@ public final class SpotifyKaraokeEligibility {
             synchronized (SpotifyKaraokeEligibility.class) {
                 cached = providerBinding;
                 if (cached == null || cached.providerType != type) {
-                    cached = new ProviderBinding(type);
+                    cached = new ProviderBinding(type, karaoke);
                     providerDependencies = null;
                     providerBinding = cached;
                 }
@@ -289,13 +293,13 @@ public final class SpotifyKaraokeEligibility {
         final Method trackUri;
         Method poolState, stateFlow;
 
-        ProviderBinding(Class<?> type) throws ReflectiveOperationException {
+        ProviderBinding(Class<?> type, SpotifyMapping.Karaoke karaoke) throws ReflectiveOperationException {
             providerType = type;
             ClassLoader loader = type.getClassLoader();
-            contextTrack = Class.forName("com.spotify.player.model.ContextTrack", false, loader);
+            contextTrack = Class.forName(SpotifyMapping.CONTEXT_TRACK, false, loader);
             trackUri = contextTrack.getMethod("uri");
-            mapperType = Class.forName("p.yh", false, loader);
-            repositoryType = Class.forName("p.eda0", false, loader);
+            mapperType = Class.forName(karaoke.mapper, false, loader);
+            repositoryType = Class.forName(karaoke.repository, false, loader);
             flowable = Class.forName("io.reactivex.rxjava3.core.Flowable", false, loader);
             providerMapper = finalField(type, "c");
             providerPool = finalField(type, "a");
@@ -303,8 +307,8 @@ public final class SpotifyKaraokeEligibility {
             mapperRepository = mapperType.getField("c");
             repositoryService = finalField(repositoryType, "d");
             try {
-                poolState = Class.forName("p.fzi0", false, loader).getMethod("c");
-                stateFlow = Class.forName("p.o131", false, loader).getMethod("e");
+                poolState = Class.forName(karaoke.pool, false, loader).getMethod("c");
+                stateFlow = Class.forName(karaoke.stateFlow, false, loader).getMethod("e");
             } catch (ReflectiveOperationException ignored) {
                 // Optional player-source compatibility cannot block support lookup.
             }
@@ -318,7 +322,7 @@ public final class SpotifyKaraokeEligibility {
             Object service = repositoryService.get(repository);
             if (service == null) return null;
             String name = service.getClass().getName();
-            if (!name.equals("p.gea0") && !name.equals("p.vja0")) return null;
+            if (!karaoke.services.contains(name)) return null;
             return new ProviderDependencies(provider, mapper, repository, providerPool.get(provider), null);
         }
 

@@ -17,7 +17,7 @@ Releases 里 **`Lyriscope-Spotify-v<版本>.apk`** 是模块；`Lyriscope-Androi
 | LSPosed | 已 root 且 LSPosed 正常工作，在模块管理器里启用并勾选作用域。模块本身要求 Android 8.0+，再加上加载器与 Spotify 版本的条件。 |
 | LSPatch | Android 9+，需要 LSPatch 管理器和一份 Spotify APK。不需要 root，但要自己打补丁。 |
 
-模块目前只认 Spotify **9.1.80.2221 / 9.1.42.2058**，其他版本不会挂上歌词界面。Spotify 的 APK 不在本项目里，需自行以合法方式获取。版本对上也**不代表**在所有机型、系统、加载器上都能正常工作。
+模块目前认 Spotify **9.2.0.2053**、**9.1.80.2221**、**9.1.42.2058**，其他版本不会挂上歌词界面。9.2.0.2053 映射了卡片、整页、卡片排序和内嵌歌词行（槽位已通，两个可见性门控与原生 Lyrics 开关尚未重锚），**音视频切换、原生 SingAlong 在该版本尚未适配**（对应分组为 `null`，消费者自动跳过）。支持列表与每个版本对应的类名在 [`SpotifyMapping.java`](src/main/java/dev/lyriscope/spotify/SpotifyMapping.java)，加新版本的方法见 [ADAPTING.md](ADAPTING.md)。Spotify 的 APK 不在本项目里，需自行以合法方式获取。版本对上也**不代表**在所有机型、系统、加载器上都能正常工作。
 
 实机基线是 root + LSPosed。[官方 LSPatch](https://github.com/LSPosed/LSPatch) 已归档，属于遗留方案，不要假设它能配合最新的 Android 或 Spotify。
 
@@ -59,7 +59,7 @@ Releases 里 **`Lyriscope-Spotify-v<版本>.apk`** 是模块；`Lyriscope-Androi
 - 标题上方那一行歌词也用 Lyriscope 的。用 Spotify 的 **Lyrics · On/Off** 控制显隐，点歌词开整页。
 - 支持的歌在整页歌词右下角会出现 Spotify 原生 SingAlong 的麦克风按钮，**OFF → LOW → HIGH → OFF** 循环，触屏出现、静置三秒隐藏。需要 Spotify 支持该曲，并且受在线播放、本地播放、音质条件限制（LOW 音质不可用）。它不能解锁功能开关或让不支持的歌变得可用。
 
-这两条**不**适用于 9.1.42.2058，也不适用于独立应用。
+这两条**不**适用于 9.1.42.2058，也不适用于独立应用。9.2.0.2053 的内嵌行尚未重锚可见性门控，这两条同样暂不可用。
 
 ## 更新与排错
 
@@ -83,7 +83,7 @@ Releases 里 **`Lyriscope-Spotify-v<版本>.apk`** 是模块；`Lyriscope-Androi
 
 从仓库根目录 `./build.sh :spotify-module:assembleRelease` 构建，产物是 `spotify-module/build/outputs/apk/release/spotify-module-release.apk`，发布时改名为 `Lyriscope-Spotify-<tag>.apk`。两个 APK 的版本都取自根目录 `gradle.properties` 的 `lyriscopeVersionName` / `lyriscopeVersionCode`。正式发布需要 `LYRISCOPE_RELEASE_*` 签名配置，本地不带配置的构建用 debug 密钥——更新时保持同一密钥。
 
-原生菜单门控与回归覆盖见 [INLINE_MAPPING.md](INLINE_MAPPING.md)，构建与签名见[架构说明](../ARCHITECTURE.md#build-and-verify)，验证见[测试说明](../tests/README.md)与[内嵌冒烟检查](../tests/EMBEDDED_INLINE_SMOKE.md)。
+原生菜单门控与回归覆盖见 [INLINE_MAPPING.md](INLINE_MAPPING.md)，新增 Spotify 版本的步骤与探针工具见 [ADAPTING.md](ADAPTING.md)，构建与签名见[架构说明](../ARCHITECTURE.md#build-and-verify)，验证见[测试说明](../tests/README.md)与[内嵌冒烟检查](../tests/EMBEDDED_INLINE_SMOKE.md)。
 
 </details>
 
@@ -93,7 +93,7 @@ The **Lyriscope for Spotify** module replaces Spotify's lyrics card and full lyr
 
 Download **`Lyriscope-Spotify-v<version>.apk`** from the [latest release](https://github.com/Escays/Lyriscope-Android/releases/latest); `Lyriscope-Android-v<version>-release.apk` is the separate app. The module contains neither Spotify nor a prepatched Spotify.
 
-Only Spotify **9.1.80.2221 / 9.1.42.2058** are recognised. Obtain a supported Spotify APK lawfully yourself. The baseline is rooted LSPosed; [LSPatch](https://github.com/LSPosed/LSPatch) is archived and legacy.
+Spotify **9.2.0.2053**, **9.1.80.2221** and **9.1.42.2058** are recognised. 9.2.0.2053 maps the card, the full page, card ordering and the Now Playing inline slot (the two visibility gates and the native Lyrics toggle are not re-anchored yet): the audio/video switch and native SingAlong are not re-anchored on that build (their groups are `null`, so consumers skip them). Obtain a supported Spotify APK lawfully yourself. The baseline is rooted LSPosed; [LSPatch](https://github.com/LSPosed/LSPatch) is archived and legacy.
 
 - **LSPosed:** force-stop Spotify, install the module APK, enable **Lyriscope for Spotify** with scope **`com.spotify.music`**, restart as the loader asks. Spotify is not repatched.
 - **LSPatch:** patch the **Spotify APK** as target, add the module APK in the "include module" step, install the resulting Spotify APK. A patched host may need the old install removed first, which also erases its settings, downloads and the module's stored state.

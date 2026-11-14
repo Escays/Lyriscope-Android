@@ -43,9 +43,9 @@ public final class ComposeAdapter {
         activity.finish();
     }
 
-    public static void renderCard(Object composer) {
+    public static void renderCard(SpotifyMapping mapping, Object composer) {
         try {
-            Interop current = interopFor(composer);
+            Interop current = interopFor(mapping, composer);
             // Give Compose the ratio too, including its intrinsic measurement of AndroidView.
             current.render.invoke(null, current.factory, current.squareModifier, null, composer, 0, 4);
         } catch (ReflectiveOperationException error) {
@@ -55,44 +55,45 @@ public final class ComposeAdapter {
     }
 
     /** Resolve optional mappings before entering any Compose groups. */
-    static void prepareInline(Object composer) throws ReflectiveOperationException {
-        inlineInteropFor(composer);
+    static void prepareInline(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
+        inlineInteropFor(mapping, composer);
     }
 
-    public static void renderInline(Object composer) throws ReflectiveOperationException {
-        InlineInterop current = inlineInteropFor(composer);
+    public static void renderInline(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
+        InlineInterop current = inlineInteropFor(mapping, composer);
         current.render.invoke(null, current.factory, current.modifier, null, composer, 0, 4);
     }
 
-    private static InlineInterop inlineInteropFor(Object composer) throws ReflectiveOperationException {
+    private static InlineInterop inlineInteropFor(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
         InlineInterop current = inlineInterop;
         if (current == null) {
             synchronized (ComposeAdapter.class) {
                 current = inlineInterop;
-                if (current == null) inlineInterop = current = new InlineInterop(composer);
+                if (current == null) inlineInterop = current = new InlineInterop(mapping, composer);
             }
         }
         return current;
     }
 
-    private static Interop interopFor(Object composer) throws ReflectiveOperationException {
+    private static Interop interopFor(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
         Interop current = interop;
         if (current == null) {
             synchronized (ComposeAdapter.class) {
                 current = interop;
-                if (current == null) interop = current = new Interop(composer);
+                if (current == null) interop = current = new Interop(mapping, composer);
             }
         }
         return current;
     }
 
     /** Returns null only for an unrelated branch of an R8-merged provider, or on a mapping error. */
-    public static Object cardAvailability(Object provider, Object track) {
+    public static Object cardAvailability(SpotifyMapping mapping, Object provider, Object track) {
         try {
-            boolean oldVersion = provider.getClass().getName().equals("p.pf30");
-            if (oldVersion && provider.getClass().getField("a").getInt(provider) != 0) return null;
-            Availability current = availabilityFor(oldVersion, track);
-            Object card = createSongCard(oldVersion, track);
+            // An R8-merged provider carries several request branches; only the lyrics branch answers.
+            if (mapping.availability.branch != null
+                    && provider.getClass().getField(mapping.availability.branch).getInt(provider) != 0) return null;
+            Availability current = availabilityFor(mapping, track);
+            Object card = createSongCard(mapping, track);
             return card == null ? current.empty : current.maybeJust.newInstance(card);
         } catch (ReflectiveOperationException | RuntimeException error) {
             Log.e(TAG, "Could not supply ivLyrics card availability", error);
@@ -101,8 +102,8 @@ public final class ComposeAdapter {
     }
 
     /** Creates a song card without consulting Spotify's lyrics or server-selected card list. */
-    static Object createSongCard(boolean oldVersion, Object track) throws ReflectiveOperationException {
-        Availability current = availabilityFor(oldVersion, track);
+    static Object createSongCard(SpotifyMapping mapping, Object track) throws ReflectiveOperationException {
+        Availability current = availabilityFor(mapping, track);
         String uri = (String) current.uri.invoke(track);
         @SuppressWarnings("unchecked") Map<String, String> metadata = (Map<String, String>) current.metadata.invoke(track);
         // Keep non-song content outside the lyrics card; ivLyrics resolves song lyrics independently.
@@ -114,12 +115,12 @@ public final class ComposeAdapter {
         return current.card.newInstance(model);
     }
 
-    private static Availability availabilityFor(boolean oldVersion, Object track) throws ReflectiveOperationException {
+    private static Availability availabilityFor(SpotifyMapping mapping, Object track) throws ReflectiveOperationException {
         Availability current = availability;
         if (current == null) {
             synchronized (ComposeAdapter.class) {
                 current = availability;
-                if (current == null) availability = current = new Availability(oldVersion, track.getClass().getClassLoader());
+                if (current == null) availability = current = new Availability(mapping, track.getClass().getClassLoader());
             }
         }
         return current;
@@ -135,15 +136,19 @@ public final class ComposeAdapter {
         final Object factory;
         final Object squareModifier;
 
-        Interop(Object composer) throws ReflectiveOperationException {
+        Interop(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
             ClassLoader loader = composer.getClass().getClassLoader();
-            boolean oldVersion = composer.getClass().getName().equals("p.gge");
-            Class<?> function = Class.forName(oldVersion ? "p.heu" : "kotlin.jvm.functions.Function1", false, loader);
-            Class<?> modifier = Class.forName(oldVersion ? "androidx.compose.ui.Modifier" : "p.wmg0", false, loader);
-            Class<?> owner = Class.forName(oldVersion ? "p.f34" : "p.jy81", false, loader);
-            render = owner.getDeclaredMethod("b", function, modifier, function, composer.getClass(), int.class, int.class);
+            SpotifyMapping.Compose compose = mapping.compose;
+            Class<?> function = Class.forName(compose.function, false, loader);
+            Class<?> modifier = Class.forName(compose.modifier, false, loader);
+            Class<?> owner = Class.forName(compose.renderOwner, false, loader);
+            // The parameter is declared as the Composer type in the table, which R8 may leave as the
+            // interface while the running instance is its implementation; never ask for the runtime class.
+            Class<?> composerType = Class.forName(mapping.card.composer, false, loader);
+            render = owner.getDeclaredMethod(compose.renderer, function, modifier, function,
+                    composerType, int.class, int.class);
             render.setAccessible(true);
-            Constructor<?> aspectRatio = Class.forName(oldVersion ? "p.xx4" : "p.p16", false, loader)
+            Constructor<?> aspectRatio = Class.forName(compose.aspect, false, loader)
                     .getDeclaredConstructor(float.class, boolean.class);
             aspectRatio.setAccessible(true);
             squareModifier = aspectRatio.newInstance(1f, false);
@@ -167,20 +172,26 @@ public final class ComposeAdapter {
         final Object factory;
         final Object modifier;
 
-        InlineInterop(Object composer) throws ReflectiveOperationException {
+        InlineInterop(SpotifyMapping mapping, Object composer) throws ReflectiveOperationException {
             ClassLoader loader = composer.getClass().getClassLoader();
-            Class<?> function = Class.forName("kotlin.jvm.functions.Function1", false, loader);
-            Class<?> modifierType = Class.forName("p.wmg0", false, loader);
-            Class<?> owner = Class.forName("p.jy81", false, loader);
-            render = owner.getDeclaredMethod("b", function, modifierType, function,
-                    composer.getClass(), int.class, int.class);
+            SpotifyMapping.Inline inline = mapping.inline;
+            Class<?> function = Class.forName(mapping.compose.function, false, loader);
+            Class<?> modifierType = Class.forName(mapping.compose.modifier, false, loader);
+            Class<?> owner = Class.forName(mapping.compose.renderOwner, false, loader);
+            Class<?> composerType = Class.forName(inline.composer, false, loader);
+            render = owner.getDeclaredMethod(mapping.compose.renderer, function, modifierType, function,
+                    composerType, int.class, int.class);
             render.setAccessible(true);
-            Object empty = Class.forName("p.tmg0", true, loader).getField("a").get(null);
-            Object fullWidth = Class.forName("p.bo01", false, loader)
-                    .getMethod("f", float.class, modifierType).invoke(null, 1f, empty);
-            modifier = Class.forName("p.tld1", false, loader)
-                    .getMethod("y", float.class, float.class, int.class, modifierType)
-                    .invoke(null, 8f, 0f, 2, fullWidth);
+            Object empty = Class.forName(inline.emptyModifier, true, loader).getField("a").get(null);
+            // A build may only map the slot; an unmodified width still lets the preview measure itself.
+            Object sized = inline.fillMaxWidth == null ? empty
+                    : Class.forName(inline.fillMaxWidth, false, loader)
+                            .getMethod("f", float.class, modifierType).invoke(null, 1f, empty);
+            Object padded = inline.padding == null ? sized
+                    : Class.forName(inline.padding, false, loader)
+                            .getMethod("y", float.class, float.class, int.class, modifierType)
+                            .invoke(null, 8f, 0f, 2, sized);
+            modifier = padded;
             if (!modifierType.isInstance(modifier)) throw new IllegalStateException("Invalid inline modifier");
             factory = Proxy.newProxyInstance(loader, new Class<?>[]{function}, this);
         }
@@ -203,16 +214,17 @@ public final class ComposeAdapter {
         final Constructor<?> maybeJust;
         final Object empty;
 
-        Availability(boolean oldVersion, ClassLoader loader) throws ReflectiveOperationException {
-            Class<?> track = Class.forName("com.spotify.player.model.ContextTrack", false, loader);
+        Availability(SpotifyMapping mapping, ClassLoader loader) throws ReflectiveOperationException {
+            SpotifyMapping.Availability availability = mapping.availability;
+            Class<?> track = Class.forName(SpotifyMapping.CONTEXT_TRACK, false, loader);
             uri = track.getMethod("uri");
             metadata = track.getMethod("metadata");
-            Class<?> state = Class.forName(oldVersion ? "p.ea30" : "p.f5a0", true, loader);
-            Object seed = state.getField(oldVersion ? "i" : "j").get(null);
+            Class<?> state = Class.forName(availability.state, true, loader);
+            Object seed = state.getField(availability.seed).get(null);
             emptyLyrics = state.getField("a").get(seed);
-            Class<?> modelType = Class.forName(oldVersion ? "p.q930" : "p.s4a0", false, loader);
+            Class<?> modelType = Class.forName(availability.model, false, loader);
             model = modelType.getConstructor(emptyLyrics.getClass(), String.class, String.class, String.class, String.class, String.class);
-            card = Class.forName(oldVersion ? "p.uba0" : "p.iui0", false, loader).getConstructor(modelType);
+            card = Class.forName(availability.card, false, loader).getConstructor(modelType);
             maybeJust = Class.forName("io.reactivex.rxjava3.internal.operators.maybe.MaybeJust", false, loader).getConstructor(Object.class);
             Class<?> emptyType = Class.forName("io.reactivex.rxjava3.internal.operators.maybe.MaybeEmpty", true, loader);
             Object emptyValue = null;

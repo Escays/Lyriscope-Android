@@ -9,6 +9,7 @@ import java.lang.reflect.Proxy;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import dev.lyriscope.spotify.SpotifyMapping;
 
 /** Uses Spotify's existing public TrackV4 metadata service; no authentication data is accessed. */
 final class SpotifyNativeMetadataClient {
@@ -27,7 +28,8 @@ final class SpotifyNativeMetadataClient {
 
     static void attach(Object value) {
         MAIN.post(() -> {
-            if (value == null || !value.getClass().getName().equals("p.w1x")) return;
+            SpotifyMapping.Metadata anchors = SpotifyMetadataBridge.metadata();
+            if (value == null || anchors == null || !value.getClass().getName().equals(anchors.client)) return;
             if (client == value) return;
             client = value;
             if (!availabilityLogged) {
@@ -54,9 +56,11 @@ final class SpotifyNativeMetadataClient {
         final int requestGeneration = ++generation;
         try {
             ClassLoader loader = client.getClass().getClassLoader();
+            SpotifyMapping.Metadata anchors = SpotifyMetadataBridge.metadata();
+            if (anchors == null) { finish(requestGeneration, "Native metadata mapping unavailable"); return; }
             Class<?> function = Class.forName("kotlin.jvm.functions.Function1", false, loader);
-            Class<?> trackType = Class.forName("p.fs61", false, loader);
-            Object unit = Class.forName("p.x181", false, loader).getField("a").get(null);
+            Class<?> trackType = Class.forName(anchors.track, false, loader);
+            Object unit = Class.forName(SpotifyMetadataBridge.unit(), false, loader).getField("a").get(null);
             Object query = Proxy.newProxyInstance(loader, new Class<?>[]{function}, (proxy, method, args) -> {
                 if (method.getName().equals("invoke")) {
                     args[0].getClass().getMethod("a", String.class, Class.class, boolean.class)
@@ -65,10 +69,10 @@ final class SpotifyNativeMetadataClient {
                 }
                 return proxyObjectMethod(proxy, method, args);
             });
-            Class<?> requestType = Class.forName("p.yh", false, loader);
+            Class<?> requestType = Class.forName(anchors.request, false, loader);
             Object request = requestType.getConstructor(String.class, boolean.class, function)
                 .newInstance("ivlyrics-isrc", false, query);
-            Object observable = client.getClass().getMethod("b", requestType).invoke(client, request);
+            Object observable = client.getClass().getMethod(anchors.requestMethod, requestType).invoke(client, request);
             Class<?> observableType = Class.forName("io.reactivex.rxjava3.core.Observable", false, loader);
             observable = observableType.getMethod("timeout", long.class, TimeUnit.class)
                 .invoke(observable, 12L, TimeUnit.SECONDS);

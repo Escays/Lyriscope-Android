@@ -72,10 +72,10 @@ JDK/SDK locations when environment variables are absent; Linux/CI should provide
 # spotify-module/build/outputs/apk/release/spotify-module-release.apk
 
 ./build.sh :app:assembleRelease
-# Requires the existing IVLYRICS_RELEASE_* configuration for a signed release.
+# Requires the existing LYRISCOPE_RELEASE_* configuration for a signed release.
 # Without it, app-release-unsigned.apk is produced.
 
-./build.sh :app:assembleRelease :spotify-module:assembleRelease -PivLyricsRequireReleaseSigning=true
+./build.sh :app:assembleRelease :spotify-module:assembleRelease -PlyriscopeRequireReleaseSigning=true
 # Build both release APKs and fail if release signing is not configured.
 
 ./build.sh :app:assembleQa
@@ -83,18 +83,20 @@ JDK/SDK locations when environment variables are absent; Linux/CI should provide
 # Coexists with the production app and keeps separate data.
 ```
 
-App release IDs and signing configuration names are unchanged. Both release
-variants read the shared `gradle/release-signing.gradle` configuration:
-`IVLYRICS_RELEASE_STORE_FILE`, `IVLYRICS_RELEASE_STORE_PASSWORD`,
-`IVLYRICS_RELEASE_KEY_ALIAS`, and `IVLYRICS_RELEASE_KEY_PASSWORD`. The tag/manual
-release workflow restores the existing repository signing key and requires this
-configuration with `-PivLyricsRequireReleaseSigning=true`.
+Both release variants read the shared `gradle/release-signing.gradle`
+configuration: `LYRISCOPE_RELEASE_STORE_FILE`, `LYRISCOPE_RELEASE_STORE_PASSWORD`,
+`LYRISCOPE_RELEASE_KEY_ALIAS`, and `LYRISCOPE_RELEASE_KEY_PASSWORD`, taken from a
+Gradle property, `local.properties`, or the environment, in that order. The
+tag/manual release workflow restores the repository signing key from the
+`ANDROID_KEYSTORE_*` secrets and requires this configuration with
+`-PlyriscopeRequireReleaseSigning=true`.
 
 Without release signing configuration, a local module release build continues to
-use the existing Android debug key; a standalone release remains unsigned.
-Keep the same signing key when installing updates. A published module signed with
-the release key may not update an earlier locally debug-signed installation.
-The QA variant is debug signed and includes `EmbeddedSmokeActivity` for
+use the Android debug key; a standalone release remains unsigned.
+Keep the same signing key when installing updates: since 1.0.8 both APKs are
+signed with `keystore/lyriscope-release.jks`, which is neither committed nor
+shared, so an installation signed with a different key must be uninstalled
+first. The QA variant is debug signed and includes `EmbeddedSmokeActivity` for
 synthetic metadata/pause/seek/track-switch and shared-result checks. It does not
 replace the user's production app or its data.
 
@@ -170,6 +172,8 @@ verify behavior and bounds, not device pixels or frame-rate performance.
 - Rendering, ivSync/provider fixes and common UI: edit `shared` once, verify both APKs.
 - Standalone permissions, launcher and initialization: edit `app`.
 - Spotify version mappings, native metadata, card placement and host transitions: edit `spotify-module`.
+  One build's names live in `dev.lyriscope.spotify.SpotifyMapping`; hooks read that table and
+  `SpotifyMappingCheck` reports unresolved anchors by label. Adding a build is `spotify-module/ADAPTING.md`.
 - Do not add Spotify classes or standard AndroidX WebKit imports to `shared`.
 - Keep provider fetching/translation contracts independent of the host adapter.
 

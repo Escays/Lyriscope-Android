@@ -24,7 +24,6 @@ import dev.lyriscope.core.SpotifyMetadataBridge;
 public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String TAG = "Lyriscope";
     private static final String HOST = "com.spotify.music";
-    private static final String FULLSCREEN = "com.spotify.lyrics.fullscreenview.page.LyricsFullscreenPageActivity";
     private static volatile boolean installed;
     private static String modulePath;
 
@@ -44,20 +43,24 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
                     if (installed) return;
                     try {
                         String version = context.getPackageManager().getPackageInfo(HOST, 0).versionName;
-                        boolean oldVersion;
-                        if ("9.1.80.2221".equals(version)) oldVersion = false;
-                        else if ("9.1.42.2058".equals(version)) oldVersion = true;
-                        else {
-                            Log.e(TAG, "Unsupported Spotify version; UI hooks not installed");
+                        SpotifyMapping mapping = SpotifyMapping.of(version);
+                        if (mapping == null) {
+                            Log.e(TAG, "Unsupported Spotify " + version
+                                    + "; mapped builds " + SpotifyMapping.versions());
                             return;
                         }
                         ContextBridge.initialize(modulePath);
+                        List<String> missing = SpotifyMappingCheck.problems(mapping, loader);
+                        if (!missing.isEmpty()) {
+                            Log.w(TAG, "Mapping gaps for " + version + ": " + missing);
+                        }
+                        SpotifyMetadataBridge.configure(mapping);
                         SpotifyKaraokeTransport.install(loader);
-                        SpotifyKaraokePlayback.install(loader, oldVersion);
+                        SpotifyKaraokePlayback.install(loader, mapping.karaoke);
                         SpotifyLyricsHost.install();
                         SpotifyWebViewSupport.install();
                         IvLyricsBridge.initialize(context);
-                        installHooks(loader, oldVersion);
+                        installHooks(loader, mapping);
                         installed = true;
                         Log.i(TAG, "Native lyrics hooks installed for Spotify " + version);
                     } catch (Throwable error) {
@@ -69,16 +72,16 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
         Log.i(TAG, "Module loaded for Spotify main process");
     }
 
-    private static void installHooks(ClassLoader loader, boolean oldVersion) throws ReflectiveOperationException {
+    private static void installHooks(ClassLoader loader, SpotifyMapping mapping) throws ReflectiveOperationException {
         List<XC_MethodHook.Unhook> installedHooks = new ArrayList<>();
         boolean committed = false;
         try {
-        Class<?> cardOwner = Class.forName(oldVersion ? "p.zt01" : "p.g5a0", false, loader);
-        Class<?> composer = Class.forName(oldVersion ? "p.gge" : "p.ryz", false, loader);
+        Class<?> cardOwner = Class.forName(mapping.card.owner, false, loader);
+        Class<?> composer = Class.forName(mapping.card.composer, false, loader);
         Method cardRenderer = null;
         for (Method method : cardOwner.getDeclaredMethods()) {
             Class<?>[] types = method.getParameterTypes();
-            if (method.getName().equals(oldVersion ? "b" : "a") && Modifier.isStatic(method.getModifiers()) &&
+            if (method.getName().equals(mapping.card.renderer) && Modifier.isStatic(method.getModifiers()) &&
                 method.getReturnType() == void.class && types.length == 10 && types[8] == composer && types[9] == int.class) {
                 if (cardRenderer != null) throw new NoSuchMethodException("Ambiguous native lyrics card renderer");
                 cardRenderer = method;
@@ -88,24 +91,25 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
         installedHooks.add(XposedBridge.hookMethod(cardRenderer, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam param) {
                 try {
-                    ComposeAdapter.renderCard(param.args[8]);
+                    ComposeAdapter.renderCard(mapping, param.args[8]);
                     param.setResult(null);
                 } catch (Throwable error) { failure("CARD_RENDER", error); }
             }
         }));
 
-        Class<?> trackType = Class.forName("com.spotify.player.model.ContextTrack", false, loader);
-        Class<?> availabilityOwner = Class.forName(oldVersion ? "p.pf30" : "p.yca0", false, loader);
-        Method availability = oldVersion ? availabilityOwner.getDeclaredMethod("a", trackType)
-            : availabilityOwner.getDeclaredMethod("d", trackType, String.class);
+        Class<?> trackType = Class.forName(SpotifyMapping.CONTEXT_TRACK, false, loader);
+        Class<?> availabilityOwner = Class.forName(mapping.availability.owner, false, loader);
+        Method availability = mapping.availability.branch == null
+            ? availabilityOwner.getDeclaredMethod(mapping.availability.method, trackType, String.class)
+            : availabilityOwner.getDeclaredMethod(mapping.availability.method, trackType);
         if (!availability.getReturnType().getName().equals("io.reactivex.rxjava3.core.Maybe")) {
             throw new NoSuchMethodException("Native lyrics availability return type changed");
         }
         installedHooks.add(XposedBridge.hookMethod(availability, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam param) {
-                SpotifyKaraokeEligibility.onCardProvider(param.thisObject, param.args[0]);
+                SpotifyKaraokeEligibility.onCardProvider(mapping, param.thisObject, param.args[0]);
                 SpotifyMetadataBridge.onContextTrack(param.args[0]);
-                Object replacement = ComposeAdapter.cardAvailability(param.thisObject, param.args[0]);
+                Object replacement = ComposeAdapter.cardAvailability(mapping, param.thisObject, param.args[0]);
                 if (replacement != null) param.setResult(replacement);
             }
         }));
@@ -115,7 +119,7 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
         installedHooks.add(XposedHelpers.findAndHookMethod(Instrumentation.class, "newActivity", ClassLoader.class,
             String.class, Intent.class, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) {
-                    if (!FULLSCREEN.equals(param.args[1])) return;
+                    if (!SpotifyMapping.FULLSCREEN.equals(param.args[1])) return;
                     Intent intent = (Intent) param.args[2];
                     intent.putExtra(IvLyricsBridge.EXTRA_EMBEDDED_MODE, true);
                     intent.putExtra(BaseLyricsActivity.EXTRA_OPEN_LYRICS_PAGE, true);
@@ -136,7 +140,7 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
         }));
 
         int parserHooks = 0;
-        for (String name : new String[]{"com.spotify.metadata.classic.proto.Metadata$Track", "com.spotify.metadata.proto.Metadata$Track"}) {
+        for (String name : new String[]{SpotifyMapping.METADATA_TRACK, "com.spotify.metadata.proto.Metadata$Track"}) {
             Class<?> type = Class.forName(name, false, loader);
             for (Method method : type.getDeclaredMethods()) {
                 if (Modifier.isStatic(method.getModifiers()) && method.getReturnType() == type && method.getParameterTypes().length == 1) {
@@ -150,7 +154,7 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
             }
         }
         if (parserHooks != 2) throw new NoSuchMethodException("Expected exactly two native track metadata parsers");
-        Class<?> batch = Class.forName("com.spotify.metadata.cosmos.proto.MetadataCosmos$MultiResponse", false, loader);
+        Class<?> batch = Class.forName(SpotifyMapping.METADATA_BATCH, false, loader);
         for (Method method : batch.getDeclaredMethods()) {
             if (Modifier.isStatic(method.getModifiers()) && method.getReturnType() == batch &&
                 method.getParameterTypes().length == 1 && method.getParameterTypes()[0] == byte[].class) {
@@ -161,8 +165,8 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
                 }));
             }
         }
-        if (!oldVersion) {
-            Class<?> metadataClient = Class.forName("p.w1x", false, loader);
+        if (mapping.metadata != null) {
+            Class<?> metadataClient = Class.forName(mapping.metadata.client, false, loader);
             installedHooks.addAll(XposedBridge.hookAllConstructors(metadataClient, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     if (!param.hasThrowable()) SpotifyMetadataBridge.onMetadataClient(param.thisObject);
@@ -170,24 +174,24 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
             }));
             // Also observe existing instances if dependency construction predates Application.attach.
             installedHooks.add(XposedHelpers.findAndHookMethod(metadataClient, "b",
-                Class.forName("p.yh", false, loader), new XC_MethodHook() {
+                Class.forName(mapping.metadata.request, false, loader), new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam param) {
                         SpotifyMetadataBridge.onMetadataClient(param.thisObject);
                     }
                 }));
         }
-        installedHooks.add(SpotifyLyricsCardPresence.install(loader, oldVersion));
-        if (!oldVersion) {
+        installedHooks.add(SpotifyLyricsCardPresence.install(loader, mapping));
+        if (mapping.karaoke != null) {
             // The native server can omit the card entirely; capture its repository independently.
             installedHooks.addAll(XposedBridge.hookAllConstructors(availabilityOwner, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    if (!param.hasThrowable()) SpotifyKaraokeEligibility.onCardProvider(param.thisObject, null);
+                    if (!param.hasThrowable()) SpotifyKaraokeEligibility.onCardProvider(mapping, param.thisObject, null);
                 }
             }));
         }
-        if (!oldVersion) installedHooks.add(SpotifyLyricsOrder.install(loader));
-        if (!oldVersion) installedHooks.addAll(SpotifyInlineLyrics.install(loader));
-        if (!oldVersion) installedHooks.addAll(SpotifyVideoButton.install(loader));
+        if (mapping.order != null) installedHooks.add(SpotifyLyricsOrder.install(loader, mapping));
+        if (mapping.inline != null) installedHooks.addAll(SpotifyInlineLyrics.install(loader, mapping));
+        if (mapping.video != null) installedHooks.addAll(SpotifyVideoButton.install(loader, mapping));
         committed = true;
         } finally {
             if (!committed) {
@@ -196,8 +200,7 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
         }
     }
 
-    private static void failure(String stage, Throwable error) {
-        // No host object, authentication response, request or exception message is logged.
+    private static void failure(String stage, Throwable error) {        // No host object, authentication response, request or exception message is logged.
         Log.e(TAG, stage + "_FAILED " + error.getClass().getSimpleName());
     }
 }

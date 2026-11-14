@@ -13,10 +13,12 @@ final class SpotifyInlineLyricsMenu {
 
     private SpotifyInlineLyricsMenu() {}
 
-    static List<XC_MethodHook.Unhook> install(ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> track = Class.forName("com.spotify.player.model.ContextTrack", false, loader);
-        Method menu = Class.forName("p.b9p0", false, loader).getDeclaredMethod("apply", Object.class);
-        Method available = Class.forName("p.d2w0", false, loader).getDeclaredMethod("e", track);
+    static List<XC_MethodHook.Unhook> install(ClassLoader loader, SpotifyMapping mapping) throws ReflectiveOperationException {
+        SpotifyMapping.Inline inline = mapping.inline;
+        Class<?> track = Class.forName(SpotifyMapping.CONTEXT_TRACK, false, loader);
+        Method menu = Class.forName(inline.menu, false, loader).getDeclaredMethod("apply", Object.class);
+        Method available = Class.forName(inline.trackGate, false, loader)
+                .getDeclaredMethod(inline.trackGateMethod, track);
         Method uri = track.getMethod("uri");
         Method metadata = track.getMethod("metadata");
         List<XC_MethodHook.Unhook> hooks = new ArrayList<>();

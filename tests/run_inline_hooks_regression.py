@@ -25,7 +25,7 @@ public class ViewGroup extends View { public final List<View> children=new Array
 "android/widget/FrameLayout.java": 'package android.widget; public class FrameLayout extends android.view.ViewGroup { public FrameLayout(android.content.Context c){super(c);} }',
 "dev/lyriscope/core/IvLyricsBridge.java": 'package dev.lyriscope.core; public class IvLyricsBridge { public static android.view.View createInlinePreview(android.content.Context c){return new android.view.View(c);} }',
 "dev/lyriscope/spotify/ComposeAdapter.java": '''package dev.lyriscope.spotify; public class ComposeAdapter {
- static int renders; static void prepareInline(Object c) throws ReflectiveOperationException {} public static void renderInline(Object c) throws ReflectiveOperationException {renders++;}
+ static int renders; static void prepareInline(SpotifyMapping m, Object c) throws ReflectiveOperationException {} public static void renderInline(SpotifyMapping m, Object c) throws ReflectiveOperationException {renders++;}
 }''',
 "de/robv/android/xposed/XC_MethodHook.java": '''package de.robv.android.xposed;
 public class XC_MethodHook {
@@ -71,7 +71,7 @@ public class InlineHooksRegression {
  static Object allow(ContextTrack t)throws Throwable{return XposedBridge.call(trackGate,null,new Object[]{t},()->Boolean.parseBoolean(t.metadata().get("has_lyrics")));}
  static Object menuFor(ContextTrack t)throws Throwable{return call(menu,new p.b9p0(),()->allow(t));}
  public static void main(String[] args)throws Throwable {
-  check(SpotifyInlineLyrics.install(InlineHooksRegression.class.getClassLoader()).size()==5,"all hook mappings installed");
+  check(SpotifyInlineLyrics.install(InlineHooksRegression.class.getClassLoader(),SpotifyMapping.of("9.1.80.2221")).size()==5,"all hook mappings installed");
   availability=method(p.jm7.class,"invokeSuspend",Object.class);visibility=method(p.cp5.class,"invokeSuspend",Object.class);
   menu=method(p.b9p0.class,"apply",Object.class);trackGate=method(p.d2w0.class,"e",ContextTrack.class);
   p.jm7 nativePlayback=new p.jm7();nativePlayback.a=1; p.cp5 nativeLayout=new p.cp5();nativeLayout.a=2;
@@ -118,7 +118,8 @@ for name, content in files.items():
     path.write_text(content)
 source = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify"
 subprocess.run([java_tool("javac"), "-d", str(work), *(str(work / name) for name in files),
-                str(source / "SpotifyInlineLyrics.java"), str(source / "SpotifyInlineLyricsMenu.java")], check=True)
+                str(source / "SpotifyInlineLyrics.java"), str(source / "SpotifyInlineLyricsMenu.java"),
+                str(source / "SpotifyMapping.java")], check=True)
 result = subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.spotify.InlineHooksRegression"],
                         capture_output=True, text=True)
 report = "Production hooks with synthetic native/Android/Xposed fixtures; no device or account access.\n" + result.stdout + result.stderr

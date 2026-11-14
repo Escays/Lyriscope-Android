@@ -38,70 +38,80 @@ final class SpotifyInlineLyrics {
 
     private SpotifyInlineLyrics() {}
 
-    static List<XC_MethodHook.Unhook> install(ClassLoader loader) {
+    static List<XC_MethodHook.Unhook> install(ClassLoader loader, SpotifyMapping mapping) {
         List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
         try {
-            Class<?> renderer = Class.forName("p.nba0", false, loader);
-            Class<?> visibility = Class.forName("p.cp5", false, loader);
-            Class<?> availability = Class.forName("p.jm7", false, loader);
-            Class<?> model = Class.forName("p.lba0", false, loader);
-            Class<?> composer = Class.forName("p.ryz", false, loader);
-            Object unit = Class.forName("p.x181", true, loader).getField("a").get(null);
-            Field renderBranch = intField(renderer, "a");
-            Field visibilityBranch = intField(visibility, "a");
-            Field playbackBranch = intField(availability, "a");
-            Field layoutBlocked = booleanField(visibility, "b");
-            Field preferenceEnabled = booleanField(visibility, "c");
-            Field playbackAvailable = booleanField(visibility, "d");
-            Field mixingBlocked = booleanField(visibility, "e");
-            Field automobileDevice = booleanField(availability, "b");
-            Field automobileException = booleanField(availability, "d");
-            Field videoPlayerMode = booleanField(availability, "c");
-            Method render = renderer.getDeclaredMethod("c1", Object.class, Object.class,
+            SpotifyMapping.Inline inline = mapping.inline;
+            Class<?> renderer = Class.forName(inline.renderer, false, loader);
+            Class<?> model = Class.forName(inline.model, false, loader);
+            Class<?> composer = Class.forName(inline.composer, false, loader);
+            Object unit = Class.forName(mapping.unit, true, loader).getField("a").get(null);
+            // A merged lambda holder calls one method per lambda, so only a shared method needs the case field.
+            Field renderBranch = inline.rendererBranch == null ? null : intField(renderer, inline.rendererBranch);
+            Method render = renderer.getDeclaredMethod(inline.rendererMethod, Object.class, Object.class,
                     Object.class, Object.class, Object.class);
-            Method visibilityUpdate = visibility.getDeclaredMethod("invokeSuspend", Object.class);
-            Method availabilityUpdate = availability.getDeclaredMethod("invokeSuspend", Object.class);
+            // Unmapped gates must not hide the line: the slot only composes where the host already shows it.
+            nativeLayoutAllows = inline.visibility == null;
+            userEnabled = inline.visibility == null;
+            nativePlaybackAllows = inline.availability == null;
 
-            // jm7 case 1 combines native lyric presence with automobile/video-player restrictions.
-            // b is Connect AUTOMOBILE, d allows that device, c is track_player=video.
-            // This result also feeds the Lyrics On/Off menu. Observing it without replacing
-            // the native lyric check leaves the option absent on songs resolved by ivLyrics.
-            hooks.add(XposedBridge.hookMethod(availabilityUpdate, new XC_MethodHook() {
-                @Override protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException {
-                    if (param.hasThrowable() || playbackBranch.getInt(param.thisObject) != 1) return;
-                    automobileActive = automobileDevice.getBoolean(param.thisObject);
-                    automobileAllowed = automobileException.getBoolean(param.thisObject);
-                    videoPlayerBlocked = videoPlayerMode.getBoolean(param.thisObject);
-                    nativePlaybackAllows = Gates.playbackAllows(automobileActive, automobileAllowed, videoPlayerBlocked);
-                    param.setResult(nativePlaybackAllows);
-                    playbackObserved = true;
-                    updateHosts();
-                }
-            }));
-            // cp5 case 2 observes the existing key_lyrics_on_npv_visible setting, canvas
-            // visibility and mixing transitions. DJ/automix is a playback mode, not a
-            // reason to hide song lyrics; the shared preview excludes DJ speech itself.
-            hooks.add(XposedBridge.hookMethod(visibilityUpdate, new XC_MethodHook() {
-                @Override protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException {
-                    if (param.hasThrowable() || visibilityBranch.getInt(param.thisObject) != 2) return;
-                    userEnabled = preferenceEnabled.getBoolean(param.thisObject);
-                    canvasBlocked = layoutBlocked.getBoolean(param.thisObject);
-                    mixingActive = mixingBlocked.getBoolean(param.thisObject);
-                    nativeLayoutAllows = Gates.layoutAllows(canvasBlocked, mixingActive);
-                    param.setResult(Gates.show(nativeLayoutAllows,
-                            playbackAvailable.getBoolean(param.thisObject), userEnabled));
-                    visibilityObserved = true;
-                    updateHosts();
-                }
-            }));
-            hooks.addAll(SpotifyInlineLyricsMenu.install(loader));
+            if (inline.availability != null) {
+                Class<?> availability = Class.forName(inline.availability, false, loader);
+                Field playbackBranch = intField(availability, "a");
+                Field automobileDevice = booleanField(availability, "b");
+                Field automobileException = booleanField(availability, "d");
+                Field videoPlayerMode = booleanField(availability, "c");
+                Method availabilityUpdate = availability.getDeclaredMethod("invokeSuspend", Object.class);
+                // jm7 case 1 combines native lyric presence with automobile/video-player restrictions.
+                // b is Connect AUTOMOBILE, d allows that device, c is track_player=video.
+                // This result also feeds the Lyrics On/Off menu. Observing it without replacing
+                // the native lyric check leaves the option absent on songs resolved by ivLyrics.
+                hooks.add(XposedBridge.hookMethod(availabilityUpdate, new XC_MethodHook() {
+                    @Override protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException {
+                        if (param.hasThrowable() || playbackBranch.getInt(param.thisObject) != 1) return;
+                        automobileActive = automobileDevice.getBoolean(param.thisObject);
+                        automobileAllowed = automobileException.getBoolean(param.thisObject);
+                        videoPlayerBlocked = videoPlayerMode.getBoolean(param.thisObject);
+                        nativePlaybackAllows = Gates.playbackAllows(automobileActive, automobileAllowed, videoPlayerBlocked);
+                        param.setResult(nativePlaybackAllows);
+                        playbackObserved = true;
+                        updateHosts();
+                    }
+                }));
+            }
+            if (inline.visibility != null) {
+                Class<?> visibility = Class.forName(inline.visibility, false, loader);
+                Field visibilityBranch = intField(visibility, "a");
+                Field layoutBlocked = booleanField(visibility, "b");
+                Field preferenceEnabled = booleanField(visibility, "c");
+                Field playbackAvailable = booleanField(visibility, "d");
+                Field mixingBlocked = booleanField(visibility, "e");
+                Method visibilityUpdate = visibility.getDeclaredMethod("invokeSuspend", Object.class);
+                // cp5 case 2 observes the existing key_lyrics_on_npv_visible setting, canvas
+                // visibility and mixing transitions. DJ/automix is a playback mode, not a
+                // reason to hide song lyrics; the shared preview excludes DJ speech itself.
+                hooks.add(XposedBridge.hookMethod(visibilityUpdate, new XC_MethodHook() {
+                    @Override protected void afterHookedMethod(MethodHookParam param) throws IllegalAccessException {
+                        if (param.hasThrowable() || visibilityBranch.getInt(param.thisObject) != 2) return;
+                        userEnabled = preferenceEnabled.getBoolean(param.thisObject);
+                        canvasBlocked = layoutBlocked.getBoolean(param.thisObject);
+                        mixingActive = mixingBlocked.getBoolean(param.thisObject);
+                        nativeLayoutAllows = Gates.layoutAllows(canvasBlocked, mixingActive);
+                        param.setResult(Gates.show(nativeLayoutAllows,
+                                playbackAvailable.getBoolean(param.thisObject), userEnabled));
+                        visibilityObserved = true;
+                        updateHosts();
+                    }
+                }));
+            }
+            if (inline.menu != null) hooks.addAll(SpotifyInlineLyricsMenu.install(loader, mapping));
             hooks.add(XposedBridge.hookMethod(render, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam param) throws IllegalAccessException {
-                    if (renderBranch.getInt(param.thisObject) != 0 || !model.isInstance(param.args[1])
-                            || !composer.isInstance(param.args[3])) return;
+                    if (renderBranch != null && renderBranch.getInt(param.thisObject) != 0) return;
+                    if (!model.isInstance(param.args[1]) || !composer.isInstance(param.args[3])) return;
                     if (!rendererObserved) { rendererObserved = true; updateHosts(); }
                     try {
-                        ComposeAdapter.prepareInline(param.args[3]);
+                        ComposeAdapter.prepareInline(mapping, param.args[3]);
                     } catch (ReflectiveOperationException | RuntimeException error) {
                         Log.e("ivLyricsInline", "Inline mappings unavailable before composition", error);
                         return;
@@ -110,7 +120,7 @@ final class SpotifyInlineLyrics {
                     // body against that partially advanced composer on an invocation failure.
                     param.setResult(unit);
                     try {
-                        ComposeAdapter.renderInline(param.args[3]);
+                        ComposeAdapter.renderInline(mapping, param.args[3]);
                     } catch (ReflectiveOperationException | RuntimeException error) {
                         Throwable cause = error instanceof InvocationTargetException
                                 && error.getCause() != null ? error.getCause() : error;

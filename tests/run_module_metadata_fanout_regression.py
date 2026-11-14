@@ -146,6 +146,7 @@ for name, content in sources.items():
     path.write_text(content)
     files.append(path)
 production = [MODULE / name for name in ("NativeTrackIdentity.java", "SpotifyMetadataBridge.java")]
+production.append(MODULE.parent / "spotify/SpotifyMapping.java")
 subprocess.run([java_tool("javac"), "-d", str(classes), *map(str, production + files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", str(classes), "dev.lyriscope.core.ModuleMetadataFanoutRegression"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 report = "Production module metadata code; deterministic synthetic host/main queue, no device timings.\n"

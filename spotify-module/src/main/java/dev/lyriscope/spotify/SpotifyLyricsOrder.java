@@ -15,12 +15,13 @@ final class SpotifyLyricsOrder {
 
     private SpotifyLyricsOrder() {}
 
-    static XC_MethodHook.Unhook install(ClassLoader loader) throws ReflectiveOperationException {
-        Class<?> owner = Class.forName("p.ivi0", false, loader);
-        Class<?> state = Class.forName("p.gx21", false, loader);
-        Class<?> section = Class.forName("p.dvi0", false, loader);
-        Class<?> lyrics = Class.forName("p.iui0", false, loader);
-        Method filter = owner.getDeclaredMethod("c", state, Set.class);
+    static XC_MethodHook.Unhook install(ClassLoader loader, SpotifyMapping mapping) throws ReflectiveOperationException {
+        SpotifyMapping.Order order = mapping.order;
+        Class<?> owner = Class.forName(order.owner, false, loader);
+        Class<?> state = Class.forName(order.state, false, loader);
+        Class<?> section = Class.forName(order.section, false, loader);
+        Class<?> lyrics = Class.forName(order.lyrics, false, loader);
+        Method filter = owner.getDeclaredMethod(order.filter, state, Set.class);
         if (!Modifier.isStatic(filter.getModifiers()) || filter.getReturnType() != ArrayList.class
                 || !state.isInterface() || !section.isInterface() || !section.isAssignableFrom(lyrics)) {
             throw new NoSuchMethodException("Native Now Playing section ordering shape changed");

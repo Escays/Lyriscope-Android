@@ -14,15 +14,16 @@ final class SpotifyLyricsCardPresence {
 
     private SpotifyLyricsCardPresence() {}
 
-    static XC_MethodHook.Unhook install(ClassLoader loader, boolean oldVersion) throws ReflectiveOperationException {
-        Class<?> track = Class.forName("com.spotify.player.model.ContextTrack", false, loader);
-        Class<?> section = Class.forName(oldVersion ? "p.kca0" : "p.dvi0", false, loader);
-        Class<?> lyrics = Class.forName(oldVersion ? "p.uba0" : "p.iui0", false, loader);
-        Class<?> event = Class.forName(oldVersion ? "p.skr" : "p.mdw", false, loader);
-        Constructor<?> ready = oldVersion
+    static XC_MethodHook.Unhook install(ClassLoader loader, SpotifyMapping mapping) throws ReflectiveOperationException {
+        SpotifyMapping.Presence presence = mapping.presence;
+        Class<?> track = Class.forName(SpotifyMapping.CONTEXT_TRACK, false, loader);
+        Class<?> section = Class.forName(presence.section, false, loader);
+        Class<?> lyrics = Class.forName(presence.lyrics, false, loader);
+        Class<?> event = Class.forName(presence.event, false, loader);
+        Constructor<?> ready = presence.eventArity == 3
                 ? event.getDeclaredConstructor(track, String.class, List.class)
                 : event.getDeclaredConstructor(track, String.class, List.class,
-                        List.class, Class.forName("p.mk61", false, loader));
+                        List.class, Class.forName(presence.eventExtra, false, loader));
         if (!section.isAssignableFrom(lyrics)) {
             throw new NoSuchMethodException("Native Now Playing section shape changed");
         }
@@ -36,7 +37,7 @@ final class SpotifyLyricsCardPresence {
                     if (!section.isInstance(value) || lyrics.isInstance(value)) return;
                 }
                 try {
-                    Object card = ComposeAdapter.createSongCard(oldVersion, param.args[0]);
+                    Object card = ComposeAdapter.createSongCard(mapping, param.args[0]);
                     List<?> result = withLyricsIfMissing(original, lyrics, card);
                     if (result == original) return;
                     param.args[2] = result;

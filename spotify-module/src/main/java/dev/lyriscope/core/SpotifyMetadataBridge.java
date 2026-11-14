@@ -22,8 +22,24 @@ public final class SpotifyMetadataBridge {
     };
     private static final Map<MediaController, MediaController.Callback> CONTROLLERS = Collections.synchronizedMap(new WeakHashMap<>());
     private static boolean observingPlayer;
+    private static volatile dev.lyriscope.spotify.SpotifyMapping mapping;
 
     private SpotifyMetadataBridge() {}
+
+    /** Anchors for the running build; the only place this package learns obfuscated names. */
+    public static void configure(dev.lyriscope.spotify.SpotifyMapping value) {
+        mapping = value;
+    }
+
+    static dev.lyriscope.spotify.SpotifyMapping.Metadata metadata() {
+        dev.lyriscope.spotify.SpotifyMapping current = mapping;
+        return current == null ? null : current.metadata;
+    }
+
+    static String unit() {
+        dev.lyriscope.spotify.SpotifyMapping current = mapping;
+        return current == null ? null : current.unit;
+    }
 
     public static void onMetadataClient(Object client) {
         SpotifyNativeMetadataClient.attach(client);

@@ -14,18 +14,19 @@ import de.robv.android.xposed.XposedBridge;
 final class SpotifyVideoButton {
     private SpotifyVideoButton() {}
 
-    static List<XC_MethodHook.Unhook> install(ClassLoader loader) {
+    static List<XC_MethodHook.Unhook> install(ClassLoader loader, SpotifyMapping mapping) {
         List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
         try {
-            Class<?> renderer = Class.forName("p.dh", false, loader);
-            Class<?> button = Class.forName("p.ay6", false, loader);
-            Class<?> updateContext = Class.forName("p.o9t", false, loader);
+            SpotifyMapping.Video video = mapping.video;
+            Class<?> renderer = Class.forName(video.renderer, false, loader);
+            Class<?> button = Class.forName(video.button, false, loader);
+            Class<?> updateContext = Class.forName(video.updateContext, false, loader);
             Field branch = renderer.getField("a");
             Field view = renderer.getField("c");
             Field animation = button.getField("e");
             Field pending = button.getField("f");
-            Method update = renderer.getDeclaredMethod("a", Object.class, updateContext);
-            Method getView = renderer.getDeclaredMethod("getView");
+            Method update = renderer.getDeclaredMethod(video.update, Object.class, updateContext);
+            Method getView = renderer.getDeclaredMethod(video.view);
             if (branch.getType() != int.class || !View.class.isAssignableFrom(button)) {
                 throw new NoSuchFieldException("Invalid audio/video button mapping");
             }

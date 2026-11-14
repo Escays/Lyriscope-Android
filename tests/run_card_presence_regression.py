@@ -26,7 +26,7 @@ source = ROOT / "spotify-module/src/main/java/dev/lyriscope/spotify/SpotifyLyric
 method = declaration(source.read_text(), "static List<?> withLyricsIfMissing(")
 adapter = source.with_name("ComposeAdapter.java")
 adapter_methods = [declaration(adapter.read_text(), signature) for signature in (
-    "static Object createSongCard(boolean oldVersion, Object track)",
+    "static Object createSongCard(SpotifyMapping mapping, Object track)",
     "private static String value(Map<String, String> metadata, String key)",
 )]
 work = REPORTS / "card-presence"
@@ -35,6 +35,7 @@ test = work / "CardPresenceRegression.java"
 test.write_text("import java.util.*;\nimport java.lang.reflect.*;\npublic final class CardPresenceRegression {\n"
                 + method + "\n" + "\n".join(adapter_methods) + r'''
     private int assertions;
+    private static final class SpotifyMapping { }
     private static class LyricsCard { }
     private static final class LyricsCardSubtype extends LyricsCard { }
     private static final class LiveEvent { }
@@ -67,7 +68,7 @@ test.write_text("import java.util.*;\nimport java.lang.reflect.*;\npublic final 
         final Constructor<?> card = SongCard.class.getConstructor(Model.class);
         Availability() throws ReflectiveOperationException { }
     }
-    private static Availability availabilityFor(boolean oldVersion, Object track)
+    private static Availability availabilityFor(SpotifyMapping mapping, Object track)
             throws ReflectiveOperationException {
         // Substitute reflection bindings only; song eligibility runs production code unchanged.
         return new Availability();
@@ -114,16 +115,17 @@ test.write_text("import java.util.*;\nimport java.lang.reflect.*;\npublic final 
                 withLyricsIfMissing(source, LyricsCard.class, null) == source);
     }
     private void songEligibility() throws ReflectiveOperationException {
-        for (boolean oldVersion : new boolean[]{false, true}) {
+        for (int variant = 0; variant < 2; variant++) {
+            SpotifyMapping mapping = new SpotifyMapping();
             for (String hasLyrics : new String[]{null, "false", "true"}) {
                 Map<String, String> metadata = new HashMap<>();
                 metadata.put("title", "Synthetic song");
                 metadata.put("artist_name", "Fixture artist");
                 metadata.put("image_url", "fixture:image");
                 if (hasLyrics != null) metadata.put("has_lyrics", hasLyrics);
-                String label = "song eligibility, oldVersion=" + oldVersion + ", has_lyrics=" + hasLyrics;
+                String label = "song eligibility, mapping=" + variant + ", has_lyrics=" + hasLyrics;
                 Track track = new Track("spotify:track:synthetic-song", metadata);
-                Object candidate = createSongCard(oldVersion, track);
+                Object candidate = createSongCard(mapping, track);
                 check(label + " produces a song card independently", candidate instanceof SongCard);
                 Model model = ((SongCard) candidate).model;
                 check(label + " uses the event track URI", track.uri.equals(model.uri));
@@ -135,13 +137,13 @@ test.write_text("import java.util.*;\nimport java.lang.reflect.*;\npublic final 
                 for (String uri : new String[]{null, "", "spotify:episode:synthetic-episode",
                         "spotify:ad:synthetic-ad", "spotify:local:synthetic-local"}) {
                     check(label + " rejects non-song URI " + uri,
-                            createSongCard(oldVersion, new Track(uri, metadata)) == null);
+                            createSongCard(mapping, new Track(uri, metadata)) == null);
                 }
                 metadata.put("parent_episode_uri", "spotify:episode:synthetic-parent");
                 check(label + " rejects episode-backed track",
-                        createSongCard(oldVersion, new Track(track.uri, metadata)) == null);
+                        createSongCard(mapping, new Track(track.uri, metadata)) == null);
             }
-            SongCard sparse = (SongCard) createSongCard(oldVersion,
+            SongCard sparse = (SongCard) createSongCard(mapping,
                     new Track("spotify:track:next-song", Collections.emptyMap()));
             check("metadata defaults do not hide eligible song", sparse != null);
             check("new event never uses previous URI", "spotify:track:next-song".equals(sparse.model.uri));

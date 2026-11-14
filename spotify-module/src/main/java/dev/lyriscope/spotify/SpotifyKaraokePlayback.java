@@ -47,15 +47,15 @@ public final class SpotifyKaraokePlayback {
     private SpotifyKaraokePlayback() { }
 
     /** Compatibility failure is isolated from the lyrics UI; no host values are replaced. */
-    public static synchronized void install(ClassLoader loader, boolean oldVersion) {
+    public static synchronized void install(ClassLoader loader, SpotifyMapping.Karaoke karaoke) {
         synchronized (LOCK) {
             if (attempted) return;
             attempted = true;
         }
         List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
         try {
-            if (oldVersion) return;
-            Binding mapping = new Binding(loader);
+            if (karaoke == null) return;
+            Binding mapping = new Binding(karaoke, loader);
             hooks.addAll(XposedBridge.hookAllConstructors(mapping.settings, new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     if (!param.hasThrowable()) mapping.readSettings(param.thisObject);
@@ -213,15 +213,15 @@ public final class SpotifyKaraokePlayback {
         boolean decodedKnown;
         boolean decodedLow;
 
-        Binding(ClassLoader loader) throws ReflectiveOperationException {
-            settings = Class.forName("p.xky0", false, loader);
-            playerState = Class.forName("com.spotify.player.model.AutoValue_PlayerState", false, loader);
+        Binding(SpotifyMapping.Karaoke karaoke, ClassLoader loader) throws ReflectiveOperationException {
+            settings = Class.forName(karaoke.settings, false, loader);
+            playerState = Class.forName(SpotifyMapping.PLAYER_STATE, false, loader);
             offlineField = settings.getDeclaredField("a");
             if (offlineField.getType() != boolean.class) throw new NoSuchFieldException("offline");
             qualityField = playerState.getDeclaredField("playbackQuality");
             timestampField = playerState.getDeclaredField("timestamp");
             qualityGetter = playerState.getDeclaredMethod("playbackQuality");
-            Class<?> optional = Class.forName("p.pgk0", false, loader);
+            Class<?> optional = Class.forName(karaoke.optional, false, loader);
             optionalPresent = optional.getMethod("c");
             optionalGet = optional.getMethod("b");
             bitrateLevel = Class.forName("com.spotify.player.model.PlaybackQuality", false, loader)

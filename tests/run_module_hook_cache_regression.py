@@ -76,9 +76,10 @@ public final class ModuleHookCacheRegression {
  static p.pgk0 optional(PlaybackQuality.Level level){return new p.pgk0(new PlaybackQuality(level));}
  public static void main(String[] args)throws Exception{
   ClassLoader loader=ModuleHookCacheRegression.class.getClassLoader();
-  SpotifyKaraokePlayback.install(loader,false);
+  SpotifyMapping mapping=SpotifyMapping.of("9.1.80.2221");
+  SpotifyKaraokePlayback.install(loader,mapping.karaoke);
   Class<?> bindingType=Class.forName("dev.lyriscope.spotify.SpotifyKaraokePlayback$Binding");
-  Constructor<?> ctor=bindingType.getDeclaredConstructor(ClassLoader.class);ctor.setAccessible(true);Object binding=ctor.newInstance(loader);
+  Constructor<?> ctor=bindingType.getDeclaredConstructor(SpotifyMapping.Karaoke.class,ClassLoader.class);ctor.setAccessible(true);Object binding=ctor.newInstance(mapping.karaoke,loader);
   Method quality=bindingType.getDeclaredMethod("readQuality",Object.class,Object.class);quality.setAccessible(true);
   Method settings=bindingType.getDeclaredMethod("readSettings",Object.class);settings.setAccessible(true);
   MediaController controller=new MediaController();SpotifyKaraokePlayback.onMediaSession(new MediaSession(controller));
@@ -111,32 +112,32 @@ public final class ModuleHookCacheRegression {
   p.fzi0 pool=new p.fzi0();p.eda0 repo=new p.eda0(new p.gea0());p.yh mapper=new p.yh(26,repo);p.yca0 provider=new p.yca0(pool,mapper);
   String uri="spotify:track:0000000000000000000001";
   ContextTrack track=new ContextTrack(uri);
-  SpotifyKaraokeEligibility.onCardProvider(provider,track);
+  SpotifyKaraokeEligibility.onCardProvider(mapping,provider,track);
   Object dependencies=get(SpotifyKaraokeEligibility.class,"providerDependencies");
   Object bindings=get(SpotifyKaraokeEligibility.class,"providerBinding");
-  for(int i=0;i<500;i++)SpotifyKaraokeEligibility.onCardProvider(provider,track);
+  for(int i=0;i<500;i++)SpotifyKaraokeEligibility.onCardProvider(mapping,provider,track);
   check(pool.reads==1&&pool.state.reads==1,"500 repeated provider events reuse native player source");
   check(get(SpotifyKaraokeEligibility.class,"providerDependencies")==dependencies,"reuse validated provider dependencies");
   check(get(SpotifyKaraokeEligibility.class,"providerBinding")==bindings,"reuse reflection bindings");
   check(SpotifyKaraokeEligibility.playerStateSource()==pool.state.source,"cached source remains native source");
   check(get(SpotifyKaraokeEligibility.class,"repository")==repo,"expected repository captured");
   p.eda0 replacement=new p.eda0(new p.vja0());mapper.c=replacement;
-  SpotifyKaraokeEligibility.onCardProvider(provider,track);
+  SpotifyKaraokeEligibility.onCardProvider(mapping,provider,track);
   check(get(SpotifyKaraokeEligibility.class,"repository")==replacement,"mutable merged mapper repository revalidated");
   check(get(SpotifyKaraokeEligibility.class,"providerDependencies")!=dependencies,"repository replacement invalidates dependencies");
   p.fzi0 nextPool=new p.fzi0();p.eda0 nextRepo=new p.eda0(new p.gea0());
   p.yca0 next=new p.yca0(nextPool,new p.yh(26,nextRepo));
-  SpotifyKaraokeEligibility.onCardProvider(next,null);
+  SpotifyKaraokeEligibility.onCardProvider(mapping,next,null);
   check(SpotifyKaraokeEligibility.playerStateSource()==nextPool.state.source,"replacement provider recaptures source without a native card");
   check(get(SpotifyKaraokeEligibility.class,"repository")==nextRepo,"constructor capture has no Spotify lyrics availability gate");
-  SpotifyKaraokeEligibility.onCardProvider(new p.yca0(new p.fzi0(),new p.yh(1,repo)),track);
+  SpotifyKaraokeEligibility.onCardProvider(mapping,new p.yca0(new p.fzi0(),new p.yh(1,repo)),track);
   check(get(SpotifyKaraokeEligibility.class,"repository")==nextRepo,"other merged branch rejected");
-  SpotifyKaraokeEligibility.onCardProvider(provider,new ContextTrack("spotify:episode:0000000000000000000001"));
+  SpotifyKaraokeEligibility.onCardProvider(mapping,provider,new ContextTrack("spotify:episode:0000000000000000000001"));
   check(get(SpotifyKaraokeEligibility.class,"repository")==nextRepo,"non-song context does not replace current dependencies");
   p.fzi0 delayedPool=new p.fzi0();delayedPool.ready=false;p.yca0 delayed=new p.yca0(delayedPool,new p.yh(26,repo));
-  SpotifyKaraokeEligibility.onCardProvider(delayed,track);
+  SpotifyKaraokeEligibility.onCardProvider(mapping,delayed,track);
   check(get(SpotifyKaraokeEligibility.class,"repository")==repo&&SpotifyKaraokeEligibility.playerStateSource()==null,"support survives unavailable optional player source");
-  delayedPool.ready=true;SpotifyKaraokeEligibility.onCardProvider(delayed,track);
+  delayedPool.ready=true;SpotifyKaraokeEligibility.onCardProvider(mapping,delayed,track);
   check(SpotifyKaraokeEligibility.playerStateSource()==delayedPool.state.source,"missing player source retried on next event");
   SpotifyKaraokeEligibility.stop();check(get(SpotifyKaraokeEligibility.class,"listener")==null,"page stop releases eligibility listener");
   System.out.println("MODULE_HOOK_CACHE_PASSED checks="+checks+" repeated_quality=500 decode_calls=3 repeated_provider=500 source_reads=1");
@@ -149,7 +150,7 @@ for name, content in sources.items():
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     files.append(path)
-production = [module / name for name in ("SpotifyKaraokePlayback.java", "SpotifyKaraokeEligibility.java")]
+production = [module / name for name in ("SpotifyKaraokePlayback.java", "SpotifyKaraokeEligibility.java", "SpotifyMapping.java")]
 subprocess.run([java_tool("javac"), "-d", str(classes), *map(str, production + files)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", str(classes), "dev.lyriscope.spotify.ModuleHookCacheRegression"],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
 report="Production Spotify hook code; counted synthetic bindings, no device timings.\n"
