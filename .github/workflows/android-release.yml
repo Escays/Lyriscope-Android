@@ -1,4 +1,4 @@
-name: Android Release APKs
+name: Release
 
 on:
   push:
@@ -68,8 +68,14 @@ jobs:
           previous_tag="$(gh release view --json tagName --jq '.tagName')"
           previous_dir="$RUNNER_TEMP/previous-release"
           gh release download "$previous_tag" --pattern '*-version.json' --dir "$previous_dir" --clobber
+          # Named after the release, but earlier releases used other names; take whatever is there.
+          previous_version_file="$(find "$previous_dir" -maxdepth 1 -name '*-version.json' -print -quit)"
+          if [[ -z "$previous_version_file" ]]; then
+            echo "::error::Previous release ${previous_tag} has no *-version.json asset to compare against."
+            exit 1
+          fi
           python3 .github/scripts/collect_release_apks.py --tag "$release_tag" --verify-version-only \
-            --previous-version-file "$previous_dir/ivLyrics-Android-${previous_tag}-version.json"
+            --previous-version-file "$previous_version_file"
           {
             echo "release_tag=$release_tag"
             echo "release_target=$release_target"
@@ -157,17 +163,17 @@ jobs:
             exit 1
           fi
 
-          keystore_path="${RUNNER_TEMP}/ivlyrics-release.jks"
+          keystore_path="${RUNNER_TEMP}/lyriscope-release.jks"
           printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
           {
-            echo "IVLYRICS_RELEASE_STORE_FILE=${keystore_path}"
-            echo "IVLYRICS_RELEASE_STORE_PASSWORD=${ANDROID_KEYSTORE_PASSWORD}"
-            echo "IVLYRICS_RELEASE_KEY_ALIAS=${ANDROID_KEY_ALIAS}"
-            echo "IVLYRICS_RELEASE_KEY_PASSWORD=${ANDROID_KEY_PASSWORD}"
+            echo "LYRISCOPE_RELEASE_STORE_FILE=${keystore_path}"
+            echo "LYRISCOPE_RELEASE_STORE_PASSWORD=${ANDROID_KEYSTORE_PASSWORD}"
+            echo "LYRISCOPE_RELEASE_KEY_ALIAS=${ANDROID_KEY_ALIAS}"
+            echo "LYRISCOPE_RELEASE_KEY_PASSWORD=${ANDROID_KEY_PASSWORD}"
           } >> "${GITHUB_ENV}"
 
       - name: Build both signed release APKs
-        run: ./gradlew :app:assembleRelease :spotify-module:assembleRelease -PivLyricsRequireReleaseSigning=true
+        run: ./gradlew :app:assembleRelease :spotify-module:assembleRelease -PlyriscopeRequireReleaseSigning=true
 
       - name: Verify module boundaries
         run: python3 tests/check_module_boundaries.py --built --variant release
@@ -204,7 +210,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ivLyrics-Android-${{ steps.collect.outputs.release_tag }}-apks
+          name: Lyriscope-${{ steps.collect.outputs.release_tag }}-apks
           path: |
             release-apks/*.apk
             release-apks/packaging-report.json
@@ -234,14 +240,14 @@ jobs:
               done
             gh release edit "${RELEASE_TAG}" \
               --target "${RELEASE_TARGET}" \
-              --title "ivLyrics Android ${RELEASE_TAG}" \
+              --title "Lyriscope ${RELEASE_TAG}" \
               --notes-file release-metadata/release-notes.md \
               "${args[@]}"
             gh release upload "${RELEASE_TAG}" release-apks/*.apk release-metadata/* --clobber
           else
             gh release create "${RELEASE_TAG}" release-apks/*.apk release-metadata/* \
               --target "${RELEASE_TARGET}" \
-              --title "ivLyrics Android ${RELEASE_TAG}" \
+              --title "Lyriscope ${RELEASE_TAG}" \
               --notes-file release-metadata/release-notes.md \
               "${args[@]}"
           fi
@@ -252,6 +258,6 @@ jobs:
           RELEASE_WEBHOOK_URL: ${{ secrets.RELEASE_NOTES_WEBHOOK_URL }}
           RELEASE_PLATFORM: android
           RELEASE_TAG: ${{ steps.collect.outputs.release_tag }}
-          RELEASE_TITLE: ivLyrics Android ${{ steps.collect.outputs.release_tag }}
+          RELEASE_TITLE: Lyriscope ${{ steps.collect.outputs.release_tag }}
           RELEASE_NOTES_PATH: release-metadata/release-notes.md
         run: node .github/scripts/send_release_webhook.mjs

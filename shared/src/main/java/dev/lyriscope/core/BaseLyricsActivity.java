@@ -15407,7 +15407,7 @@ public class BaseLyricsActivity extends Activity implements
         updateDownloadInFlight = true;
         pendingUpdateInfo = info;
         String fileName = info.apkName.isEmpty()
-                ? "ivLyrics-Android-" + info.latestDisplayVersion() + ".apk"
+                ? "Lyriscope-" + info.latestDisplayVersion() + ".apk"
                 : info.apkName;
         setUpdateStatus(uiFormat("update.download_started_format", fileName));
         showSavedToast(uiFormat("update.download_started_format", fileName));
@@ -15575,7 +15575,7 @@ public class BaseLyricsActivity extends Activity implements
     private String sanitizeApkFileName(String fileName) {
         String value = fileName == null ? "" : fileName.trim();
         if (value.isEmpty()) {
-            value = "ivLyrics-update.apk";
+            value = "Lyriscope-update.apk";
         }
         value = value.replaceAll("[^A-Za-z0-9._-]", "_");
         return value.toLowerCase(Locale.ROOT).endsWith(".apk") ? value : value + ".apk";

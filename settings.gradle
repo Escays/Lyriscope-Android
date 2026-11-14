@@ -18,5 +18,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ivLyricsAndroid"
+rootProject.name = "Lyriscope"
 include ":shared", ":app", ":spotify-module"

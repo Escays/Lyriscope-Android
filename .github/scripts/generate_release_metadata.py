@@ -12,6 +12,8 @@ from pathlib import Path
 
 
 TEMPLATE_PATH = Path(".github/release-notes-template.md")
+# Release bodies link back here. Kept in one place so a repository move is one edit.
+REPOSITORY_URL = "https://github.com/Escays/Lyriscope-Android"
 
 
 def run_git(args, allow_fail=False):
@@ -208,10 +210,10 @@ def read_gradle_version(gradle_path="app/build.gradle"):
 
 def apk_product(name):
     normalized = name.lower()
-    if normalized.startswith("ivlyrics-lspatch-"):
-        return "spotify-module", "ivLyrics for Spotify (LSPosed/LSPatch)", "spotify-module/build.gradle"
-    if normalized.startswith("ivlyrics-android-"):
-        return "standalone", "ivLyrics Android", "app/build.gradle"
+    if normalized.startswith("lyriscope-spotify-"):
+        return "spotify-module", "Lyriscope for Spotify (LSPosed)", "spotify-module/build.gradle"
+    if normalized.startswith("lyriscope-android-"):
+        return "standalone", "Lyriscope", "app/build.gradle"
     return "unknown", "Android APK", None
 
 
@@ -244,8 +246,8 @@ def apk_assets(apk_dir):
 
 def compare_url(current_tag, previous):
     if previous:
-        return f"https://github.com/ivLis-Studio/ivLyrics-Android/compare/{previous}...{current_tag}"
-    return f"https://github.com/ivLis-Studio/ivLyrics-Android/commits/{current_tag}"
+        return f"{REPOSITORY_URL}/compare/{previous}...{current_tag}"
+    return f"{REPOSITORY_URL}/commits/{current_tag}"
 
 
 def markdown_bullets(values):
@@ -256,37 +258,34 @@ def markdown_bullets(values):
 
 
 def asset_downloads(assets, lang):
+    zh = lang == "zh"
     if not assets:
-        return ["APK assets were not found." if lang == "en" else "APK 파일을 찾지 못했습니다."]
+        return ["APK assets were not found." if lang == "en" else "没有找到 APK 文件。"]
     lines = []
     for asset in assets:
         name = asset["name"]
         product = asset.get("product") or apk_product(name)[0]
         if product == "spotify-module":
-            description = (
-                "Spotify용 LSPosed/LSPatch 모듈입니다. 모듈 로더에서 활성화해야 합니다."
-                if lang == "ko" else
-                "Spotify module for LSPosed/LSPatch. Enable it in your module loader."
-            )
+            description = ("Spotify 的 LSPosed 模块，需要在模块管理器里启用" if zh
+                           else "Spotify module for LSPosed; enable it in your module manager")
         elif product == "standalone":
-            description = "독립 Android 앱입니다." if lang == "ko" else "Standalone Android app."
+            description = "独立 Android 应用" if zh else "Standalone Android app"
         else:
-            description = "Android APK입니다." if lang == "ko" else "Android APK."
+            description = "Android 安装包" if zh else "Android APK"
         version_name = asset.get("versionName")
-        version_code = asset.get("versionCode")
         if version_name:
-            description += f" v{version_name}"
-            if version_code is not None:
-                description += f" ({version_code})"
-            description += "."
-        if lang == "ko":
+            version = f"v{version_name}"
+            if asset.get("versionCode") is not None:
+                version += f" ({asset['versionCode']})"
+            description += ("，" if zh else ", ") + version
+        if zh:
             if "unsigned" in name:
-                note = "서명되지 않은 릴리즈 APK입니다."
+                note = "未签名的发布包。"
             elif "debug" in name:
-                note = "설치 테스트용 디버그 APK입니다."
+                note = "用于安装测试的调试包。"
             else:
-                note = "서명된 릴리즈 APK입니다."
-            lines.append(f"`{name}`: {description} {note}")
+                note = "已签名的发布包。"
+            lines.append(f"`{name}`: {description}，{note}")
         else:
             if "unsigned" in name:
                 note = "Unsigned release APK."
@@ -294,7 +293,7 @@ def asset_downloads(assets, lang):
                 note = "Debug APK for install testing."
             else:
                 note = "Signed release APK."
-            lines.append(f"`{name}`: {description} {note}")
+            lines.append(f"`{name}`: {description}. {note}")
     return lines
 
 
@@ -345,10 +344,10 @@ def fallback_item(commit, language):
     paths = ", ".join(f"`{item['path']}`" for item in files[:4])
     if len(files) > 4:
         paths += f", +{len(files) - 4}"
-    if language == "ko":
+    if language == "zh":
         details = (
-            f"{len(files)}개 파일에서 +{additions}/-{deletions}줄을 변경했습니다."
-            + (f" 주요 범위: {paths}." if paths else "")
+            f"改动 {len(files)} 个文件，+{additions}/-{deletions} 行。"
+            + (f" 主要范围：{paths}。" if paths else "")
         )
     else:
         details = (
@@ -357,8 +356,8 @@ def fallback_item(commit, language):
         )
     if commit_type in {"build", "chore", "ci", "docs", "style", "test"}:
         details += (
-            " 사용자 기능 외의 유지보수 변경입니다."
-            if language == "ko"
+            " 属于主要功能之外的维护性改动。"
+            if language == "zh"
             else " This is a maintenance change outside the main user features."
         )
     return {
@@ -370,11 +369,11 @@ def fallback_item(commit, language):
 
 def fallback_sections(commits, language):
     labels = {
-        "ko": {
-            "lyrics": "가사, AI 및 오버레이",
-            "playback": "재생 및 LP 모드",
-            "ui": "UI 및 설정",
-            "maintenance": "안정성 및 유지보수",
+        "zh": {
+            "lyrics": "歌词、AI 与悬浮层",
+            "playback": "播放与黑胶模式",
+            "ui": "界面与设置",
+            "maintenance": "稳定性与维护",
         },
         "en": {
             "lyrics": "Lyrics, AI, and Overlay",
@@ -398,12 +397,11 @@ def fallback_sections(commits, language):
 def fallback_content(current_tag, commits):
     count = len(commits)
     return {
-        "ko": {
+        "zh": {
             "summary": (
-                f"{current_tag}는 이전 릴리스 이후의 {count}개 변경을 기능별로 "
-                "정리하고 설치용 APK를 함께 제공하는 업데이트입니다."
+                f"{current_tag} 整理了上个版本以来的 {count} 项改动，并附上可直接安装的 APK。"
             ),
-            "sections": fallback_sections(commits, "ko"),
+            "sections": fallback_sections(commits, "zh"),
         },
         "en": {
             "summary": (
@@ -419,12 +417,12 @@ def load_template():
     if TEMPLATE_PATH.exists():
         return TEMPLATE_PATH.read_text(encoding="utf-8")
     return textwrap.dedent("""
-        # ivLyrics Android {tag}
+        # Lyriscope {tag}
 
-        ## 한국어
-        {ko_summary}
+        ## 中文
+        {zh_summary}
 
-        {ko_sections}
+        {zh_sections}
 
         ## English
         {en_summary}
@@ -454,7 +452,7 @@ def markdown_sections(sections, fallback_title, fallback_text):
 
 
 def render_notes(current_tag, previous, version, assets, content):
-    ko = content.get("ko") or {}
+    zh = content.get("zh") or {}
     en = content.get("en") or {}
     return load_template().format(
         tag=current_tag,
@@ -462,13 +460,13 @@ def render_notes(current_tag, previous, version, assets, content):
         version_code=version.get("versionCode") or "unknown",
         previous_tag=previous or "None",
         compare_url=compare_url(current_tag, previous),
-        ko_summary=ko.get("summary") or "릴리즈 노트가 생성되었습니다.",
-        ko_sections=markdown_sections(
-            ko.get("sections") or [],
-            "변경 사항",
-            "이전 릴리스 이후의 변경 사항을 정리했습니다.",
+        zh_summary=zh.get("summary") or "已生成发布说明。",
+        zh_sections=markdown_sections(
+            zh.get("sections") or [],
+            "改动",
+            "这里是上个版本以来的改动。",
         ),
-        ko_downloads=markdown_bullets(asset_downloads(assets, "ko")),
+        zh_downloads=markdown_bullets(asset_downloads(assets, "zh")),
         en_summary=en.get("summary") or "Release notes were generated.",
         en_sections=markdown_sections(
             en.get("sections") or [],
@@ -501,11 +499,11 @@ def parse_ai_json(text, commits):
         return {}
     if not isinstance(data, dict):
         return {}
-    ko = data.get("ko") if isinstance(data.get("ko"), dict) else {}
+    zh = data.get("zh") if isinstance(data.get("zh"), dict) else {}
     en = data.get("en") if isinstance(data.get("en"), dict) else {}
-    if not ko or not en:
+    if not zh or not en:
         return {}
-    content = {"ko": normalize_note_section(ko), "en": normalize_note_section(en)}
+    content = {"zh": normalize_note_section(zh), "en": normalize_note_section(en)}
     if not has_complete_commit_coverage(content, commits):
         return {}
     return content
@@ -561,7 +559,7 @@ def has_complete_commit_coverage(content, commits):
     expected = [commit["hash"] for commit in commits]
     if not expected:
         return False
-    for language in ("ko", "en"):
+    for language in ("zh", "en"):
         actual = covered_commits(content.get(language) or {})
         if len(actual) != len(expected) or set(actual) != set(expected):
             return False
@@ -580,8 +578,8 @@ def ai_release_content(current_tag, previous, version, commits, stat_text, asset
         for asset in assets
     )
     prompt = textwrap.dedent(f"""
-        You write bilingual GitHub release note content for an Android music lyrics app named ivLyrics Android.
-        Return JSON only. Do not return Markdown.
+        You write bilingual GitHub release note content for an Android lyrics app and LSPosed module
+        named Lyriscope, which shows lyrics inside Spotify. Return JSON only. Do not return Markdown.
 
         Current tag: {current_tag}
         Previous tag: {previous or "(none)"}
@@ -591,15 +589,15 @@ def ai_release_content(current_tag, previous, version, commits, stat_text, asset
 
         Output JSON schema:
         {{
-          "ko": {{
-            "summary": "Korean summary in two to four sentences",
+          "zh": {{
+            "summary": "用两到四句中文概括这个版本",
             "sections": [
               {{
-                "title": "Korean product-area heading",
+                "title": "按功能划分的中文小标题",
                 "items": [
                   {{
-                    "title": "Short Korean change title",
-                    "details": "One to three detailed Korean sentences describing behavior, conditions, and user impact.",
+                    "title": "简短的中文改动标题",
+                    "details": "用一到三句中文说清行为、触发条件和用户会感知到的变化。",
                     "commits": ["short commit hash"]
                   }}
                 ]
@@ -624,11 +622,11 @@ def ai_release_content(current_tag, previous, version, commits, stat_text, asset
         }}
 
         Requirements:
-        - Write both Korean and English.
-        - Keep Korean and English sections semantically equivalent.
+        - Write both Chinese and English.
+        - Keep the Chinese and English sections semantically equivalent.
         - Compare this release against the previous tag.
-        - Create descriptive product-area sections such as Lyrics and AI, Playback and LP Mode, UI and Settings, or Reliability. Use only sections supported by the changes.
-        - Cover every supplied commit hash exactly once in Korean and exactly once in English. Equivalent items in both languages must list the same hashes.
+        - Create descriptive product-area sections such as Lyrics and AI, Playback and Vinyl Mode, UI and Settings, or Reliability. Use only sections supported by the changes.
+        - Cover every supplied commit hash exactly once in Chinese and exactly once in English. Equivalent items in both languages must list the same hashes.
         - Combine commits only when they are tightly related parts of one user-facing change. Do not cap the number of sections or items.
         - Make every details field explain what changed, when it matters, and what the user will notice. Include defaults, compatibility behavior, localization, cache handling, and edge cases when supported.
         - Put user-facing changes first and maintenance changes last.
@@ -667,7 +665,7 @@ def ai_release_content(current_tag, previous, version, commits, stat_text, asset
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "ivLyrics-Android-ReleaseBot/1.0",
+            "User-Agent": "Lyriscope-ReleaseBot/1.0",
         },
         method="POST",
     )
@@ -739,13 +737,16 @@ def main():
     out_dir = Path(os.environ.get("RELEASE_METADATA_DIR", "release-metadata"))
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "release-notes.md").write_text(notes.strip() + "\n", encoding="utf-8")
-    (out_dir / f"ivLyrics-Android-{current_tag}-version.json").write_text(
+    # One manifest per release, named after the release rather than a product: it describes
+    # every APK in it, and the in-app updater only looks for the '-version.json' suffix.
+    manifest = out_dir / f"Lyriscope-{current_tag}-version.json"
+    manifest.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     print(f"previous_tag={previous}")
     print(f"notes={out_dir / 'release-notes.md'}")
-    print(f"version_file={out_dir / f'ivLyrics-Android-{current_tag}-version.json'}")
+    print(f"version_file={manifest}")
 
 
 if __name__ == "__main__":

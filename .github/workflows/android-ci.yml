@@ -1,4 +1,4 @@
-name: Android CI
+name: CI
 
 on:
   pull_request:
@@ -105,19 +105,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ivlyrics_test_key_dir="$(mktemp -d)"
-          trap 'rm -rf "${ivlyrics_test_key_dir}"' EXIT
-          keytool -genkeypair -noprompt -keystore "${ivlyrics_test_key_dir}/test.jks" \
+          lyriscope_test_key_dir="$(mktemp -d)"
+          trap 'rm -rf "${lyriscope_test_key_dir}"' EXIT
+          keytool -genkeypair -noprompt -keystore "${lyriscope_test_key_dir}/test.jks" \
             -storepass ci-test-only -keypass ci-test-only -alias ci-fixture \
-            -dname "CN=ivLyrics CI fixture" -keyalg RSA -keysize 2048 -validity 2
-          export IVLYRICS_RELEASE_STORE_FILE="${ivlyrics_test_key_dir}/test.jks"
-          export IVLYRICS_RELEASE_STORE_PASSWORD=ci-test-only
-          export IVLYRICS_RELEASE_KEY_ALIAS=ci-fixture
-          export IVLYRICS_RELEASE_KEY_PASSWORD=ci-test-only
+            -dname "CN=Lyriscope CI fixture" -keyalg RSA -keysize 2048 -validity 2
+          export LYRISCOPE_RELEASE_STORE_FILE="${lyriscope_test_key_dir}/test.jks"
+          export LYRISCOPE_RELEASE_STORE_PASSWORD=ci-test-only
+          export LYRISCOPE_RELEASE_KEY_ALIAS=ci-fixture
+          export LYRISCOPE_RELEASE_KEY_PASSWORD=ci-test-only
           ./gradlew :app:assembleRelease :spotify-module:assembleRelease \
-            -PivLyricsRequireReleaseSigning=true --console=plain
-          ivlyrics_ci_version="$(sed -n 's/^ivLyricsVersionName=//p' gradle.properties)"
-          python3 .github/scripts/collect_release_apks.py --tag "v${ivlyrics_ci_version}" \
+            -PlyriscopeRequireReleaseSigning=true --console=plain
+          lyriscope_ci_version="$(sed -n 's/^lyriscopeVersionName=//p' gradle.properties)"
+          python3 .github/scripts/collect_release_apks.py --tag "v${lyriscope_ci_version}" \
             --output build/reports/release-packaging
           python3 tests/check_module_boundaries.py --built --variant release
 

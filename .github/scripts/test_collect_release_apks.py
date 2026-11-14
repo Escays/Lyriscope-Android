@@ -11,7 +11,7 @@ spec.loader.exec_module(collector)
 
 class ReleaseCollectionTest(unittest.TestCase):
     def write_version(self, root, name="1.3.6", code=66):
-        (root / "gradle.properties").write_text(f"ivLyricsVersionName={name}\nivLyricsVersionCode={code}\n")
+        (root / "gradle.properties").write_text(f"lyriscopeVersionName={name}\nlyriscopeVersionCode={code}\n")
 
     def test_tag_cannot_advance_without_app_version(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -47,7 +47,7 @@ class ReleaseCollectionTest(unittest.TestCase):
             android, module = collector.asset_names(tag)
             self.assertIn("-release", android.lower())
             self.assertNotIn("-release", module.lower())
-            self.assertTrue(module.startswith("ivLyrics-LSPatch-"))
+            self.assertTrue(module.startswith("Lyriscope-Spotify-"))
 
     def test_reject_unsafe_tags_before_writing_output(self):
         for tag in ("../v1", "v1/../v2", "v1\nother", "v1$(pwd)", "v1.0-unsigned"):

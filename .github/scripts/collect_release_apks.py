@@ -11,20 +11,22 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCTS = (
-    ("standalone", "app", "app-release.apk", "kr.ivlis.ivlyricsandroid",
+    ("standalone", "app", "app-release.apk", "dev.lyriscope.app",
      {"android.permission.INTERNET", "android.permission.REQUEST_INSTALL_PACKAGES",
       "android.permission.SYSTEM_ALERT_WINDOW"}),
-    ("spotify-module", "spotify-module", "spotify-module-release.apk", "dev.ivlyrics.spotify.module", set()),
+    ("spotify-module", "spotify-module", "spotify-module-release.apk", "dev.lyriscope.spotify", set()),
 )
 
 
 def asset_names(tag):
     if not re.fullmatch(r"v?[0-9][A-Za-z0-9._+-]*", tag):
         raise ValueError("Release tag must be a filename-safe version tag")
-    # Older installed apps choose the first APK containing '-release'. Only the
-    # standalone file may contain it, including when the tag is a prerelease.
-    names = (f"ivLyrics-Android-{tag}-release.apk",
-             f"ivLyrics-LSPatch-{tag.replace('-', '_')}.apk")
+    # Installed apps choose the first APK containing '-release'. Only the standalone
+    # file may contain it, including when the tag is a prerelease, so the module name
+    # spells the tag with '_' — otherwise a tag like v1.2.3-release-candidate would
+    # turn the module into a release-priority asset.
+    names = (f"Lyriscope-Android-{tag}-release.apk",
+             f"Lyriscope-Spotify-{tag.replace('-', '_')}.apk")
     if "unsigned" in names[0].lower():
         raise ValueError("Release tag would be rejected by the existing Android updater")
     return names
@@ -34,17 +36,17 @@ def release_version(tag, root=ROOT, previous=None):
     asset_names(tag)
     properties = {}
     for line in (root / "gradle.properties").read_text().splitlines():
-        match = re.fullmatch(r"\s*(ivLyricsVersionName|ivLyricsVersionCode)\s*=\s*(.*?)\s*", line)
+        match = re.fullmatch(r"\s*(lyriscopeVersionName|lyriscopeVersionCode)\s*=\s*(.*?)\s*", line)
         if match:
             if match[1] in properties:
                 raise RuntimeError(f"Duplicate release property: {match[1]}")
             properties[match[1]] = match[2]
-    name = properties.get("ivLyricsVersionName", "")
-    code = properties.get("ivLyricsVersionCode", "")
+    name = properties.get("lyriscopeVersionName", "")
+    code = properties.get("lyriscopeVersionCode", "")
     if name != tag.removeprefix("v"):
         raise RuntimeError(f"Release tag {tag} does not match configured versionName {name!r}")
     if not code.isdigit() or not 0 < int(code) <= 2100000000:
-        raise RuntimeError("ivLyricsVersionCode must be a positive Android version code")
+        raise RuntimeError("lyriscopeVersionCode must be a positive Android version code")
     version = {"versionName": name, "versionCode": int(code)}
     if previous is not None:
         records = [previous, *previous.get("apks", [])]

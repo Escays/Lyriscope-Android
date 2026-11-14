@@ -18,10 +18,10 @@ def signingValue = { String name ->
     return envValue == null ? "" : envValue.trim()
 }
 
-def releaseStoreFilePath = signingValue("IVLYRICS_RELEASE_STORE_FILE")
-def releaseStorePassword = signingValue("IVLYRICS_RELEASE_STORE_PASSWORD")
-def releaseKeyAlias = signingValue("IVLYRICS_RELEASE_KEY_ALIAS")
-def releaseKeyPassword = signingValue("IVLYRICS_RELEASE_KEY_PASSWORD")
+def releaseStoreFilePath = signingValue("LYRISCOPE_RELEASE_STORE_FILE")
+def releaseStorePassword = signingValue("LYRISCOPE_RELEASE_STORE_PASSWORD")
+def releaseKeyAlias = signingValue("LYRISCOPE_RELEASE_KEY_ALIAS")
+def releaseKeyPassword = signingValue("LYRISCOPE_RELEASE_KEY_PASSWORD")
 def releaseSigningValues = [
         releaseStoreFilePath,
         releaseStorePassword,
@@ -30,23 +30,23 @@ def releaseSigningValues = [
 ]
 def releaseSigningValueCount = releaseSigningValues.count { it != null && it.trim() }
 if (releaseSigningValueCount > 0 && releaseSigningValueCount < releaseSigningValues.size()) {
-    throw new GradleException("Incomplete release signing config. Set IVLYRICS_RELEASE_STORE_FILE, IVLYRICS_RELEASE_STORE_PASSWORD, IVLYRICS_RELEASE_KEY_ALIAS, and IVLYRICS_RELEASE_KEY_PASSWORD.")
+    throw new GradleException("Incomplete release signing config. Set LYRISCOPE_RELEASE_STORE_FILE, LYRISCOPE_RELEASE_STORE_PASSWORD, LYRISCOPE_RELEASE_KEY_ALIAS, and LYRISCOPE_RELEASE_KEY_PASSWORD.")
 }
-ext.ivLyricsReleaseSigningConfigured = releaseSigningValueCount == releaseSigningValues.size()
+ext.lyriscopeReleaseSigningConfigured = releaseSigningValueCount == releaseSigningValues.size()
 def releaseStoreFile = { String path ->
     def candidate = new File(path)
     return candidate.isAbsolute() ? candidate : rootProject.file(path)
 }
 
-if (providers.gradleProperty("ivLyricsRequireReleaseSigning").orNull == "true"
-        && !ivLyricsReleaseSigningConfigured) {
+if (providers.gradleProperty("lyriscopeRequireReleaseSigning").orNull == "true"
+        && !lyriscopeReleaseSigningConfigured) {
     throw new GradleException("This build requires the configured IVLYRICS_RELEASE_* signing key.")
 }
 
 android {
     signingConfigs {
         release {
-            if (ivLyricsReleaseSigningConfigured) {
+            if (lyriscopeReleaseSigningConfigured) {
                 storeFile releaseStoreFile(releaseStoreFilePath)
                 storePassword releaseStorePassword
                 keyAlias releaseKeyAlias

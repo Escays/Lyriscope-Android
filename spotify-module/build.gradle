@@ -19,14 +19,14 @@ android {
         applicationId "dev.lyriscope.spotify"
         minSdk 26
         targetSdk 35
-        versionCode providers.gradleProperty("ivLyricsVersionCode").get().toInteger()
-        versionName providers.gradleProperty("ivLyricsVersionName").get()
+        versionCode providers.gradleProperty("lyriscopeVersionCode").get().toInteger()
+        versionName providers.gradleProperty("lyriscopeVersionName").get()
     }
     buildTypes {
         release {
             minifyEnabled false
             // Published APKs use the stable release key; local development keeps its existing key.
-            signingConfig ivLyricsReleaseSigningConfigured ? signingConfigs.release : signingConfigs.debug
+            signingConfig lyriscopeReleaseSigningConfigured ? signingConfigs.release : signingConfigs.debug
         }
     }
     compileOptions {

@@ -1,14 +1,14 @@
-name: Android UI Validation
+name: UI Validation
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/Settings*.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/LocalAiSettingsView.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/BaseLyricsActivity.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/*I18n.java'
-      - 'shared/src/test/java/kr/ivlis/ivlyricsandroid/AppI18nInitializationTest.java'
+      - 'shared/src/main/java/dev/lyriscope/core/Settings*.java'
+      - 'shared/src/main/java/dev/lyriscope/core/LocalAiSettingsView.java'
+      - 'shared/src/main/java/dev/lyriscope/core/BaseLyricsActivity.java'
+      - 'shared/src/main/java/dev/lyriscope/core/*I18n.java'
+      - 'shared/src/test/java/dev/lyriscope/core/AppI18nInitializationTest.java'
       - 'tests/run_first_use_regression.py'
       - 'tests/run_settings_ui_regression.py'
       - '.github/scripts/*settings_ui*'
@@ -18,11 +18,11 @@ on:
       - '.github/workflows/android-ui-validation.yml'
   pull_request:
     paths:
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/Settings*.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/LocalAiSettingsView.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/BaseLyricsActivity.java'
-      - 'shared/src/main/java/kr/ivlis/ivlyricsandroid/*I18n.java'
-      - 'shared/src/test/java/kr/ivlis/ivlyricsandroid/AppI18nInitializationTest.java'
+      - 'shared/src/main/java/dev/lyriscope/core/Settings*.java'
+      - 'shared/src/main/java/dev/lyriscope/core/LocalAiSettingsView.java'
+      - 'shared/src/main/java/dev/lyriscope/core/BaseLyricsActivity.java'
+      - 'shared/src/main/java/dev/lyriscope/core/*I18n.java'
+      - 'shared/src/test/java/dev/lyriscope/core/AppI18nInitializationTest.java'
       - 'tests/run_first_use_regression.py'
       - 'tests/run_settings_ui_regression.py'
       - '.github/scripts/*settings_ui*'
@@ -81,7 +81,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_5
-          avd-name: ivlyrics-ui
+          avd-name: lyriscope-ui
           pre-emulator-launch-script: bash .github/scripts/prepare_settings_ui_avd.sh
           cores: 2
           ram-size: 3072M

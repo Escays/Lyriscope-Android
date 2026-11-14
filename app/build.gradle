@@ -17,8 +17,8 @@ android {
         minSdk 26
         targetSdk 35
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode providers.gradleProperty("ivLyricsVersionCode").get().toInteger()
-        versionName providers.gradleProperty("ivLyricsVersionName").get()
+        versionCode providers.gradleProperty("lyriscopeVersionCode").get().toInteger()
+        versionName providers.gradleProperty("lyriscopeVersionName").get()
     }
 
     buildTypes {
@@ -29,7 +29,7 @@ android {
             matchingFallbacks = ["debug"]
         }
         release {
-            if (ivLyricsReleaseSigningConfigured) {
+            if (lyriscopeReleaseSigningConfigured) {
                 signingConfig signingConfigs.release
             }
         }

@@ -27,7 +27,7 @@ final class UpdatePackageVerifier {
         URL url = parseHttpsUrl(value);
         if (!"github.com".equalsIgnoreCase(url.getHost())
                 || !url.getPath().startsWith(RELEASE_PATH_PREFIX)) {
-            throw new IOException("Update APK URL is not an ivLyrics GitHub release asset");
+            throw new IOException("Update APK URL is not a Lyriscope GitHub release asset");
         }
         return url;
     }
@@ -69,7 +69,7 @@ final class UpdatePackageVerifier {
             throw new IOException("Could not inspect update APK package information");
         }
         if (!context.getPackageName().equals(archive.packageName)) {
-            throw new IOException("Update APK package name does not match ivLyrics");
+            throw new IOException("Update APK package name does not match Lyriscope");
         }
 
         long archiveVersion = longVersionCode(archive);

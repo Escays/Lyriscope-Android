@@ -1,18 +1,18 @@
-# ivLyrics Android {tag}
+# Lyriscope {tag}
 
-- Android version: `{version_name}` (`{version_code}`)
-- Previous release: `{previous_tag}`
-- Compare: {compare_url}
+- 版本：`{version_name}` (`{version_code}`)
+- 上一版：`{previous_tag}`
+- 对比：{compare_url}
 
-## 한국어
+## 中文
 
-### 요약
-{ko_summary}
+### 概述
+{zh_summary}
 
-{ko_sections}
+{zh_sections}
 
-### 다운로드
-{ko_downloads}
+### 下载
+{zh_downloads}
 
 ## English
 

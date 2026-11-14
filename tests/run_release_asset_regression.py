@@ -64,14 +64,14 @@ test.write_text("import java.util.*;\npublic final class ReleaseAssetRegression 
     private void run() {
         for (String tag : new String[]{"v1.3.5", "v1.3.6", "v12.10.30",
                 "v1.3.6-rc.1", "v1.3.6-release-candidate"}) {
-            String android = "ivLyrics-Android-" + tag + "-release.apk";
-            String module = "ivLyrics-LSPatch-" + tag.replace('-', '_') + ".apk";
-            String debug = "ivLyrics-Android-" + tag + "-debug.apk";
-            String version = "ivLyrics-Android-" + tag + "-version.json";
+            String android = "Lyriscope-Android-" + tag + "-release.apk";
+            String module = "Lyriscope-Spotify-" + tag.replace('-', '_') + ".apk";
+            String debug = "Lyriscope-Android-" + tag + "-debug.apk";
+            String version = "Lyriscope-Android-" + tag + "-version.json";
             permutations(new ArrayList<>(Arrays.asList(asset(android), asset(module),
                     asset(version), asset("SHA256SUMS.txt"))), 0, android, version);
             apk("unsigned alternative cannot shadow signed Android", android,
-                    module, "ivLyrics-Android-" + tag + "-release-unsigned.apk", android);
+                    module, "Lyriscope-Android-" + tag + "-release-unsigned.apk", android);
             apk(tag.contains("-release") ? "HAZARD: release in tag makes debug APK a release"
                     : "debug alternative cannot shadow signed Android",
                     tag.contains("-release") ? debug : android, debug, module, android);
@@ -81,15 +81,15 @@ test.write_text("import java.util.*;\npublic final class ReleaseAssetRegression 
             // These are existing legacy behaviors, not safe publication configurations.
             apk("HAZARD: module-only release is an updater fallback", module, version, module);
             apk("HAZARD: unsigned Android leaves module as fallback", module,
-                    "ivLyrics-Android-" + tag + "-release-unsigned.apk", module, version);
+                    "Lyriscope-Android-" + tag + "-release-unsigned.apk", module, version);
             apk("HAZARD: missing signed Android selects debug or module",
                     tag.contains("-release") ? debug : module, debug, module);
             apk("HAZARD: '-release' anywhere in module name wins if first",
-                    "ivLyrics-LSPatch-" + tag + "-release.apk",
-                    "ivLyrics-LSPatch-" + tag + "-release.apk", android);
+                    "Lyriscope-Spotify-" + tag + "-release.apk",
+                    "Lyriscope-Spotify-" + tag + "-release.apk", android);
             apk("HAZARD: '-release' inside tag also matches",
-                    "ivLyrics-LSPatch-" + tag + "-release-candidate.apk",
-                    "ivLyrics-LSPatch-" + tag + "-release-candidate.apk", android);
+                    "Lyriscope-Spotify-" + tag + "-release-candidate.apk",
+                    "Lyriscope-Spotify-" + tag + "-release-candidate.apk", android);
         }
         apk("no APK assets", null, "version.json", "SHA256SUMS.txt", "bundle.apks");
         apk("all unsigned assets excluded", null, "app-release-unsigned.apk", "APP-UNSIGNED.APK");

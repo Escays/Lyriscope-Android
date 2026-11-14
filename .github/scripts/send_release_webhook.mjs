@@ -110,7 +110,7 @@ export function buildReleaseWebhookMessages({
       : `[${config.label}] Release Notes ${part}/${chunks.length}`;
 
     return {
-      username: 'ivLyrics Releases',
+      username: 'Lyriscope Releases',
       allowed_mentions: { parse: [] },
       content: `**${config.heading} Released**${partLabel}`,
       embeds: [{
@@ -125,8 +125,8 @@ export function buildReleaseWebhookMessages({
         ],
         footer: {
           text: chunks.length > 1
-            ? `ivLyrics ${config.label} • Release notes ${part} of ${chunks.length}`
-            : `ivLyrics ${config.label}`
+            ? `Lyriscope ${config.label} • Release notes ${part} of ${chunks.length}`
+            : `Lyriscope ${config.label}`
         },
         timestamp
       }]

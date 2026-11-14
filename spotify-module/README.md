@@ -1,133 +1,103 @@
-# ivLyrics Android — Spotify 모듈
+# Lyriscope for Spotify — 模块说明
 
-한국어 · [English](#english) · [독립 앱 안내](../README.md)
+[独立应用](../README.md) · [English](#english)
 
-Spotify 안에서 ivLyrics 가사를 보고 싶은 분을 위한 LSPosed/LSPatch 모듈입니다. 모듈 이름은 **ivLyrics for Spotify**이며, 재생 화면의 가사 카드와 전체 가사 페이지를 바꿉니다. 별도 앱에서 가사를 보려면 [ivLyrics Android 독립 앱](../README.md)을 사용하세요.
+把 Spotify 里的歌词卡片和整页歌词换成 Lyriscope 的 LSPosed 模块。模块在 LSPosed 列表里显示为 **Lyriscope for Spotify**。只想在单独的应用里看歌词，用[独立应用](../README.md)。
 
-[모듈 다운로드](https://github.com/ivLis-Studio/ivLyrics-Android/releases/latest) · [Discord 도움받기](https://discord.gg/2fu36fUzdE)
+[下载模块](https://github.com/Escays/Lyriscope-Android/releases/latest) · [问题反馈](https://github.com/Escays/Lyriscope-Android/issues)
 
-## 받을 파일과 준비물
+## 下哪个文件
 
-릴리스의 Assets에서 **`ivLyrics-LSPatch-v<버전>.apk`**를 받으세요. `ivLyrics-Android-v<버전>-release.apk`는 독립 앱입니다. 모듈 APK에는 Spotify나 미리 패치한 Spotify가 들어 있지 않으며, 별도 가사 앱 실행 아이콘도 제공하지 않습니다.
+Releases 里 **`Lyriscope-Spotify-v<版本>.apk`** 是模块；`Lyriscope-Android-v<版本>-release.apk` 是独立应用。
 
-| 설치 방식 | 필요한 환경 |
+模块包里**不含 Spotify**，也不含已经打包好模块的 Spotify，安装了不会多出一个图标。
+
+| 安装方式 | 需要什么 |
 | --- | --- |
-| LSPosed | 루팅과 동작하는 LSPosed 환경, Spotify에 대한 모듈 활성화가 필요합니다. 모듈 APK의 최소 조건은 Android 8.0이며 로더·Spotify 조건이 추가로 적용됩니다. |
-| LSPatch | Android 9 이상, LSPatch 관리자와 패치할 Spotify APK가 필요합니다. 루팅 없이 호스트 APK를 패치하는 방식입니다. |
+| LSPosed | 已 root 且 LSPosed 正常工作，在模块管理器里启用并勾选作用域。模块本身要求 Android 8.0+，再加上加载器与 Spotify 版本的条件。 |
+| LSPatch | Android 9+，需要 LSPatch 管理器和一份 Spotify APK。不需要 root，但要自己打补丁。 |
 
-현재 모듈이 인식하는 Spotify 버전은 **9.1.80.2221 / 9.1.42.2058**뿐입니다. 다른 버전에서는 가사 UI 연결을 적용하지 않습니다. 이 Spotify APK는 ivLyrics 릴리스에 포함되지 않으므로 직접 적법하게 확보해야 합니다. 버전이 일치해도 모든 기기·OS·로더에서의 동작을 보장하지는 않습니다.
+模块目前只认 Spotify **9.1.80.2221 / 9.1.42.2058**，其他版本不会挂上歌词界面。Spotify 的 APK 不在本项目里，需自行以合法方式获取。版本对上也**不代表**在所有机型、系统、加载器上都能正常工作。
 
-실기기 기준 구성은 루팅된 LSPosed입니다. [공식 LSPatch](https://github.com/LSPosed/LSPatch)는 보관 상태인 레거시 프로젝트입니다. 최신 Android나 Spotify와의 호환성을 전제로 설치하지 마세요.
+实机基线是 root + LSPosed。[官方 LSPatch](https://github.com/LSPosed/LSPatch) 已归档，属于遗留方案，不要假设它能配合最新的 Android 或 Spotify。
 
-## LSPatch로 설치하기
+## 用 LSPosed 装（推荐）
 
-1. [공식 LSPatch 릴리스](https://github.com/LSPosed/LSPatch/releases)의 관리자 `manager.apk`, 위 ivLyrics 모듈 APK, 지원 버전의 Spotify APK를 준비하세요. 관리자의 설치·사용은 [LSPatch 안내](https://github.com/LSPosed/LSPatch#usage)를 참고하세요.
-2. 관리자에서 새 패치를 만들고 **Spotify APK**를 대상으로 선택하세요. ivLyrics 모듈 APK 자체를 패치 대상으로 고르지 마세요.
-3. 모듈을 포함하는 패치 옵션에서 내려받은 **`ivLyrics-LSPatch-v<버전>.apk`를 추가**하세요. 관리자에 따라 내장/통합 방식 또는 설치된 모듈을 참조하는 방식이 있으므로 선택한 방식의 안내를 따르세요.
-4. 패치를 완료하고 관리자가 만든 **Spotify APK**를 설치하세요. ivLyrics 릴리스의 모듈 파일과 이 결과 파일은 서로 다릅니다.
-5. 설치한 Spotify를 완전히 종료한 뒤 다시 열고 로그인해 음악을 재생하세요.
+1. 强制停止 Spotify。
+2. 安装 `Lyriscope-Spotify-v<版本>.apk`。
+3. 在 LSPosed 里启用 **Lyriscope for Spotify**，作用域勾选 **Spotify（`com.spotify.music`）**。
+4. 按加载器要求重启，再打开 Spotify。
 
-> 패치된 Spotify의 서명은 기존 설치본과 다를 수 있어 덮어쓰기가 거부될 수 있습니다. 기존 Spotify를 제거해야 하는지 먼저 확인하세요. 제거하면 Spotify의 로컬 설정·다운로드뿐 아니라 그 안에 보관된 모듈 설정·캐시도 사라질 수 있습니다. 이후 업데이트에도 같은 패치 서명 키를 유지해야 합니다.
+这条路线**不需要重新打包 Spotify**，用的是已安装的原版。
 
-## 이미 LSPosed를 사용하고 있나요?
+## 用 LSPatch 装
 
-1. Spotify를 강제 종료하고 `ivLyrics-LSPatch-v<버전>.apk`를 설치하세요.
-2. LSPosed에서 **ivLyrics for Spotify**를 켜고 범위(scope)에 **Spotify (`com.spotify.music`)**를 선택하세요.
-3. 로더가 요구하는 재시작을 완료하고 Spotify를 여세요. 이 방식은 Spotify APK를 다시 패치할 필요가 없습니다.
+1. 从[官方 LSPatch releases](https://github.com/LSPosed/LSPatch/releases)取 `manager.apk`，备好上面的模块包和受支持版本的 Spotify APK。
+2. 新建补丁，**目标选 Spotify APK**——不要选模块 APK 自己。
+3. 在「包含模块」这一步把 `Lyriscope-Spotify-v<版本>.apk` 加进去，按管理器提示选择内嵌或引用已安装模块。
+4. 完成补丁，安装**生成的 Spotify APK**（它不是模块包本身）。
+5. 彻底关掉那个 Spotify 再打开、登录、播放。
 
-독립 앱 설치와 알림 접근·플로팅 아이콘 권한은 모듈에 필요하지 않습니다. 모듈은 Spotify 안의 재생 정보와 메타데이터를 사용하므로 독립 앱의 Spotify Client ID·Secret 첫 설정도 요구하지 않습니다.
+> 打过补丁的 Spotify 签名可能和现有安装不同，覆盖安装会被拒。先确认是否需要卸载原 Spotify——卸载会丢掉它的本地设置、下载，以及存在里面的模块设置与缓存。之后每次更新都要用同一个补丁签名。
 
-## 첫 곡과 번역 설정
+模块不需要独立应用、通知读取权限或悬浮窗权限，也不需要配 Spotify Client ID / Secret：播放信息直接取自 Spotify 自己。
 
-음악을 재생한 뒤 Spotify 재생 화면의 가사 카드에서 전체 가사를 여세요. Spotify 자체 가사가 없는 음악에도 ivLyrics 가사 카드를 추가할 수 있지만, 실제 가사 데이터가 있어야 내용이 표시됩니다. 팟캐스트·에피소드와 팟캐스트에 포함된 곡은 대상이 아닙니다.
+## 第一首歌与设置
 
-가사 화면의 설정에서 **현재 재생 곡 설정**을 열거나 제목·아티스트 영역을 길게 눌러 언어·가사 제공자·수동 검색·싱크를 조절하세요. 공통 기능과 비용·데이터 안내는 [Android README](../README.md#번역과-발음-설정하기)를 참고하세요.
+放一首歌，在播放页的歌词卡片上打开整页歌词。Spotify 自己没有歌词的歌也能显示卡片，但要有歌词数据才有内容。播客、播客里的单曲不在范围内。
 
-- Bing·Google·DeepL·Local AI는 **번역 전용**입니다. 발음을 생성하려면 지원하는 AI 제공자의 연결 정보·모델과 발음 표시를 설정하세요.
-- **Local AI를 먼저 쓰려면 온라인 제공자보다 앞에 배치**하세요. 켜는 것만으로 우선하지 않으며, 기기 내 가사 번역만 원하면 다른 온라인 번역 제공자를 모두 꺼야 합니다.
-- Local AI에는 Android 9 이상·64비트 ARM 프로세스·모델 다운로드와 충분한 메모리가 필요합니다. LSPatch 등 호스트 환경에서 엔진 로딩이 실패할 수 있습니다. 가사 조회·모델 다운로드·다른 온라인 기능까지 오프라인이 되는 것은 아닙니다.
-- 모듈의 설정·캐시·모델은 Spotify 쪽 저장 공간에 보관되며 독립 앱과 자동 공유되지 않습니다.
-- 직접 가진 LRC/TXT 파일은 **설정 → 현재 재생 곡 설정 → 가사 제공자 → 가사 파일 불러오기**에서 현재 곡에 추가할 수 있습니다. 온라인 가사보다 우선 표시되며, 같은 메뉴에서 삭제할 수 있습니다. [파일 형식과 저장 안내](../README.md#내-lrc-파일로-가사-추가하기)를 참고하세요.
+在歌词页打开「当前播放歌曲设置」，或长按标题/歌手区域，可以调语言、歌词来源、手动找歌词、同步。翻译、发音、费用与数据说明见[主 README](../README.md)。
 
-### Spotify 9.1.80.2221에서 사용할 수 있는 기능
+- Bing、Google、DeepL、Local AI 都**只做翻译**，发音要另配 AI 提供商的连接信息、模型并打开发音显示。
+- 想优先用 Local AI，就要把它**排在在线提供商前面**；只勾选它不会自动优先，要纯本地翻译得把其他在线翻译全部关掉。
+- Local AI 需要 Android 9+、64 位 ARM 进程、下载好的模型和足够内存，在 LSPatch 这类宿主环境下引擎可能加载失败。歌词查询、模型下载这些在线功能仍然需要联网。
+- 模块的设置、缓存、模型都存在 Spotify 那边，不会和独立应用自动共享。
+- 自己的 LRC/TXT 文件在「设置 → 当前播放歌曲设置 → 歌词来源 → 导入歌词文件」里加到当前歌曲，优先级高于在线歌词，同一菜单里可以删除。
 
-- 곡 제목 위 한 줄 가사도 ivLyrics를 사용합니다. Spotify의 **Lyrics · On/Off** 설정으로 표시 여부를 바꾸고, 가사를 누르면 전체 가사를 엽니다.
-- 지원 곡의 전체 가사 오른쪽 아래에는 Spotify 기본 SingAlong의 마이크 버튼이 나타납니다. **OFF → LOW → HIGH → OFF**로 바뀌며 화면을 터치하면 나타났다가 3초 뒤 숨습니다. Spotify가 해당 곡을 지원해야 하며 온라인·기기 내 재생·오디오 품질 조건을 따릅니다. LOW 오디오 품질에서는 사용할 수 없습니다. 기능 플래그나 곡 지원 여부를 해제하는 기능은 아닙니다.
+### 9.1.80.2221 上额外可用的
 
-이 두 기능을 9.1.42.2058이나 독립 앱에서도 사용할 수 있다는 뜻은 아닙니다.
+- 标题上方那一行歌词也用 Lyriscope 的。用 Spotify 的 **Lyrics · On/Off** 控制显隐，点歌词开整页。
+- 支持的歌在整页歌词右下角会出现 Spotify 原生 SingAlong 的麦克风按钮，**OFF → LOW → HIGH → OFF** 循环，触屏出现、静置三秒隐藏。需要 Spotify 支持该曲，并且受在线播放、本地播放、音质条件限制（LOW 音质不可用）。它不能解锁功能开关或让不支持的歌变得可用。
 
-## 업데이트와 문제 해결
+这两条**不**适用于 9.1.42.2058，也不适用于独立应用。
 
-**Spotify를 강제 종료한 뒤 업데이트**하세요. LSPosed는 같은 서명의 새 모듈 APK를 설치하고 활성화·범위를 확인한 뒤 재시작하세요. LSPatch에서 모듈을 내장했다면 새 모듈로 Spotify를 **다시 패치**해야 합니다. 설치된 모듈을 참조하는 방식은 해당 모듈을 업데이트하고 관리자 설정을 확인하세요. Spotify 자체를 업데이트할 때도 지원 버전인지 확인하고, LSPatch라면 패치를 다시 적용해야 합니다.
+## 更新与排错
 
-| 이런 문제가 있나요? | 확인할 내용 |
+更新前先**强制停止 Spotify**。LSPosed 下装同签名的新模块、确认启用与作用域、重启即可；LSPatch 内嵌模块的话，要用新模块**重新打一次补丁**。Spotify 自己更新后同样要确认版本是否仍受支持。
+
+| 现象 | 先查什么 |
 | --- | --- |
-| 설치했는데 변화가 없습니다 | 독립 앱이 아닌 모듈 APK인지, Spotify 버전이 정확한지, 로더 활성화·범위 또는 패치에 모듈 포함이 완료됐는지 확인하세요. 모듈 설치만으로 패치되지는 않습니다. |
-| 앱이 설치되지 않거나 업데이트가 거부됩니다 | 기존 설치본과 새 파일의 서명을 확인하세요. 모듈 자체의 서명과 패치된 Spotify의 서명은 별개입니다. 로컬 debug 빌드와 배포 모듈의 키가 다를 수도 있습니다. |
-| 가사가 없거나 잘못 나옵니다 | 인터넷·선택한 가사 제공자·수동 검색을 확인하고 현재 곡 캐시를 새로 불러오세요. |
-| 마이크 버튼이 없습니다 | 9.1.80.2221과 Spotify의 곡·재생 조건을 확인하세요. 지원 확인 중이거나 미지원 곡에서는 숨습니다. |
-| Local AI가 실패합니다 | 프로세스의 64비트 지원, 모델 다운로드와 메모리를 확인하고 테스트하세요. 로컬 번역만 선택했다면 온라인 제공자로 자동 해결되지 않습니다. |
-| Spotify가 열리지 않습니다 | 모듈/로더 활성화를 해제해 다시 실행하고 로더 로그를 확인하세요. |
+| 装了什么都没变 | 装的是不是模块包（不是独立应用）；Spotify 版本是否精确匹配；LSPosed 是否启用且勾了作用域／补丁里是否真的包含了模块。 |
+| 装不上或更新被拒 | 新旧文件的签名是否一致。模块自身的签名与打完补丁的 Spotify 签名是两回事；本地 debug 构建和发布包用的密钥也可能不同。 |
+| 没歌词或歌词不对 | 网络、所选歌词来源、手动找歌词；再清一次当前歌曲缓存。 |
+| 没有麦克风按钮 | 版本是否为 9.1.80.2221；Spotify 是否支持该曲、当前播放条件是否满足。检查中或不支持的曲目会隐藏。 |
+| Local AI 失败 | 进程是否 64 位、模型是否下载完、内存是否够。只选了本地翻译时，不会自动回退到在线。 |
+| Spotify 打不开 | 先关掉模块/加载器的作用再试，并看加载器日志。 |
 
-[Discord](https://discord.gg/2fu36fUzdE)에 모듈·Spotify·Android 버전, 기기, **LSPatch/LSPosed와 패치 방식**, 재현 순서와 오류를 남겨 주세요. 인증 정보는 가려 주세요. [Android README의 크레딧과 면책 조항](../README.md#면책-조항)도 적용됩니다.
+反馈请带上模块、Spotify、Android 版本，机型，**加载器与补丁方式**，复现步骤和报错，凭据打码。主 README 的[致谢与免责](../README.md)同样适用。
+
+<details>
+<summary>开发与验证</summary>
+
+两个产品共用 `:shared` 里的歌词、ivSync、翻译、缓存与渲染。模块保持 Spotify 的包身份并使用它的登录态；LSPatch 会重新打包并签名宿主，root + LSPosed 则不需要替换宿主 APK。
+
+从仓库根目录 `./build.sh :spotify-module:assembleRelease` 构建，产物是 `spotify-module/build/outputs/apk/release/spotify-module-release.apk`，发布时改名为 `Lyriscope-Spotify-<tag>.apk`。两个 APK 的版本都取自根目录 `gradle.properties` 的 `lyriscopeVersionName` / `lyriscopeVersionCode`。正式发布需要 `LYRISCOPE_RELEASE_*` 签名配置，本地不带配置的构建用 debug 密钥——更新时保持同一密钥。
+
+原生菜单门控与回归覆盖见 [INLINE_MAPPING.md](INLINE_MAPPING.md)，构建与签名见[架构说明](../ARCHITECTURE.md#build-and-verify)，验证见[测试说明](../tests/README.md)与[内嵌冒烟检查](../tests/EMBEDDED_INLINE_SMOKE.md)。
+
+</details>
 
 ## English
 
-This **ivLyrics Android module**, shown in the loader as **ivLyrics for Spotify**, replaces Spotify's lyrics card and full lyrics page. For a separate lyrics app, use the [standalone Android app](../README_EN.md).
+The **Lyriscope for Spotify** module replaces Spotify's lyrics card and full lyrics page. Listed as **Lyriscope for Spotify** in LSPosed. For a standalone app, use [the app](../README_EN.md).
 
-Download **`ivLyrics-LSPatch-v<version>.apk`** from the [latest release](https://github.com/ivLis-Studio/ivLyrics-Android/releases/latest). It is a module, with no standalone lyrics launcher. It contains neither Spotify nor a prepatched Spotify APK. `ivLyrics-Android-v<version>-release.apk` is the separate app.
+Download **`Lyriscope-Spotify-v<version>.apk`** from the [latest release](https://github.com/Escays/Lyriscope-Android/releases/latest); `Lyriscope-Android-v<version>-release.apk` is the separate app. The module contains neither Spotify nor a prepatched Spotify.
 
-### Requirements and installation
+Only Spotify **9.1.80.2221 / 9.1.42.2058** are recognised. Obtain a supported Spotify APK lawfully yourself. The baseline is rooted LSPosed; [LSPatch](https://github.com/LSPosed/LSPatch) is archived and legacy.
 
-Only Spotify **9.1.80.2221 / 9.1.42.2058** are recognized. Other versions are left without UI hooks. Obtain a supported Spotify APK lawfully yourself; it is not shipped here. Recognition does not guarantee every device, OS, or loader combination. The physical-device baseline is rooted LSPosed. [Official LSPatch](https://github.com/LSPosed/LSPatch) is archived and is a legacy route, without an assurance of compatibility with current Android or Spotify.
+- **LSPosed:** force-stop Spotify, install the module APK, enable **Lyriscope for Spotify** with scope **`com.spotify.music`**, restart as the loader asks. Spotify is not repatched.
+- **LSPatch:** patch the **Spotify APK** as target, add the module APK in the "include module" step, install the resulting Spotify APK. A patched host may need the old install removed first, which also erases its settings, downloads and the module's stored state.
 
-For **LSPatch** (Android 9+, no root):
+Lyrics settings live in **Current track settings** or a long-press on the title. Bing, Google, DeepL and Local AI are translation-only; pronunciation needs a configured AI provider. Local AI needs Android 9+, a 64-bit ARM process, a downloaded model and enough memory, and only takes priority when moved ahead of online providers.
 
-1. Get `manager.apk` from [official LSPatch releases](https://github.com/LSPosed/LSPatch/releases), the ivLyrics module APK, and a supported Spotify APK. Follow the [manager's instructions](https://github.com/LSPosed/LSPatch#usage).
-2. Start a new patch and select the **Spotify APK as the target**.
-3. Add **`ivLyrics-LSPatch-v<version>.apk` as a module**. Follow your manager's instructions for embedded/integrated modules or references to installed modules.
-4. Complete the patch and install the **resulting Spotify APK**, which is different from the module download.
-5. Force-stop that Spotify app, reopen it, sign in, and play music.
-
-A patched Spotify APK may have a different signature from your existing install, preventing an in-place update. Check before removing Spotify: removal can erase its local settings/downloads and the module settings/cache stored inside it. Keep the same patch signing key for future updates.
-
-For **rooted LSPosed**: force-stop Spotify, install the module APK, enable **ivLyrics for Spotify**, and select **`com.spotify.music`** as its scope. Complete any restart required by the loader. This route does not require repatching Spotify. The module APK requires Android 8.0+, with additional loader/Spotify requirements.
-
-The standalone app, its notification/overlay permissions, and its Client ID/Secret setup are not required for the module. Playback and metadata come from Spotify itself.
-
-### Your first song and settings
-
-Play a music track, then open full lyrics from Spotify's lyrics card. The module can add a card even without Spotify-hosted lyrics, but ivLyrics still needs lyric data. Episodes and podcast-embedded tracks are excluded.
-
-Open **Current track settings** or long-press the title/artist area for language, providers, manual search, and timing. See the [Android guide](../README_EN.md#translation-and-pronunciation) for common settings, API costs, and data use.
-
-Bing, Google, DeepL, and Local AI are **translation-only**; pronunciation needs a configured AI provider and model. **Move Local AI ahead of online providers to try it first; disable all other online translation providers for local-only lyric translation.** Enabling it alone does not change priority. Local AI needs Android 9+, a 64-bit ARM process, a downloaded model, and enough memory; engine loading may fail under LSPatch or another host configuration. Lyric lookup, downloads, and other online features still use the internet. Module settings, caches, and models are stored within Spotify and are separate from the standalone app.
-
-On **9.1.80.2221**, the lyric preview above the title uses ivLyrics and follows Spotify's **Lyrics · On/Off** option. Tap it for full lyrics. Supported songs can also show Spotify's native SingAlong microphone button at the lower right of full lyrics: **OFF → LOW → HIGH → OFF**. It appears on entry/touch and hides after three idle seconds. Spotify's track support, online mode, local playback, and audio-quality restrictions apply; LOW audio quality is excluded. It does not unlock feature flags or unsupported tracks. These features are not promised for 9.1.42.2058 or the standalone app.
-
-To use your own LRC/TXT file, open **Settings → Current track settings → Lyrics Providers → Import lyrics file**. It takes priority over online lyrics and can be removed in the same menu. See the [file format and storage guide](../README_EN.md#add-lyrics-from-your-own-lrc-file); module imports are stored inside Spotify, separately from the standalone app.
-
-### Updates and help
-
-Force-stop Spotify before updating. With LSPosed, install the same-signed module update, verify enablement/scope, and restart. With an embedded LSPatch module, **repatch Spotify with the new module**. If the loader references an installed module, update it and check the manager configuration. Spotify updates also need a supported version and, for LSPatch, a fresh patch.
-
-If nothing changes, check the exact Spotify version and loader activation/scope or module inclusion in the patch. For install conflicts, distinguish the module APK's signing key from the patched host's key; local debug builds may differ from published modules. For missing lyrics, try another provider/manual search. For a missing microphone button, check track/playback eligibility. If Spotify will not open, disable the module/loader activation and check loader logs.
-
-Ask on [Discord](https://discord.gg/2fu36fUzdE), including module/Spotify/Android versions, device, loader and patch mode, reproduction steps, and errors, with credentials redacted. The [Android credits and disclaimer](../README_EN.md#disclaimer) apply here too.
-
-<details>
-<summary>Integration behavior, development, and verification references</summary>
-
-Both products use `:shared` for lyrics, ivSync, translation, caching, and rendering. The module preserves Spotify's package identity and uses its login; LSPatch itself repackages/signs the host, whereas rooted LSPosed does not require replacing the host APK.
-
-Music tracks get at most one lyrics card, including when Spotify omits its lyrics card or reports no lyrics. Episodes and podcast-embedded tracks stay excluded.
-
-On 9.1.80.2221, the inline preview shares the card's lyrics/translations, merges simultaneous vocals into one row, follows ivLyrics alignment, and scrolls long rows with playback timing. The native Lyrics On/Off menu remains available without Spotify-hosted lyrics and preserves its saved state. Canvas/video-player restrictions still apply; DJ/automix music can show the preview while DJ speech stays hidden. The Now Playing audio/video switch is hidden. See [INLINE_MAPPING.md](INLINE_MAPPING.md) for native menu gates and regression coverage.
-
-The SingAlong button is beside the full-page provider credits. It stays hidden while eligibility is being checked or when the track is unsupported, and follows Spotify's native feature requirements.
-
-Build from the repository root with `./build.sh :spotify-module:assembleRelease`; output is `spotify-module/build/outputs/apk/release/spotify-module-release.apk`. Releases publish it as `ivLyrics-LSPatch-${tag}.apk`. Both APKs take their version from root `gradle.properties`. Publishing requires the existing `IVLYRICS_RELEASE_*` signing configuration; local module builds without it use the debug key. Keep the same key for module updates. See [architecture and signing](../ARCHITECTURE.md#build-and-verify), [common verification](../tests/README.md), and [embedded/inline device checks](../tests/EMBEDDED_INLINE_SMOKE.md).
-
-[ARCHITECTURE.md](../ARCHITECTURE.md) also covers host interfaces, resource context, private WebKit, build outputs, and editing boundaries. No application-source copying or replacement build step is used. These developer/test documents remain separate from the installation guide.
-
-</details>
+See the [English app guide](../README_EN.md) for translation costs, data use, local LRC import and credits.

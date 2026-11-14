@@ -14,7 +14,7 @@ SCRIPT = Path(__file__).with_name("run_settings_ui_validation.sh")
 
 class SettingsUiCollectionTests(unittest.TestCase):
     def collect(self, status):
-        with tempfile.TemporaryDirectory(prefix="ivlyrics-ui-collector-") as temp:
+        with tempfile.TemporaryDirectory(prefix="lyriscope-ui-collector-") as temp:
             root = Path(temp)
             binary = root / "bin"
             binary.mkdir()
@@ -83,10 +83,10 @@ else: sys.exit(2)
     def test_first_use_changes_trigger_native_workflow(self):
         root = SCRIPT.parents[2]
         workflow = (root / ".github/workflows/android-ui-validation.yml").read_text()
-        changed = ["shared/src/main/java/kr/ivlis/ivlyricsandroid/FirstUseI18n.java",
+        changed = ["shared/src/main/java/dev/lyriscope/core/FirstUseI18n.java",
                    "tests/run_first_use_regression.py",
-                   "app/src/androidTest/java/kr/ivlis/ivlyricsandroid/FirstUseUiRegressionTest.java",
-                   "app/src/debug/java/kr/ivlis/ivlyricsandroid/FirstUseHarnessActivity.java",
+                   "app/src/androidTest/java/dev/lyriscope/core/FirstUseUiRegressionTest.java",
+                   "app/src/debug/java/dev/lyriscope/core/FirstUseHarnessActivity.java",
                    ".github/scripts/run_settings_ui_validation.sh"]
         for event in ("push", "pull_request"):
             remainder = workflow.split("  " + event + ":\n", 1)[1]
