@@ -461,6 +461,10 @@ public class BaseLyricsActivity extends Activity implements
     private View backgroundSolidColorSwatch;
     private View lyricsBackgroundSolidColorSwatch;
     private View backgroundSolidColorGroup;
+    /** The cover's five colours; the row that replaced the video card in the background section. */
+    private LinearLayout backgroundPaletteRow;
+    private LinearLayout lyricsBackgroundPaletteRow;
+    private View lyricsBackgroundPaletteGroup;
     private View lyricsBackgroundSolidColorGroup;
     private EditText spotifyClientIdInput;
     private EditText spotifyClientSecretInput;
@@ -5950,6 +5954,9 @@ public class BaseLyricsActivity extends Activity implements
         });
         content.addView(lyricsBackgroundReduceMotionSwitch, topMargin(matchWrap(), dp(12)));
 
+        View lyricsPaletteGroup = buildArtworkPaletteGroup(true);
+        content.addView(lyricsPaletteGroup, topMargin(matchWrap(), dp(12)));
+        lyricsBackgroundPaletteGroup = lyricsPaletteGroup;
         lyricsBackgroundSolidColorGroup = settingGroup(
                 ui("field.solid_color"),
                 ui("field.solid_color_desc"),
@@ -7836,6 +7843,10 @@ public class BaseLyricsActivity extends Activity implements
 
         LinearLayout details = settingsGroup(section);
         String backgroundLabel = ui("setting.background_mode");
+        View paletteRow = buildArtworkPaletteGroup(false);
+        details.addView(paletteRow, matchWrap());
+        registerSetting(paletteRow, ui("field.cover_palette"), ui("field.cover_palette_desc"), null);
+        settingsConditional(paletteRow, this::isGlobalSolidBackground, backgroundLabel);
         View solidColorRow = settingsKit.inlineRow(ui("field.solid_color"), ui("field.solid_color_desc"),
                 buildBackgroundSolidColorControl());
         details.addView(solidColorRow, matchWrap());
@@ -10081,6 +10092,95 @@ public class BaseLyricsActivity extends Activity implements
         return swatch;
     }
 
+    /**
+     * The cover's own colours, one tap each. This is what took the video card's place: it needs no
+     * network, no decoder and no second screen, and it changes with the song by definition.
+     */
+    private View buildArtworkPaletteGroup(boolean panelStyle) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(48));
+        View group;
+        if (panelStyle) {
+            lyricsBackgroundPaletteRow = row;
+            group = settingGroup(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
+        } else {
+            backgroundPaletteRow = row;
+            group = settingsKit.inlineRow(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
+        }
+        refreshArtworkPalette(row, currentPaletteSelection());
+        return group;
+    }
+
+    /** Colours the swatch row from the cover on screen, marking the one in use. */
+    private void refreshArtworkPalette(LinearLayout row, String selectedHex) {
+        if (row == null) {
+            return;
+        }
+        row.removeAllViews();
+        String key = currentTrack == null ? "" : currentTrack.stableKey();
+        int[] colors = ArtworkPalette.from(currentArtworkBitmap, key);
+        for (int index = 0; index < colors.length; index++) {
+            final String hex = ArtworkPalette.toHex(colors[index]);
+            boolean selected = hex.equalsIgnoreCase(selectedHex);
+            View swatch = new View(this);
+            android.graphics.drawable.GradientDrawable shape =
+                    new android.graphics.drawable.GradientDrawable();
+            shape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            shape.setColor(colors[index]);
+            shape.setStroke(dp(selected ? 3 : 1), selected ? Color.WHITE : Color.argb(64, 255, 255, 255));
+            swatch.setBackground(shape);
+            swatch.setClickable(true);
+            makeRemoteFocusable(swatch);
+            swatch.setContentDescription(
+                    ui("field.cover_palette") + " " + (index + 1) + ", " + hex);
+            swatch.setOnClickListener(view -> applyArtworkPaletteColour(hex, row == lyricsBackgroundPaletteRow));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(38), dp(38));
+            if (index > 0) {
+                params.leftMargin = dp(10);
+            }
+            row.addView(swatch, params);
+        }
+    }
+
+    /** The hex currently in force for whichever background the row belongs to. */
+    private String currentPaletteSelection() {
+        if (aiLyricsSettings == null) {
+            return "";
+        }
+        AiLyricsSettings.BackgroundSettings settings = effectiveBackgroundSettings(aiLyricsSettings.snapshot());
+        return settings == null ? "" : settings.solidColor;
+    }
+
+    private void applyArtworkPaletteColour(String hex, boolean trackScope) {
+        if (aiLyricsSettings == null) {
+            return;
+        }
+        if (trackScope) {
+            AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
+            if (current == null) {
+                return;
+            }
+            saveCurrentTrackBackgroundSettings(new AiLyricsSettings.BackgroundSettings(
+                    AiLyricsSettings.BACKGROUND_MODE_SOLID,
+                    current.brightness,
+                    current.blur,
+                    current.noise,
+                    current.reduceMotion,
+                    hex
+            ), true);
+            updateLyricsBackgroundSettingsUi(true);
+            return;
+        }
+        aiLyricsSettings.setBackgroundSolidColor(hex);
+        aiLyricsSettings.setBackgroundMode(AiLyricsSettings.BACKGROUND_MODE_SOLID);
+        AiLyricsSettings.Snapshot snapshot = aiLyricsSettings.snapshot();
+        updateBackgroundSettingsUi(snapshot, true);
+        applyBackgroundSettings(snapshot);
+        showSavedToast(ui("toast.background_saved"));
+    }
+
     private View buildBackgroundSolidColorControl() {
         SettingsKit kit = settingsKit;
         String color = aiLyricsSettings == null
@@ -11692,6 +11792,7 @@ public class BaseLyricsActivity extends Activity implements
                     parseColor(background.solidColor, Color.rgb(30, 58, 138))));
         }
         suppressSettingsEvents = false;
+        refreshArtworkPalette(backgroundPaletteRow, background.solidColor);
         refreshSettingsVisibility();
     }
 
@@ -11730,6 +11831,10 @@ public class BaseLyricsActivity extends Activity implements
             lyricsBackgroundSolidColorSwatch.setBackground(roundDrawable(parseColor(background.solidColor, Color.rgb(30, 58, 138)), dp(10)));
         }
         suppressSettingsEvents = false;
+        boolean solidMode = AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode);
+        refreshArtworkPalette(lyricsBackgroundPaletteRow, background.solidColor);
+        setBackgroundOptionVisibility(lyricsBackgroundSolidColorGroup, solidMode);
+        setBackgroundOptionVisibility(lyricsBackgroundPaletteGroup, solidMode);
         if (lyricsBackgroundBrightnessValueView != null) {
             lyricsBackgroundBrightnessValueView.setText(background.brightness + "%");
         }
@@ -20480,8 +20585,13 @@ public class BaseLyricsActivity extends Activity implements
         if (backgroundView != null) {
             backgroundView.setArtwork(artwork, artworkKey);
         }
-        // A cover that arrives after the placeholder is the only reason to repaint the colour.
+        // A cover that arrives after the placeholder is the only reason to repaint the colour, and
+        // the swatch row has to follow it: the palette belongs to this cover, not to the last one.
         applyStableBackgroundColor(artwork);
+        refreshArtworkPalette(backgroundPaletteRow, currentPaletteSelection());
+        refreshArtworkPalette(lyricsBackgroundPaletteRow,
+                editableTrackBackgroundSettings() == null
+                        ? "" : editableTrackBackgroundSettings().solidColor);
         if (pictureInPictureBackgroundView != null) {
             pictureInPictureBackgroundView.setArtwork(artwork, artworkKey);
         }

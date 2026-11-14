@@ -2353,6 +2353,7 @@ final class AppI18n {
                     : "Lyrics provider settings saved");
             addLyricsProviderTypeGateStrings(copy, language.code);
             addLyricsVerdictStrings(copy, language.code);
+            addArtworkPaletteStrings(copy, language.code);
             languages.put(language.code, Collections.unmodifiableMap(copy));
         }
     }
@@ -2472,6 +2473,28 @@ final class AppI18n {
                 copy.put("lyrics.lrclib_search.match_format", "match %1$d%%");
                 copy.put("translation.mix_hint",
                         "Off means one catalogue's own translation only: its gaps stay blank, and no other catalogue or translation engine is called.");
+        }
+    }
+
+    /** The cover-derived colour row that replaced the video background card. */
+    private static void addArtworkPaletteStrings(Map<String, String> copy, String lang) {
+        switch (lang == null ? "" : lang) {
+            case "ko":
+                copy.put("field.cover_palette", "앨범 커버 색상");
+                copy.put("field.cover_palette_desc", "현재 앨범 커버에서 뽑은 색입니다. 누르면 그 색으로 배경이 바뀝니다.");
+                return;
+            case "zh-CN":
+                copy.put("field.cover_palette", "封面配色");
+                copy.put("field.cover_palette_desc", "从当前封面取的五个颜色，点一下就换成纯色背景。");
+                return;
+            case "zh-TW":
+                copy.put("field.cover_palette", "封面配色");
+                copy.put("field.cover_palette_desc", "從目前封面取的五個顏色，點一下就換成純色背景。");
+                return;
+            default:
+                copy.put("field.cover_palette", "Cover colours");
+                copy.put("field.cover_palette_desc",
+                        "Five colours taken from this cover; tap one to use it as the solid background.");
         }
     }
 
