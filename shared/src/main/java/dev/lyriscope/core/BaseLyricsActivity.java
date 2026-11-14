@@ -669,6 +669,10 @@ public class BaseLyricsActivity extends Activity implements
     private static final String MANUAL_SOURCE_LRCLIB = "lrclib";
     private String manualSearchSource = MANUAL_SOURCE_LRCLIB;
     private final java.util.List<TextView> manualSearchSourceChips = new java.util.ArrayList<>();
+    /** The reader's hand-picked catalogue result per track, kept outside the lyric cache. */
+    private ManualLyricsPicks manualLyricsPicks;
+    /** Guards a replay so a restored pick cannot re-trigger itself. */
+    private boolean manualPickRestoring;
     private PlatformHttpTransport.Transport manualSearchTransport;
     private boolean pictureInPictureUiActive;
     private boolean pictureInPictureActionsInitialized;
@@ -804,6 +808,7 @@ public class BaseLyricsActivity extends Activity implements
         aiLyricsRepository = new AiLyricsRepository(this);
         furiganaRepository = new FuriganaRepository(this);
         lyricsRepository = new LyricsRepository(this);
+        manualLyricsPicks = new ManualLyricsPicks(this);
         observeLocalLyricsChanges();
         youtubeBackgroundRepository = new YouTubeBackgroundRepository(this);
         if (!IvLyricsBridge.isEmbedded(this)) updateChecker = new UpdateChecker(this);
@@ -1652,6 +1657,72 @@ public class BaseLyricsActivity extends Activity implements
         updateYouTubeBackgroundPlaybackState();
     }
 
+    /**
+     * Re-applies the catalogue result this track was pinned to, when what arrived is not it.
+     *
+     * @return true when a replay was started; the caller then leaves the incoming result alone.
+     */
+    private boolean restoreManualPickIfNeeded(String trackKey, LyricsResult arriving) {
+        if (manualLyricsPicks == null || trackKey == null || !trackKey.equals(currentLyricsKey)) {
+            return false;
+        }
+        String[] pick = manualLyricsPicks.find(trackKey);
+        if (pick == null) {
+            return false;
+        }
+        String source = pick[0];
+        String candidateId = pick[1];
+        if (arriving != null && "manual".equals(arriving.selectionPolicyKey)
+                && source.equals(arriving.providerId)) {
+            return false;   // the cache still holds exactly this pick
+        }
+        if (lyricsRepository == null || currentTrack == null) {
+            return false;
+        }
+        manualPickRestoring = true;
+        if (MANUAL_SOURCE_LRCLIB.equals(source)) {
+            long id;
+            try {
+                id = Long.parseLong(candidateId);
+            } catch (NumberFormatException error) {
+                id = -1L;
+            }
+            if (id <= 0L) {
+                manualPickRestoring = false;
+                return false;
+            }
+            // Only the id matters: the loader re-fetches the entry and rebuilds the result from it.
+            lyricsRepository.loadManualLrclibCandidate(currentTrack,
+                    new LyricsRepository.ManualLrclibCandidate(id, "", "", "", 0.0,
+                            false, false, false, "", 0.0), this);
+            return true;
+        }
+        final PlatformLyricSource source1 = manualLyricSource(source);
+        if (source1 == null) {
+            manualPickRestoring = false;
+            return false;
+        }
+        final String key = trackKey;
+        new Thread(() -> {
+            LyricsResult restored = null;
+            try {
+                restored = manualResultFromDocument(source1.fetch(candidateId));
+            } catch (Exception ignored) {
+                // Fall through: the automatic result already on screen stays.
+            }
+            final LyricsResult ready = restored;
+            runOnUiThread(() -> {
+                manualPickRestoring = false;
+                if (ready == null || ready.lines.isEmpty() || !key.equals(currentLyricsKey)) {
+                    return;
+                }
+                lyricsRepository.applyManualLyrics(key, ready);
+                onManualLrclibLyricsLoaded(key, ready);
+            });
+        }, "lyrics-manual-restore").start();
+        return true;
+    }
+
     private void setSpotifyDjSegmentState(TrackSnapshot snapshot, String trackKey) {
         currentLyricsKey = trackKey == null ? "" : trackKey;
         resetWordSyncState();
@@ -1749,6 +1820,11 @@ public class BaseLyricsActivity extends Activity implements
         }
         if (result != null && !"local".equals(result.providerId) && lyricsRepository.hasLocalLyrics(currentTrack)) {
             lyricsRepository.loadLyrics(currentTrack, this);
+            return;
+        }
+        if (!manualPickRestoring && restoreManualPickIfNeeded(trackKey, result)) {
+            // The reader picked a catalogue result for this track and the cache lost it (settings saved,
+            // track cleared). Replay the pick instead of quietly showing the automatic match.
             return;
         }
         lyricsLookupInFlight = false;
@@ -1956,6 +2032,8 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         manualLrclibSearchInFlight = false;
+        boolean restoringPick = manualPickRestoring;
+        manualPickRestoring = false;
         lyricsLookupInFlight = false;
         lyricsLoadingProviderName = "";
         aiLyricsGenerating = false;
@@ -1983,9 +2061,12 @@ public class BaseLyricsActivity extends Activity implements
             }
         }
         // Plain lyrics are a legitimate pick — they just cannot follow playback or seek. Say so here
-        // rather than letting the reader wonder why the card stopped responding.
+        // rather than letting the reader wonder why the card stopped responding. A replay after a cache
+        // clear is not something the reader just did, so it does not announce itself.
         setManualLrclibStatus(timed ? applied : applied + "\n" + ui("lyrics.lrclib_search.unsynced_warning"));
-        showSavedToast(applied);
+        if (!restoringPick) {
+            showSavedToast(applied);
+        }
         requestMetadataTranslation(false);
         if (!maybeShowFirstLanguagePrompt()) {
             requestAiLyrics(false);
@@ -12741,6 +12822,9 @@ public class BaseLyricsActivity extends Activity implements
                 // Persist before the UI callback: this runs on the loader thread, and the next visit to
                 // the page must find this pick in the cache instead of the previous automatic result.
                 lyricsRepository.applyManualLyrics(trackKey, loaded);
+                if (manualLyricsPicks != null) {
+                    manualLyricsPicks.remember(trackKey, source.id(), candidate.id);
+                }
             }
             runOnUiThread(() -> {
                 manualLrclibSearchInFlight = false;
@@ -12805,7 +12889,12 @@ public class BaseLyricsActivity extends Activity implements
         }
         setManualLrclibStatus("LRCLIB \u00b7 "
                 + uiFormat("lyrics.lrclib_search.result_count_format", candidates.size()));
-        for (LyricsRepository.ManualLrclibCandidate candidate : candidates) {
+        // Timed results first: a plain entry cannot follow playback, and putting it at the top of the
+        // list is how a reader ends up picking it and concluding the card is broken.
+        java.util.List<LyricsRepository.ManualLrclibCandidate> ordered =
+                new java.util.ArrayList<>(candidates);
+        ordered.sort(java.util.Comparator.comparingInt(BaseLyricsActivity::manualCandidateRank));
+        for (LyricsRepository.ManualLrclibCandidate candidate : ordered) {
             View row = manualLrclibCandidateRow(candidate);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -12817,6 +12906,14 @@ public class BaseLyricsActivity extends Activity implements
             lyricsManualSearchResultsContainer.addView(row, params);
         }
         resizeLyricsMetaMenuPopupForActiveTab(false);
+    }
+
+    /** Timed first, then plain text, then the instrumental entries that carry no words at all. */
+    private static int manualCandidateRank(LyricsRepository.ManualLrclibCandidate candidate) {
+        if (candidate.instrumental) {
+            return 2;
+        }
+        return candidate.synced ? 0 : 1;
     }
 
     private View manualLrclibCandidateRow(LyricsRepository.ManualLrclibCandidate candidate) {
@@ -12904,6 +13001,10 @@ public class BaseLyricsActivity extends Activity implements
         lyricsLookupInFlight = true;
         lyricsLoadingProviderName = "LRCLIB";
         setManualLrclibStatus(ui("lyrics.lrclib_search.selecting"));
+        if (manualLyricsPicks != null && currentTrack != null) {
+            manualLyricsPicks.remember(currentTrack.stableKey(), MANUAL_SOURCE_LRCLIB,
+                    String.valueOf(candidate.id));
+        }
         lyricsRepository.loadManualLrclibCandidate(currentTrack, candidate, this);
     }
 
@@ -15084,6 +15185,9 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         String key = snapshot.stableKey();
+        if (manualLyricsPicks != null) {
+            manualLyricsPicks.forget(key);
+        }
         if (lyricsRepository != null) {
             lyricsRepository.clearCacheForTrack(key);
             lyricsRepository.clearSyncDataCacheForIsrc(nonEmpty(
