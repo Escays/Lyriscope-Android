@@ -32,3 +32,20 @@
 - `renderer_overlap`：`declaration()` 原来对**字段**也去找下一个 `{`，于是把 `footerText` 后面半打成员一起吞了，生成了半个 `LyricsView`；现在遇到 `;` 先于 `{` 就按字段截断。补 `android_jar()`。
 - `settings_ui`：fixture 还在检查 `culturalAnnotationRegenerateButton`，而这个按钮早就不在这个界面了（生产里已无此字段）。删掉该声明与两条断言后，25369 条全部通过。
 - 五条通用准则仍适用；下次再遇到"红得莫名其妙"，先按 `docs/test-cleanup-plan.md` 的顺序判断是产品变了还是脚本旧了。
+
+## 第二轮：把 CI 里列的全部脚本跑一遍（2026-11）
+
+改名之后把 `.github/workflows/android-ci.yml` 列的 46 个脚本在本地逐个跑，5 个红：
+
+| 脚本 | 原因 | 处理 |
+| --- | --- | --- |
+| `run_album_art_lp_regression` | 夹具早于「当前播放歌曲面板」那轮改动，调用了三个面板表面方法 | 夹具里加三个惰性桩（84 条通过） |
+| `run_ios_pr_port_regression` | 夹具仍声明已删除的全局/蓝牙偏移，跳转算术按四个偏移之和调的 | 只保留仍在的两个偏移，期望值随之调整（259 条通过） |
+| `run_openai_connections_regression` | 断言「每个语言表都字面包含每个键」，与「缺翻译回退英文」的设计冲突 | 改成逐键走 `AppI18n.t()` 验证能解析，占位符比对保留（1041 条 / 22 语言） |
+| `run_openai_request_params_regression` | 编译 `PaxsenixAiModels`，它已改为从 `ProjectLinks` 取身份 | 编译文件列表补上 `ProjectLinks.java`（115 条） |
+| `run_sync_metadata_reporting_regression` | 冻结基线的 `LyricsRepository` 仍写着旧包名 | 只重写 `package` 声明一行，实现体不动（92 条，输出等价、GET 次数不变） |
+| `run_video_timing_share_regression` | 整个套件测的是已删除的「分享视频时间轴」与创作者隐私仓库 | 删除脚本与夹具，并从两个工作流里移除 |
+
+现在这 46 项（含 `--built` 与 `--variant release` 两种边界检查）本地全绿，`CI` 工作流已启用。
+
+**仍关闭的两个工作流**：`Release` 需要 4 个签名 secret（`ANDROID_KEYSTORE_BASE64` / `_PASSWORD` / `_ALIAS` / `_KEY_PASSWORD`）；`UI Validation` 是 35 分钟的模拟器任务，需要时手动触发即可。

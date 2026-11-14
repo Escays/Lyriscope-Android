@@ -67,7 +67,19 @@ python tests/check_module_boundaries.py --built      # 模块边界与打包内�
 python tests/run_platform_translation_regression.py  # 平台译词对齐
 ```
 
-`tests/` 下还有一批按功能拆分的回归脚本，多数不依赖设备。
+`tests/` 下还有一批按功能拆分的回归脚本，多数不依赖设备，`.github/workflows/android-ci.yml` 里列的就是全部。
+
+## 发布
+
+版本号只有一个来源：根目录 `gradle.properties` 的 `lyriscopeVersionName` / `lyriscopeVersionCode`，两个 APK 都从这里取。打 `v*` 标签会触发发布流水线，产物命名固定：
+
+| 文件 | 是什么 |
+| --- | --- |
+| `Lyriscope-Android-<tag>-release.apk` | 独立应用。**只有它**的文件名含 `-release`，应用内更新按这个标记挑包。 |
+| `Lyriscope-Spotify-<tag>.apk` | Spotify 模块。标签里的 `-` 会换成 `_`，避免 `v1.2.3-release-candidate` 这类标签把它变成更新优先包。 |
+| `Lyriscope-<tag>-version.json` | 版本清单，应用内「检查更新」读它。 |
+
+发布说明由流水线生成（中文 + 英文），配好 `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` 时由模型撰写，否则用提交记录生成。正式发布需要 `LYRISCOPE_RELEASE_*` 签名配置，本地不带配置的构建用调试密钥。
 
 ## 目录
 
