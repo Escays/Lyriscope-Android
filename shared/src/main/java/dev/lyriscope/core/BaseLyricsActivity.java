@@ -12728,6 +12728,11 @@ public class BaseLyricsActivity extends Activity implements
             }
             final LyricsResult loaded = result;
             final String failure = reason;
+            if (loaded != null && !loaded.lines.isEmpty()) {
+                // Persist before the UI callback: this runs on the loader thread, and the next visit to
+                // the page must find this pick in the cache instead of the previous automatic result.
+                lyricsRepository.applyManualLyrics(trackKey, loaded);
+            }
             runOnUiThread(() -> {
                 manualLrclibSearchInFlight = false;
                 if (!isCurrentManualLrclibTrack(trackKey)) {
@@ -12763,7 +12768,11 @@ public class BaseLyricsActivity extends Activity implements
                     "", translationNearRow(document.translationRows, start), ""));
         }
         String detail = document.album.isEmpty() ? document.artist : document.album;
-        return new LyricsResult(lines, document.sourceLabel, detail, false);
+        // Marked manual: the page must keep this pick and the automatic recheck must not undo it.
+        String provider = document.sourceId == null || document.sourceId.isEmpty()
+                ? "manual" : document.sourceId;
+        return new LyricsResult(lines, document.sourceLabel, detail, false)
+                .withSelection(provider, "manual");
     }
 
     private static String translationNearRow(java.util.List<PlatformLyricRow> rows, long startMs) {

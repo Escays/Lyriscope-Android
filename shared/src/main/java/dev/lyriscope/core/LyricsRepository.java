@@ -661,6 +661,23 @@ final class LyricsRepository {
         try { return localLyrics.load(track) != null; } catch (IOException error) { return false; }
     }
 
+    /**
+     * Stores a lyrics set the reader picked by hand, under the same key the page reads.
+     *
+     * <p>The result it is given carries {@code selectionPolicyKey = "manual"}, which keeps it reusable
+     * no matter what the provider order is and stops the automatic recheck from replacing it — without
+     * that, re-opening the lyrics page fetched the old automatic result again.
+     */
+    void applyManualLyrics(String trackKey, LyricsResult result) {
+        if (result == null || result.lines.isEmpty() || trackKey == null || trackKey.trim().isEmpty()) {
+            return;
+        }
+        putMemoryCachedLyrics(trackKey, result);
+        if (diskCache != null) {
+            diskCache.put(trackKey, result);
+        }
+    }
+
     void loadManualLrclibCandidate(
             TrackSnapshot track,
             ManualLrclibCandidate selected,
