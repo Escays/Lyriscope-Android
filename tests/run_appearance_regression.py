@@ -21,8 +21,8 @@ cloud = settings[settings.index("    private static final Set<String> CLOUD_SETT
                  settings.index("    static final List<Provider> PROVIDERS")]
 methods = "\n".join(declaration(settings, signature) for signature in (
     "JSONObject exportCloudSettings()", "synchronized void importCloudSettings(",
-    "String videoFallback()", "String titleTapAction()", "String videoAspect()",
-    "boolean videoEdgeToEdge()", "boolean landscapeShowOriginal()", "boolean landscapeShowArtwork()",
+    "String titleTapAction()",
+    "boolean landscapeShowOriginal()", "boolean landscapeShowArtwork()",
     "boolean showLyricsNotFound()", "void setAppearanceChoice(", "void setAppearanceToggle("))
 methods += "\n" + "\n".join(declaration(settings, signature) for signature in (
     "void setVinylTrackChanges(", "void setVinylRotationSpeed(", "void setVinylSimplifiedTitle(",
@@ -72,16 +72,10 @@ public final class AppearanceRegression {
         check(Settings.KEY_ALBUM_ART_OPEN_LP.equals("album_art_open_lp"));
         settings.importCloudSettings(new JSONObject());
         check(settings.albumArtOpenLp()); // Older backups do not turn it off.
-        check(settings.videoFallback().equals("gradient-background"));
-        check(settings.videoAspect().equals("fill"));
         check(settings.titleTapAction().equals("player"));
-        check(!settings.videoEdgeToEdge());
         check(settings.landscapeShowOriginal() && settings.landscapeShowArtwork() && settings.showLyricsNotFound());
-        settings.prefs.edit().putString(Settings.KEY_BACKGROUND_MODE,"video-background").putInt(Settings.KEY_BACKGROUND_BRIGHTNESS,30).apply();
-        settings.setAppearanceChoice(AppearanceOptions.FALLBACK,"solid-background");
+        settings.prefs.edit().putInt(Settings.KEY_BACKGROUND_BRIGHTNESS,30).apply();
         settings.setAppearanceChoice(AppearanceOptions.TITLE_ACTION,"context");
-        settings.setAppearanceChoice(AppearanceOptions.VIDEO_ASPECT,"fit");
-        settings.setAppearanceToggle(AppearanceOptions.VIDEO_EDGES,true);
         settings.setAppearanceToggle(AppearanceOptions.LANDSCAPE_ORIGINAL,false);
         settings.setAppearanceToggle(AppearanceOptions.LANDSCAPE_ARTWORK,false);
         settings.setAppearanceToggle(AppearanceOptions.EMPTY_NOTICE,false);
@@ -105,18 +99,12 @@ public final class AppearanceRegression {
         restored.setAlbumArtOpenLp(true);
         check(restored.albumArtOpenLp());
         check(restored.exportCloudSettings().getBoolean(Settings.KEY_ALBUM_ART_OPEN_LP));
-        check(restored.videoFallback().equals("solid-background"));
         check(restored.titleTapAction().equals("context"));
-        check(restored.videoAspect().equals("fit"));
-        check(restored.videoEdgeToEdge());
         check(!restored.landscapeShowOriginal() && !restored.landscapeShowArtwork() && !restored.showLyricsNotFound());
-        check(restored.prefs.getString(Settings.KEY_BACKGROUND_MODE,"").equals("video-background"));
         check(restored.prefs.data.get(Settings.KEY_BACKGROUND_BRIGHTNESS).equals(30));
         check(restored.prefs.data.get(RecordRotation.CHANGE_KEY).equals(false));
         check(restored.prefs.data.get(RecordRotation.SPEED_KEY).equals(175));
         check(restored.prefs.data.get(RecordRotation.SIMPLE_TITLE_KEY).equals(true));
-        restored.setAppearanceChoice(AppearanceOptions.VIDEO_ASPECT,"stretch");
-        check(restored.videoAspect().equals("stretch"));
         Renderer renderer = new Renderer();
         DrawGroup original = new DrawGroup(false), pronunciation = new DrawGroup(true), translation = new DrawGroup(true);
         List<DrawGroup> groups = new ArrayList<>(Arrays.asList(original,pronunciation,translation));
@@ -141,18 +129,4 @@ result = subprocess.run([java_tool("java"), "-cp", dependencies, "dev.lyriscope.
 print(result.stdout, end="")
 if result.returncode:
     raise SystemExit(result.returncode)
-
-# Execute the exact HTML/JS emitted by the native video view, with a synthetic iframe API.
-video = (SHARED / "YouTubeBackgroundView.java").read_text()
-html_class = ('import java.util.Locale; public class VideoHtml { int videoScalePercent=100; String videoAspect="fill"; long videoLoadGeneration=7;'
-              + declaration(video, "private String buildHtml(")
-              + 'public static void main(String[] args) { System.out.print(new VideoHtml().buildHtml("fixture")); }}')
-html_source = work / "VideoHtml.java"
-html_source.write_text(html_class)
-subprocess.run([java_tool("javac"), "-d", str(work), str(html_source)], check=True)
-html = subprocess.check_output([java_tool("java"), "-cp", str(work), "VideoHtml"], text=True)
-(work / "video.html").write_text(html)
-inline_script = re.search(r"<script>(.*?)</script>", html, re.S).group(1)
-(work / "video.js").write_text(inline_script)
-subprocess.run(["node", str(__import__("pathlib").Path(__file__).with_name("video_appearance_regression.cjs")), str(work / "video.js")], check=True)
 

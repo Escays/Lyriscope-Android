@@ -30,7 +30,7 @@ assert "setThumbDrawable" not in appearance and "setThumbTintList(states(" in ap
 assert "setMinimumHeight(dp(context, 48))" in appearance
 input_method = declaration(source, "private EditText settingEditText(")
 assert input_method.index("input.setInputType(type)") < input_method.index("input.setMinimumHeight(")
-for name in ("requestAiLyrics", "requestCulturalAnnotations", "showVideoSelectionDialog", "performManualLrclibSearch", "requestMetadataTranslation"):
+for name in ("requestAiLyrics", "requestCulturalAnnotations", "performManualLrclibSearch", "requestMetadataTranslation"):
     assert "@Override protected void " + name in harness, "offline callback missing: " + name
 assert "usesLivePlayback() { return false; }" in harness
 assert "super.attachBaseContext(base.createConfigurationContext(config))" in harness
@@ -150,6 +150,6 @@ java.write_text(fixture)
 sources = [java] + [SHARED / name for name in (
     "AppI18n.java", "FirstUseI18n.java", "ResearchI18n.java", "LocalAiI18n.java", "LocalLyricsI18n.java", "OpenAIConnectionI18n.java",
     "SettingsTranslationOverrides.java", "LyricsToolsTranslationOverrides.java",
-    "VideoSelectionTranslations.java", "SettingsExperienceTranslations.java")]
+    "SettingsExperienceTranslations.java")]
 subprocess.run([java_tool("javac"), "-encoding", "UTF-8", "-d", str(work), *map(str, sources)], check=True)
 subprocess.run([java_tool("java"), "-cp", str(work), "dev.lyriscope.core.SettingsUiContractRegression"], check=True)

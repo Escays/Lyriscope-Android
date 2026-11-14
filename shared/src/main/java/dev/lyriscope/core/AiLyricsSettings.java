@@ -60,7 +60,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String KEY_BACKGROUND_NOISE = "background_noise";
     static final String KEY_BACKGROUND_REDUCE_MOTION = "background_reduce_motion";
     static final String KEY_BACKGROUND_SOLID_COLOR = "background_solid_color";
-    static final String KEY_BACKGROUND_VIDEO_SCALE = "background_video_scale";
     static final String KEY_TRACK_BACKGROUND_SETTINGS = "track_background_settings_v1";
     static final String KEY_LANDSCAPE_AUTO_HIDE_CONTROLS = "landscape_auto_hide_controls";
     static final String KEY_LANDSCAPE_CENTER_NO_LYRICS = "landscape_center_no_lyrics";
@@ -70,7 +69,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String KEY_PIP_LYRICS_TEXT_ALIGNMENT = "pip_lyrics_text_alignment";
     static final String KEY_PIP_LYRICS_SIZE_PERCENT = "pip_lyrics_size_percent";
     static final String KEY_TRACK_SYNC_OFFSETS = "track_sync_offsets_v1";
-    static final String KEY_TRACK_VIDEO_SYNC_OFFSETS = "track_video_sync_offsets_v1";
     static final String KEY_SPOTIFY_CLIENT_ID = "spotify_client_id";
     static final String KEY_SPOTIFY_CLIENT_SECRET = "spotify_client_secret";
     static final String KEY_METADATA_TRANSLATION_ENABLED = "metadata_translation_enabled";
@@ -104,7 +102,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String PREVIEW_MODE_PRONUNCIATION = "pronunciation";
     static final String BACKGROUND_MODE_GRADIENT = "gradient-background";
     static final String BACKGROUND_MODE_BLUR_GRADIENT = "blur-gradient-background";
-    static final String BACKGROUND_MODE_VIDEO = "video-background";
     static final String BACKGROUND_MODE_SOLID = "solid-background";
     static final String OUTPUT_LANG_SAME_UI = "same_ui";
     static final String PRONUNCIATION_NOTATION_TRANSLATION = "translation";
@@ -170,7 +167,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
             KEY_KARAOKE_DATA_AS_LINE_SYNCED, KEY_KARAOKE_DISPLAY_GRANULARITY,
             KEY_BACKGROUND_MODE, KEY_BACKGROUND_BRIGHTNESS, KEY_PLAYER_CARD_BACKGROUND_ENABLED,
             KEY_BACKGROUND_BLUR, KEY_BACKGROUND_NOISE, KEY_BACKGROUND_REDUCE_MOTION,
-            KEY_BACKGROUND_SOLID_COLOR, KEY_BACKGROUND_VIDEO_SCALE, KEY_LANDSCAPE_AUTO_HIDE_CONTROLS,
+            KEY_BACKGROUND_SOLID_COLOR, KEY_LANDSCAPE_AUTO_HIDE_CONTROLS,
             KEY_LANDSCAPE_CENTER_NO_LYRICS, KEY_KEEP_SCREEN_ON, KEY_PIP_SHOW_ARTWORK,
             KEY_PIP_ORIENTATION, KEY_PIP_LYRICS_TEXT_ALIGNMENT, KEY_PIP_LYRICS_SIZE_PERCENT,
             KEY_METADATA_TRANSLATION_ENABLED, KEY_JAPANESE_FURIGANA_ENABLED,
@@ -184,8 +181,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
             RecordRotation.SPEED_KEY, RecordRotation.CHANGE_KEY, RecordRotation.SIMPLE_TITLE_KEY,
             KEY_VINYL_TONEARM_FINISH, KEY_VINYL_TONEARM_SIZE_PERCENT, KEY_SPEAKER_COLOR_SETTINGS,
             KEY_USE_SYNC_CREATOR_SPEAKER_COLORS, KEY_LYRICS_TEXT_ALIGNMENT,
-            AppearanceOptions.FALLBACK, AppearanceOptions.TITLE_ACTION, AppearanceOptions.VIDEO_ASPECT,
-            AppearanceOptions.VIDEO_EDGES, AppearanceOptions.LANDSCAPE_ORIGINAL,
+            AppearanceOptions.TITLE_ACTION, AppearanceOptions.LANDSCAPE_ORIGINAL,
             AppearanceOptions.LANDSCAPE_ARTWORK, AppearanceOptions.EMPTY_NOTICE
     )));
     private static final Set<String> CLOUD_FLOAT_SETTING_KEYS = Collections.singleton(KEY_TEMPERATURE);
@@ -262,7 +258,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final List<BackgroundMode> BACKGROUND_MODES = Collections.unmodifiableList(Arrays.asList(
             new BackgroundMode(BACKGROUND_MODE_GRADIENT, "앨범 커버", "현재 앨범 커버를 크게 블러 처리해 배경으로 사용합니다."),
             new BackgroundMode(BACKGROUND_MODE_BLUR_GRADIENT, "블러 그라데이션", "앨범 색상을 추출해 움직이는 블러 그라데이션을 만듭니다."),
-            new BackgroundMode(BACKGROUND_MODE_VIDEO, "영상", "Lyriscope YouTube 영상 정보를 불러와 실제 영상을 배경으로 재생합니다."),
             new BackgroundMode(BACKGROUND_MODE_SOLID, "단색", "사용자 지정 단색 배경을 사용합니다.")
     ));
     static final List<TypographySlot> TYPOGRAPHY_SLOTS = Collections.unmodifiableList(Arrays.asList(
@@ -920,24 +915,17 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         prefs.edit().putString(KEY_BACKGROUND_MODE, normalizeBackgroundMode(mode)).apply();
     }
 
-    String videoFallback() { return AppearanceOptions.fallback(prefs.getString(AppearanceOptions.FALLBACK, "")); }
     String titleTapAction() { return AppearanceOptions.titleAction(prefs.getString(AppearanceOptions.TITLE_ACTION, "")); }
-    String videoAspect() { return AppearanceOptions.aspect(prefs.getString(AppearanceOptions.VIDEO_ASPECT, "")); }
-    boolean videoEdgeToEdge() { return prefs.getBoolean(AppearanceOptions.VIDEO_EDGES, false); }
     boolean landscapeShowOriginal() { return prefs.getBoolean(AppearanceOptions.LANDSCAPE_ORIGINAL, true); }
     boolean landscapeShowArtwork() { return prefs.getBoolean(AppearanceOptions.LANDSCAPE_ARTWORK, true); }
     boolean showLyricsNotFound() { return prefs.getBoolean(AppearanceOptions.EMPTY_NOTICE, true); }
 
     void setAppearanceChoice(String key, String value) {
-        if (AppearanceOptions.FALLBACK.equals(key)) value = AppearanceOptions.fallback(value);
-        else if (AppearanceOptions.TITLE_ACTION.equals(key)) value = AppearanceOptions.titleAction(value);
-        else if (AppearanceOptions.VIDEO_ASPECT.equals(key)) value = AppearanceOptions.aspect(value);
-        else throw new IllegalArgumentException(key);
         prefs.edit().putString(key, value).apply();
     }
 
     void setAppearanceToggle(String key, boolean value) {
-        if (!AppearanceOptions.VIDEO_EDGES.equals(key) && !AppearanceOptions.LANDSCAPE_ORIGINAL.equals(key)
+        if (!AppearanceOptions.LANDSCAPE_ORIGINAL.equals(key)
                 && !AppearanceOptions.LANDSCAPE_ARTWORK.equals(key) && !AppearanceOptions.EMPTY_NOTICE.equals(key)) {
             throw new IllegalArgumentException(key);
         }
@@ -958,10 +946,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
 
     void setBackgroundBlur(int blur) {
         prefs.edit().putInt(KEY_BACKGROUND_BLUR, clampInt(blur, 0, 100)).apply();
-    }
-
-    void setBackgroundVideoScale(int scalePercent) {
-        prefs.edit().putInt(KEY_BACKGROUND_VIDEO_SCALE, clampInt(scalePercent, 100, 180)).apply();
     }
 
     void setBackgroundNoise(boolean enabled) {
@@ -1064,14 +1048,6 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         setTrackOffsetMs(KEY_TRACK_SYNC_OFFSETS, trackKey, offsetMs);
     }
 
-    int trackVideoSyncOffsetMs(String trackKey) {
-        return trackOffsetMs(KEY_TRACK_VIDEO_SYNC_OFFSETS, trackKey);
-    }
-
-    void setTrackVideoSyncOffsetMs(String trackKey, int offsetMs) {
-        setTrackOffsetMs(KEY_TRACK_VIDEO_SYNC_OFFSETS, trackKey, offsetMs);
-    }
-
     private synchronized int trackOffsetMs(String prefsKey, String trackKey) {
         String key = trackKey == null ? "" : trackKey.trim();
         if (key.isEmpty()) {
@@ -1126,14 +1102,13 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
                 clampInt(prefs.getInt(KEY_BACKGROUND_BLUR, 20), 0, 100),
                 prefs.getBoolean(KEY_BACKGROUND_NOISE, false),
                 prefs.getBoolean(KEY_BACKGROUND_REDUCE_MOTION, false),
-                normalizeHexColor(prefs.getString(KEY_BACKGROUND_SOLID_COLOR, DEFAULT_SOLID_BACKGROUND_COLOR), DEFAULT_SOLID_BACKGROUND_COLOR),
-                clampInt(prefs.getInt(KEY_BACKGROUND_VIDEO_SCALE, 100), 100, 180)
+                normalizeHexColor(prefs.getString(KEY_BACKGROUND_SOLID_COLOR, DEFAULT_SOLID_BACKGROUND_COLOR), DEFAULT_SOLID_BACKGROUND_COLOR)
         );
     }
 
     private static JSONObject backgroundSettingsToJson(BackgroundSettings settings) throws JSONException {
         BackgroundSettings safeSettings = settings == null
-                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, 100)
+                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
                 : settings;
         JSONObject object = new JSONObject();
         object.put("mode", safeSettings.mode);
@@ -1142,13 +1117,12 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         object.put("noise", safeSettings.noise);
         object.put("reduceMotion", safeSettings.reduceMotion);
         object.put("solidColor", safeSettings.solidColor);
-        object.put("videoScale", safeSettings.videoScale);
         return object;
     }
 
     private static BackgroundSettings backgroundSettingsFromJson(JSONObject object, BackgroundSettings fallback) {
         BackgroundSettings safeFallback = fallback == null
-                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, 100)
+                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
                 : fallback;
         if (object == null) {
             return safeFallback;
@@ -1159,8 +1133,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
                 object.optInt("blur", safeFallback.blur),
                 object.optBoolean("noise", safeFallback.noise),
                 object.optBoolean("reduceMotion", safeFallback.reduceMotion),
-                object.optString("solidColor", safeFallback.solidColor),
-                object.optInt("videoScale", safeFallback.videoScale)
+                object.optString("solidColor", safeFallback.solidColor)
         );
     }
 
@@ -2125,16 +2098,14 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         final boolean noise;
         final boolean reduceMotion;
         final String solidColor;
-        final int videoScale;
 
-        BackgroundSettings(String mode, int brightness, int blur, boolean noise, boolean reduceMotion, String solidColor, int videoScale) {
+        BackgroundSettings(String mode, int brightness, int blur, boolean noise, boolean reduceMotion, String solidColor) {
             this.mode = normalizeBackgroundMode(mode);
             this.brightness = clampInt(brightness, 0, 100);
             this.blur = clampInt(blur, 0, 100);
             this.noise = noise;
             this.reduceMotion = reduceMotion;
             this.solidColor = normalizeHexColor(solidColor, DEFAULT_SOLID_BACKGROUND_COLOR);
-            this.videoScale = clampInt(videoScale, 100, 180);
         }
     }
 
@@ -2481,7 +2452,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
             this.karaokeDisplayGranularity = normalizeKaraokeDisplayGranularity(karaokeDisplayGranularity);
             this.karaokeDataAsLineSynced = KARAOKE_DISPLAY_LINE.equals(this.karaokeDisplayGranularity);
             this.background = background == null
-                    ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, 100)
+                    ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
                     : background;
             this.landscapeAutoHideControls = landscapeAutoHideControls;
             this.landscapeCenterNoLyrics = landscapeCenterNoLyrics;

@@ -118,11 +118,9 @@ final class AppI18n {
         addTypographyStrings(languages);
         addSpeakerColorStrings(languages);
         addCreatorSpeakerColorStrings(languages);
-        addVideoBackgroundStrings(languages);
         addTrackBackgroundStrings(languages);
         addLyricsAlignmentStrings(languages);
         addPictureInPictureStrings(languages);
-        addVideoSyncOffsetStrings(languages);
         addBluetoothSyncOffsetStrings(languages);
         addPollinationsAuthStrings(languages);
         addTmiStrings(languages);
@@ -709,30 +707,30 @@ final class AppI18n {
     }
 
     private static void addAppearanceStrings(Map<String, Map<String, String>> languages) {
-        String[] keys = {"appearance.fallback", "appearance.title_tap", "appearance.title_player", "appearance.title_disabled", "appearance.title_album", "appearance.title_context", "appearance.video_aspect", "appearance.video_fit", "appearance.video_fill", "appearance.video_stretch", "appearance.video_edges", "appearance.landscape_original", "appearance.landscape_artwork", "appearance.empty_notice", "appearance.context_unavailable"};
+        String[] keys = {"appearance.title_tap", "appearance.title_player", "appearance.title_disabled", "appearance.title_album", "appearance.title_context", "appearance.landscape_original", "appearance.landscape_artwork", "appearance.empty_notice", "appearance.context_unavailable"};
         String[][] rows = {
-                {"en", "Background when video is unavailable", "Title tap action", "Return to Spotify (default)", "Disabled", "Open album", "Open current playback context", "Video aspect", "Fit", "Fill (crop)", "Stretch", "Extend landscape video to screen edges", "Show original lyrics in landscape", "Show album cover in landscape", "Show “Lyrics not found” notice", "The current playback context is unavailable."},
-                {"ko", "동영상이 없을 때 배경", "제목을 눌렀을 때", "Spotify로 돌아가기 (기본)", "사용 안 함", "앨범 열기", "현재 재생 목록 또는 앨범 열기", "동영상 화면 맞춤", "전체 표시", "화면 채우기 (잘라내기)", "늘이기", "가로 화면 동영상을 화면 끝까지 표시", "가로 화면에서 원문 가사 표시", "가로 화면에서 앨범 표지 표시", "‘가사를 찾을 수 없음’ 안내 표시", "현재 재생 중인 목록 또는 앨범을 열 수 없습니다."},
-                {"zh-CN", "视频不可用时的背景", "点击标题时的操作", "返回 Spotify（默认）", "禁用", "打开专辑", "打开当前播放来源", "视频画面适配", "完整显示", "填满（裁剪）", "拉伸", "横屏视频延伸至屏幕边缘", "横屏显示原文歌词", "横屏显示专辑封面", "显示“未找到歌词”提示", "当前播放来源不可用。"},
-                {"zh-TW", "影片無法播放時的背景", "點擊標題時的動作", "返回 Spotify（預設）", "停用", "開啟專輯", "開啟目前播放來源", "影片畫面適配", "完整顯示", "填滿（裁切）", "拉伸", "橫向影片延伸至螢幕邊緣", "橫向顯示原文歌詞", "橫向顯示專輯封面", "顯示「找不到歌詞」提示", "目前播放來源無法開啟。"},
-                {"ja", "動画を再生できないときの背景", "タイトルをタップしたとき", "Spotifyに戻る（既定）", "無効", "アルバムを開く", "現在の再生元を開く", "動画の表示方法", "全体を表示", "画面を埋める（切り取り）", "引き伸ばす", "横画面の動画を画面の端まで表示", "横画面で原文の歌詞を表示", "横画面でアルバムカバーを表示", "「歌詞が見つかりません」を表示", "現在の再生元を開けません。"},
-                {"hi", "वीडियो उपलब्ध न होने पर पृष्ठभूमि", "शीर्षक टैप करने पर", "Spotify पर लौटें (डिफ़ॉल्ट)", "बंद", "एल्बम खोलें", "मौजूदा प्लेलिस्ट या एल्बम खोलें", "वीडियो का आकार", "पूरा दिखाएँ", "स्क्रीन भरें (काटें)", "खींचें", "लैंडस्केप वीडियो स्क्रीन के किनारों तक दिखाएँ", "लैंडस्केप में मूल लिरिक्स दिखाएँ", "लैंडस्केप में एल्बम कवर दिखाएँ", "“लिरिक्स नहीं मिले” संदेश दिखाएँ", "मौजूदा प्लेलिस्ट या एल्बम उपलब्ध नहीं है।"},
-                {"es", "Fondo cuando el vídeo no está disponible", "Acción al tocar el título", "Volver a Spotify (predeterminado)", "Desactivada", "Abrir álbum", "Abrir la fuente de reproducción actual", "Formato del vídeo", "Ajustar", "Rellenar (recortar)", "Estirar", "Extender el vídeo horizontal hasta los bordes", "Mostrar letra original en horizontal", "Mostrar portada en horizontal", "Mostrar el aviso «No se encontró la letra»", "La fuente de reproducción actual no está disponible."},
-                {"fr", "Fond lorsque la vidéo est indisponible", "Action au toucher du titre", "Revenir à Spotify (par défaut)", "Désactivée", "Ouvrir l’album", "Ouvrir la source de lecture actuelle", "Format de la vidéo", "Ajuster", "Remplir (recadrer)", "Étirer", "Étendre la vidéo en paysage jusqu’aux bords", "Afficher les paroles originales en paysage", "Afficher la pochette en paysage", "Afficher « Paroles introuvables »", "La source de lecture actuelle est indisponible."},
-                {"ar", "الخلفية عند تعذر تشغيل الفيديو", "الإجراء عند لمس العنوان", "العودة إلى Spotify (افتراضي)", "معطل", "فتح الألبوم", "فتح مصدر التشغيل الحالي", "طريقة عرض الفيديو", "احتواء", "ملء (اقتصاص)", "تمديد", "مد الفيديو الأفقي إلى حواف الشاشة", "عرض الكلمات الأصلية أفقيًا", "عرض غلاف الألبوم أفقيًا", "عرض إشعار «لم يتم العثور على الكلمات»", "مصدر التشغيل الحالي غير متاح."},
-                {"fa", "پس‌زمینه هنگام در دسترس نبودن ویدیو", "عملکرد لمس عنوان", "بازگشت به Spotify (پیش‌فرض)", "غیرفعال", "باز کردن آلبوم", "باز کردن منبع پخش فعلی", "نحوهٔ نمایش ویدیو", "نمایش کامل", "پر کردن (برش)", "کشیدن", "گسترش ویدیوی افقی تا لبه‌های صفحه", "نمایش متن اصلی در حالت افقی", "نمایش جلد آلبوم در حالت افقی", "نمایش پیام «متن ترانه یافت نشد»", "منبع پخش فعلی در دسترس نیست."},
-                {"de", "Hintergrund bei nicht verfügbarem Video", "Aktion beim Tippen auf den Titel", "Zu Spotify zurück (Standard)", "Deaktiviert", "Album öffnen", "Aktuelle Wiedergabequelle öffnen", "Videoformat", "Einpassen", "Ausfüllen (zuschneiden)", "Strecken", "Video im Querformat bis zum Bildschirmrand", "Originaltext im Querformat anzeigen", "Albumcover im Querformat anzeigen", "Hinweis „Kein Songtext gefunden“ anzeigen", "Die aktuelle Wiedergabequelle ist nicht verfügbar."},
-                {"ru", "Фон, если видео недоступно", "Действие при нажатии на название", "Вернуться в Spotify (по умолчанию)", "Отключено", "Открыть альбом", "Открыть текущий источник воспроизведения", "Формат видео", "Вписать", "Заполнить (обрезать)", "Растянуть", "Видео до краёв экрана в альбомной ориентации", "Показывать исходный текст в альбомной ориентации", "Показывать обложку в альбомной ориентации", "Показывать уведомление «Текст не найден»", "Текущий источник воспроизведения недоступен."},
-                {"sv", "Bakgrund när video inte är tillgänglig", "Åtgärd när du trycker på titeln", "Tillbaka till Spotify (standard)", "Avstängd", "Öppna album", "Öppna aktuell uppspelningskälla", "Videoformat", "Anpassa", "Fyll (beskär)", "Sträck ut", "Visa liggande video ända till skärmkanterna", "Visa originaltext i liggande läge", "Visa skivomslag i liggande läge", "Visa meddelandet ”Låttexten hittades inte”", "Den aktuella uppspelningskällan är inte tillgänglig."},
-                {"pt", "Fundo quando o vídeo não está disponível", "Ação ao tocar no título", "Voltar ao Spotify (padrão)", "Desativada", "Abrir álbum", "Abrir a origem da reprodução atual", "Formato do vídeo", "Ajustar", "Preencher (cortar)", "Esticar", "Estender o vídeo horizontal até as bordas", "Mostrar letra original na horizontal", "Mostrar capa do álbum na horizontal", "Mostrar aviso “Letra não encontrada”", "A origem da reprodução atual não está disponível."},
-                {"bn", "ভিডিও না থাকলে পটভূমি", "শিরোনামে ট্যাপ করলে", "Spotify-তে ফিরুন (ডিফল্ট)", "বন্ধ", "অ্যালবাম খুলুন", "বর্তমান প্লেলিস্ট বা অ্যালবাম খুলুন", "ভিডিওর আকার", "পুরোটা দেখান", "স্ক্রিন ভরুন (কাটুন)", "টেনে বড় করুন", "আড়াআড়ি ভিডিও স্ক্রিনের প্রান্ত পর্যন্ত দেখান", "আড়াআড়ি অবস্থায় মূল লিরিক্স দেখান", "আড়াআড়ি অবস্থায় অ্যালবামের কভার দেখান", "“লিরিক্স পাওয়া যায়নি” বার্তা দেখান", "বর্তমান প্লেলিস্ট বা অ্যালবাম পাওয়া যাচ্ছে না।"},
-                {"cs", "Pozadí, když video není dostupné", "Akce při klepnutí na název", "Zpět do Spotify (výchozí)", "Vypnuto", "Otevřít album", "Otevřít aktuální zdroj přehrávání", "Formát videa", "Přizpůsobit", "Vyplnit (oříznout)", "Roztáhnout", "Video na šířku až k okrajům obrazovky", "Zobrazit původní text na šířku", "Zobrazit obal alba na šířku", "Zobrazit oznámení „Text nenalezen“", "Aktuální zdroj přehrávání není dostupný."},
-                {"it", "Sfondo quando il video non è disponibile", "Azione al tocco del titolo", "Torna a Spotify (predefinito)", "Disattivata", "Apri album", "Apri la fonte di riproduzione attuale", "Formato video", "Adatta", "Riempi (ritaglia)", "Allunga", "Estendi il video orizzontale fino ai bordi", "Mostra testo originale in orizzontale", "Mostra copertina in orizzontale", "Mostra l’avviso “Testo non trovato”", "La fonte di riproduzione attuale non è disponibile."},
-                {"th", "พื้นหลังเมื่อวิดีโอไม่พร้อมใช้งาน", "การทำงานเมื่อแตะชื่อเพลง", "กลับไปที่ Spotify (ค่าเริ่มต้น)", "ปิด", "เปิดอัลบั้ม", "เปิดแหล่งที่กำลังเล่น", "รูปแบบวิดีโอ", "แสดงทั้งหมด", "เต็มจอ (ครอบตัด)", "ยืด", "ขยายวิดีโอแนวนอนถึงขอบหน้าจอ", "แสดงเนื้อเพลงต้นฉบับในแนวนอน", "แสดงปกอัลบั้มในแนวนอน", "แสดงข้อความ “ไม่พบเนื้อเพลง”", "แหล่งที่กำลังเล่นไม่พร้อมใช้งาน"},
-                {"vi", "Nền khi video không khả dụng", "Thao tác khi chạm vào tên bài", "Quay lại Spotify (mặc định)", "Tắt", "Mở album", "Mở nguồn phát hiện tại", "Cách hiển thị video", "Vừa khung", "Lấp đầy (cắt)", "Kéo giãn", "Mở rộng video ngang đến mép màn hình", "Hiện lời gốc ở chế độ ngang", "Hiện bìa album ở chế độ ngang", "Hiện thông báo “Không tìm thấy lời”", "Nguồn phát hiện tại không khả dụng."},
-                {"id", "Latar saat video tidak tersedia", "Tindakan saat judul diketuk", "Kembali ke Spotify (bawaan)", "Nonaktif", "Buka album", "Buka sumber pemutaran saat ini", "Format video", "Sesuaikan", "Penuhi (potong)", "Rentangkan", "Perluas video lanskap hingga tepi layar", "Tampilkan lirik asli dalam lanskap", "Tampilkan sampul album dalam lanskap", "Tampilkan pemberitahuan “Lirik tidak ditemukan”", "Sumber pemutaran saat ini tidak tersedia."},
-                {"ms", "Latar apabila video tidak tersedia", "Tindakan apabila tajuk diketuk", "Kembali ke Spotify (lalai)", "Dimatikan", "Buka album", "Buka sumber main balik semasa", "Format video", "Muatkan", "Penuhkan (pangkas)", "Regangkan", "Panjangkan video landskap ke tepi skrin", "Tunjukkan lirik asal dalam landskap", "Tunjukkan kulit album dalam landskap", "Tunjukkan notis “Lirik tidak ditemui”", "Sumber main balik semasa tidak tersedia."},
-                {"tr", "Video kullanılamadığında arka plan", "Başlığa dokunma eylemi", "Spotify’a dön (varsayılan)", "Devre dışı", "Albümü aç", "Geçerli çalma kaynağını aç", "Video biçimi", "Sığdır", "Doldur (kırp)", "Uzat", "Yatay videoyu ekran kenarlarına uzat", "Yatay modda özgün sözleri göster", "Yatay modda albüm kapağını göster", "“Şarkı sözü bulunamadı” bildirimini göster", "Geçerli çalma kaynağı kullanılamıyor."}
+                {"en", "Title tap action", "Return to Spotify (default)", "Disabled", "Open album", "Open current playback context", "Show original lyrics in landscape", "Show album cover in landscape", "Show “Lyrics not found” notice", "The current playback context is unavailable."},
+                {"ko", "제목을 눌렀을 때", "Spotify로 돌아가기 (기본)", "사용 안 함", "앨범 열기", "현재 재생 목록 또는 앨범 열기", "가로 화면에서 원문 가사 표시", "가로 화면에서 앨범 표지 표시", "‘가사를 찾을 수 없음’ 안내 표시", "현재 재생 중인 목록 또는 앨범을 열 수 없습니다."},
+                {"zh-CN", "点击标题时的操作", "返回 Spotify（默认）", "禁用", "打开专辑", "打开当前播放来源", "横屏显示原文歌词", "横屏显示专辑封面", "显示“未找到歌词”提示", "当前播放来源不可用。"},
+                {"zh-TW", "點擊標題時的動作", "返回 Spotify（預設）", "停用", "開啟專輯", "開啟目前播放來源", "橫向顯示原文歌詞", "橫向顯示專輯封面", "顯示「找不到歌詞」提示", "目前播放來源無法開啟。"},
+                {"ja", "タイトルをタップしたとき", "Spotifyに戻る（既定）", "無効", "アルバムを開く", "現在の再生元を開く", "横画面で原文の歌詞を表示", "横画面でアルバムカバーを表示", "「歌詞が見つかりません」を表示", "現在の再生元を開けません。"},
+                {"hi", "शीर्षक टैप करने पर", "Spotify पर लौटें (डिफ़ॉल्ट)", "बंद", "एल्बम खोलें", "मौजूदा प्लेलिस्ट या एल्बम खोलें", "लैंडस्केप में मूल लिरिक्स दिखाएँ", "लैंडस्केप में एल्बम कवर दिखाएँ", "“लिरिक्स नहीं मिले” संदेश दिखाएँ", "मौजूदा प्लेलिस्ट या एल्बम उपलब्ध नहीं है।"},
+                {"es", "Acción al tocar el título", "Volver a Spotify (predeterminado)", "Desactivada", "Abrir álbum", "Abrir la fuente de reproducción actual", "Mostrar letra original en horizontal", "Mostrar portada en horizontal", "Mostrar el aviso «No se encontró la letra»", "La fuente de reproducción actual no está disponible."},
+                {"fr", "Action au toucher du titre", "Revenir à Spotify (par défaut)", "Désactivée", "Ouvrir l’album", "Ouvrir la source de lecture actuelle", "Afficher les paroles originales en paysage", "Afficher la pochette en paysage", "Afficher « Paroles introuvables »", "La source de lecture actuelle est indisponible."},
+                {"ar", "الإجراء عند لمس العنوان", "العودة إلى Spotify (افتراضي)", "معطل", "فتح الألبوم", "فتح مصدر التشغيل الحالي", "عرض الكلمات الأصلية أفقيًا", "عرض غلاف الألبوم أفقيًا", "عرض إشعار «لم يتم العثور على الكلمات»", "مصدر التشغيل الحالي غير متاح."},
+                {"fa", "عملکرد لمس عنوان", "بازگشت به Spotify (پیش‌فرض)", "غیرفعال", "باز کردن آلبوم", "باز کردن منبع پخش فعلی", "نمایش متن اصلی در حالت افقی", "نمایش جلد آلبوم در حالت افقی", "نمایش پیام «متن ترانه یافت نشد»", "منبع پخش فعلی در دسترس نیست."},
+                {"de", "Aktion beim Tippen auf den Titel", "Zu Spotify zurück (Standard)", "Deaktiviert", "Album öffnen", "Aktuelle Wiedergabequelle öffnen", "Originaltext im Querformat anzeigen", "Albumcover im Querformat anzeigen", "Hinweis „Kein Songtext gefunden“ anzeigen", "Die aktuelle Wiedergabequelle ist nicht verfügbar."},
+                {"ru", "Действие при нажатии на название", "Вернуться в Spotify (по умолчанию)", "Отключено", "Открыть альбом", "Открыть текущий источник воспроизведения", "Показывать исходный текст в альбомной ориентации", "Показывать обложку в альбомной ориентации", "Показывать уведомление «Текст не найден»", "Текущий источник воспроизведения недоступен."},
+                {"sv", "Åtgärd när du trycker på titeln", "Tillbaka till Spotify (standard)", "Avstängd", "Öppna album", "Öppna aktuell uppspelningskälla", "Visa originaltext i liggande läge", "Visa skivomslag i liggande läge", "Visa meddelandet ”Låttexten hittades inte”", "Den aktuella uppspelningskällan är inte tillgänglig."},
+                {"pt", "Ação ao tocar no título", "Voltar ao Spotify (padrão)", "Desativada", "Abrir álbum", "Abrir a origem da reprodução atual", "Mostrar letra original na horizontal", "Mostrar capa do álbum na horizontal", "Mostrar aviso “Letra não encontrada”", "A origem da reprodução atual não está disponível."},
+                {"bn", "শিরোনামে ট্যাপ করলে", "Spotify-তে ফিরুন (ডিফল্ট)", "বন্ধ", "অ্যালবাম খুলুন", "বর্তমান প্লেলিস্ট বা অ্যালবাম খুলুন", "আড়াআড়ি অবস্থায় মূল লিরিক্স দেখান", "আড়াআড়ি অবস্থায় অ্যালবামের কভার দেখান", "“লিরিক্স পাওয়া যায়নি” বার্তা দেখান", "বর্তমান প্লেলিস্ট বা অ্যালবাম পাওয়া যাচ্ছে না।"},
+                {"cs", "Akce při klepnutí na název", "Zpět do Spotify (výchozí)", "Vypnuto", "Otevřít album", "Otevřít aktuální zdroj přehrávání", "Zobrazit původní text na šířku", "Zobrazit obal alba na šířku", "Zobrazit oznámení „Text nenalezen“", "Aktuální zdroj přehrávání není dostupný."},
+                {"it", "Azione al tocco del titolo", "Torna a Spotify (predefinito)", "Disattivata", "Apri album", "Apri la fonte di riproduzione attuale", "Mostra testo originale in orizzontale", "Mostra copertina in orizzontale", "Mostra l’avviso “Testo non trovato”", "La fonte di riproduzione attuale non è disponibile."},
+                {"th", "การทำงานเมื่อแตะชื่อเพลง", "กลับไปที่ Spotify (ค่าเริ่มต้น)", "ปิด", "เปิดอัลบั้ม", "เปิดแหล่งที่กำลังเล่น", "แสดงเนื้อเพลงต้นฉบับในแนวนอน", "แสดงปกอัลบั้มในแนวนอน", "แสดงข้อความ “ไม่พบเนื้อเพลง”", "แหล่งที่กำลังเล่นไม่พร้อมใช้งาน"},
+                {"vi", "Thao tác khi chạm vào tên bài", "Quay lại Spotify (mặc định)", "Tắt", "Mở album", "Mở nguồn phát hiện tại", "Hiện lời gốc ở chế độ ngang", "Hiện bìa album ở chế độ ngang", "Hiện thông báo “Không tìm thấy lời”", "Nguồn phát hiện tại không khả dụng."},
+                {"id", "Tindakan saat judul diketuk", "Kembali ke Spotify (bawaan)", "Nonaktif", "Buka album", "Buka sumber pemutaran saat ini", "Tampilkan lirik asli dalam lanskap", "Tampilkan sampul album dalam lanskap", "Tampilkan pemberitahuan “Lirik tidak ditemukan”", "Sumber pemutaran saat ini tidak tersedia."},
+                {"ms", "Tindakan apabila tajuk diketuk", "Kembali ke Spotify (lalai)", "Dimatikan", "Buka album", "Buka sumber main balik semasa", "Tunjukkan lirik asal dalam landskap", "Tunjukkan kulit album dalam landskap", "Tunjukkan notis “Lirik tidak ditemui”", "Sumber main balik semasa tidak tersedia."},
+                {"tr", "Başlığa dokunma eylemi", "Spotify’a dön (varsayılan)", "Devre dışı", "Albümü aç", "Geçerli çalma kaynağını aç", "Yatay modda özgün sözleri göster", "Yatay modda albüm kapağını göster", "“Şarkı sözü bulunamadı” bildirimini göster", "Geçerli çalma kaynağı kullanılamıyor."},
         };
         for (String[] row : rows) {
             Map<String, String> copy = new LinkedHashMap<>(languages.get(row[0]));
@@ -941,7 +939,6 @@ final class AppI18n {
                 "speaker_color.hex_hint", "Ausgewählte Farbe",
                 "toast.speaker_colors_reset", "Gesangsfarben zurückgesetzt",
                 "toast.invalid_color_format", "Das Farbformat von %s ist ungültig.",
-                "setting.video_scale_desc", "Vergrößert das Hintergrundvideo, wenn die Quelle schwarze Balken hat oder den Bildschirm stärker füllen soll.",
         });
         applyTranslationOverrides(languages, "ru", new String[]{
                 "button.save_start", "Сохранить и начать",
@@ -1567,7 +1564,6 @@ final class AppI18n {
             }
             Map<String, String> copy = new LinkedHashMap<>(table);
             LyricsToolsTranslationOverrides.apply(language.code, copy);
-            VideoSelectionTranslations.apply(language.code, copy);
             SettingsExperienceTranslations.apply(language.code, copy);
             languages.put(language.code, Collections.unmodifiableMap(copy));
         }
@@ -6218,182 +6214,6 @@ final class AppI18n {
         };
     }
 
-    private static void addVideoBackgroundStrings(Map<String, Map<String, String>> languages) {
-        addLanguageStrings(languages, AppI18n::videoBackgroundStrings, AppI18n::videoBackgroundScaleStrings);
-    }
-
-    private static String[] videoBackgroundStrings(String lang) {
-        switch (normalize(lang)) {
-            case "ko":
-                return videoBackgroundStringsValues("앨범 커버, 영상, 블러 그라데이션, 단색 배경 중 하나를 사용합니다.", "영상", "Lyriscope YouTube 영상 정보를 불러와 실제 영상을 배경으로 재생합니다.");
-            case "zh-CN":
-                return videoBackgroundStringsValues("选择专辑封面、视频、模糊渐变或纯色背景。", "视频", "加载 Lyriscope YouTube 视频信息，并在播放器后方播放真实视频。");
-            case "zh-TW":
-                return videoBackgroundStringsValues("選擇專輯封面、影片、模糊漸層或純色背景。", "影片", "載入 Lyriscope YouTube 影片資訊，並在播放器後方播放實際影片。");
-            case "ja":
-                return videoBackgroundStringsValues("アルバムカバー、動画、ぼかしグラデーション、単色背景から選びます。", "動画", "Lyriscope の YouTube 動画情報を読み込み、実際の動画を背景で再生します。");
-            case "hi":
-                return videoBackgroundStringsValues("एल्बम कवर, वीडियो, धुंधली ढाल, या ठोस रंग पृष्ठभूमि चुनें।", "वीडियो", "Lyriscope YouTube वीडियो जानकारी लोड करता है और प्लेयर के पीछे असली वीडियो चलाता है।");
-            case "es":
-                return videoBackgroundStringsValues("Elija portada del álbum, video, degradado borroso o fondo sólido.", "Video", "Carga datos de video de YouTube de Lyriscope y reproduce el video real detrás del reproductor.");
-            case "fr":
-                return videoBackgroundStringsValues("Choisissez une pochette, une vidéo, un dégradé flou ou une couleur unie.", "Vidéo", "Charge la vidéo YouTube Lyriscope et lit la vraie vidéo derrière le lecteur.");
-            case "ar":
-                return videoBackgroundStringsValues("اختر غلاف الألبوم أو الفيديو أو التدرج الضبابي أو لونًا ثابتًا.", "فيديو", "يحمّل معلومات فيديو YouTube من Lyriscope ويشغل الفيديو الحقيقي خلف المشغّل.");
-            case "fa":
-                return videoBackgroundStringsValues("جلد آلبوم، ویدیو، گرادیان تار یا رنگ ثابت را انتخاب کنید.", "ویدیو", "اطلاعات ویدیوی YouTube از Lyriscope را می‌گیرد و ویدیوی واقعی را پشت پخش‌کننده اجرا می‌کند.");
-            case "de":
-                return videoBackgroundStringsValues("Wählen Sie Albumcover, Video, unscharfen Verlauf oder Volltonfarbe.", "Video", "Lädt Lyriscope-YouTube-Videodaten und spielt das echte Video hinter dem Player ab.");
-            case "ru":
-                return videoBackgroundStringsValues("Выберите обложку, видео, размытый градиент или сплошной цвет.", "Видео", "Загружает YouTube-видео Lyriscope и воспроизводит настоящее видео за плеером.");
-            case "sv":
-                return videoBackgroundStringsValues("Välj albumomslag, video, suddig gradient eller enfärgad bakgrund.", "Video", "Läser in Lyriscope YouTube-video och spelar den riktiga videon bakom spelaren.");
-            case "pt":
-                return videoBackgroundStringsValues("Escolha capa do álbum, vídeo, gradiente desfocado ou cor sólida.", "Vídeo", "Carrega o vídeo do YouTube do Lyriscope e reproduz o vídeo real atrás do player.");
-            case "bn":
-                return videoBackgroundStringsValues("অ্যালবাম কভার, ভিডিও, ঝাপসা গ্রেডিয়েন্ট বা কঠিন রঙের পটভূমি বেছে নিন।", "ভিডিও", "Lyriscope YouTube ভিডিও তথ্য লোড করে এবং প্লেয়ারের পেছনে আসল ভিডিও চালায়।");
-            case "it":
-                return videoBackgroundStringsValues("Scegli copertina, video, sfumatura sfocata o colore solido.", "Video", "Carica il video YouTube di Lyriscope e riproduce il video reale dietro il player.");
-            case "th":
-                return videoBackgroundStringsValues("เลือกปกอัลบั้ม วิดีโอ ไล่ระดับแบบเบลอ หรือพื้นหลังสีทึบ", "วิดีโอ", "โหลดข้อมูลวิดีโอ YouTube ของ Lyriscope และเล่นวิดีโอจริงด้านหลังเครื่องเล่น");
-            case "vi":
-                return videoBackgroundStringsValues("Chọn bìa album, video, nền chuyển màu mờ hoặc màu đặc.", "Video", "Tải video YouTube của Lyriscope và phát video thật phía sau trình phát.");
-            case "id":
-                return videoBackgroundStringsValues("Pilih sampul album, video, gradien buram, atau warna solid.", "Video", "Memuat video YouTube Lyriscope dan memutar video asli di belakang pemutar.");
-            case "ms":
-                return videoBackgroundStringsValues("Pilih kulit album, video, kecerunan kabur atau warna pepejal.", "Video", "Memuatkan video YouTube Lyriscope dan memainkan video sebenar di belakang pemain.");
-            case "tr":
-                return videoBackgroundStringsValues("Albüm kapağı, video, bulanık gradyan veya düz renk arka plan seçin.", "Video", "Lyriscope YouTube video bilgisini yükler ve gerçek videoyu oynatıcının arkasında oynatır.");
-            default:
-                return videoBackgroundStringsValues("Choose album cover, video, blurred gradient, or solid color background.", "Video", "Loads Lyriscope YouTube video metadata and plays the real video behind the player.");
-        }
-    }
-
-    private static String[] videoBackgroundStringsValues(String sectionDesc, String label, String desc) {
-        return new String[]{
-                "section.background_desc", sectionDesc,
-                "background.mode.video", label,
-                "background.mode.video_desc", desc
-        };
-    }
-
-    private static String[] videoBackgroundScaleStrings(String lang) {
-        switch (normalize(lang)) {
-            case "ko":
-                return videoBackgroundScaleStringsValues("영상 확대", "영상에 검은 여백이 있거나 화면을 더 채워야 할 때 배경 영상을 확대합니다.");
-            case "zh-CN":
-                return videoBackgroundScaleStringsValues("视频缩放", "当视频带有黑边或需要更充满屏幕时，放大背景视频。");
-            case "zh-TW":
-                return videoBackgroundScaleStringsValues("影片縮放", "當影片有黑邊或需要更填滿畫面時，放大背景影片。");
-            case "ja":
-                return videoBackgroundScaleStringsValues("動画の拡大", "映像に黒帯がある場合や画面をより埋めたい場合に背景動画を拡大します。");
-            case "hi":
-                return videoBackgroundScaleStringsValues("वीडियो ज़ूम", "वीडियो में काली पट्टियां हों या स्क्रीन को अधिक भरना हो तो पृष्ठभूमि वीडियो को बड़ा करें।");
-            case "es":
-                return videoBackgroundScaleStringsValues("Zoom de video", "Amplia el video de fondo cuando la fuente tiene barras negras o necesita llenar más la pantalla.");
-            case "fr":
-                return videoBackgroundScaleStringsValues("Zoom vidéo", "Agrandit la vidéo d'arrière-plan si la source a des bandes noires ou doit mieux remplir l'écran.");
-            case "ar":
-                return videoBackgroundScaleStringsValues("تكبير الفيديو", "يكبر فيديو الخلفية عندما يحتوي المصدر على أشرطة سوداء أو يحتاج إلى ملء الشاشة أكثر.");
-            case "fa":
-                return videoBackgroundScaleStringsValues("بزرگ‌نمایی ویدیو", "وقتی منبع نوار سیاه دارد یا باید صفحه را بیشتر پر کند، ویدیوی پس‌زمینه را بزرگ می‌کند.");
-            case "de":
-                return videoBackgroundScaleStringsValues("Video-Zoom", "Vergroessert das Hintergrundvideo, wenn die Quelle schwarze Balken hat oder den Bildschirm staerker fuellen soll.");
-            case "ru":
-                return videoBackgroundScaleStringsValues("Масштаб видео", "Увеличивает фоновое видео, если в источнике есть черные поля или нужно лучше заполнить экран.");
-            case "sv":
-                return videoBackgroundScaleStringsValues("Videozoom", "Zoomar bakgrundsvideon när källan har svarta kanter eller behöver fylla mer av skärmen.");
-            case "pt":
-                return videoBackgroundScaleStringsValues("Zoom do vídeo", "Amplia o vídeo de fundo quando a origem tem faixas pretas ou precisa preencher mais a tela.");
-            case "bn":
-                return videoBackgroundScaleStringsValues("ভিডিও জুম", "ভিডিওতে কালো বার থাকলে বা স্ক্রিন আরও ভরাট করতে হলে ব্যাকগ্রাউন্ড ভিডিও বড় করে।");
-            case "it":
-                return videoBackgroundScaleStringsValues("Zoom video", "Ingrandisce il video di sfondo quando la sorgente ha bande nere o deve riempire meglio lo schermo.");
-            case "th":
-                return videoBackgroundScaleStringsValues("ซูมวิดีโอ", "ขยายวิดีโอพื้นหลังเมื่อแหล่งวิดีโอมีขอบดำหรือต้องการให้เต็มหน้าจอมากขึ้น");
-            case "vi":
-                return videoBackgroundScaleStringsValues("Thu phóng video", "Phóng to video nền khi nguồn có viền đen hoặc cần lấp đầy màn hình hơn.");
-            case "id":
-                return videoBackgroundScaleStringsValues("Zoom video", "Memperbesar video latar saat sumber memiliki bilah hitam atau perlu memenuhi layar lebih banyak.");
-            case "ms":
-                return videoBackgroundScaleStringsValues("Zum video", "Membesarkan video latar apabila sumber mempunyai jalur hitam atau perlu memenuhi skrin dengan lebih baik.");
-            case "tr":
-                return videoBackgroundScaleStringsValues("Video yakınlaştırma", "Kaynakta siyah kenarlık varsa veya ekranı daha iyi doldurması gerekiyorsa video arka planını yakınlaştırır.");
-            default:
-                return videoBackgroundScaleStringsValues("Video zoom", "Zoom the video background when the source has letterboxing or needs to fill more of the screen.");
-        }
-    }
-
-    private static String[] videoBackgroundScaleStringsValues(String label, String desc) {
-        return new String[]{
-                "setting.video_scale", label,
-                "setting.video_scale_desc", desc
-        };
-    }
-
-    private static void addVideoSyncOffsetStrings(Map<String, Map<String, String>> languages) {
-        addLanguageStrings(languages, AppI18n::videoSyncOffsetStrings);
-    }
-
-    private static String[] videoSyncOffsetStrings(String lang) {
-        switch (normalize(lang)) {
-            case "ko":
-                return videoSyncOffsetStringsValues("영상", "영상 싱크 오프셋", "%s 영상 보정", "현재 곡이 없습니다.", "+값은 영상을 더 뒤쪽 시간으로 이동하고, -값은 이전 시간으로 늦춥니다. 가사 싱크 오프셋 위에 추가로 적용됩니다.", "영상 오프셋 초기화", "영상 오프셋 %s");
-            case "zh-CN":
-                return videoSyncOffsetStringsValues("视频", "视频同步偏移", "%s 视频校正", "没有当前歌曲。", "+ 值让视频跳到更靠后的时间，- 值让视频回到更早的时间。它会叠加在歌词同步偏移上。", "重置视频偏移", "视频偏移 %s");
-            case "zh-TW":
-                return videoSyncOffsetStringsValues("影片", "影片同步偏移", "%s 影片校正", "沒有目前歌曲。", "+ 值會讓影片移到較後的時間，- 值會讓影片回到較早的時間。它會疊加在歌詞同步偏移上。", "重設影片偏移", "影片偏移 %s");
-            case "ja":
-                return videoSyncOffsetStringsValues("動画", "動画同期オフセット", "%s の動画補正", "現在の曲がありません。", "+値は動画を先の時刻へ進め、-値は前の時刻へ戻します。歌詞同期オフセットに追加で適用されます。", "動画オフセットをリセット", "動画オフセット %s");
-            case "hi":
-                return videoSyncOffsetStringsValues("वीडियो", "वीडियो सिंक ऑफसेट", "%s वीडियो सुधार", "कोई वर्तमान गीत नहीं है।", "+ मान वीडियो को आगे के समय पर ले जाता है, - मान पीछे के समय पर ले जाता है। यह लिरिक्स सिंक ऑफसेट के ऊपर लागू होता है।", "वीडियो ऑफसेट रीसेट करें", "वीडियो ऑफसेट %s");
-            case "es":
-                return videoSyncOffsetStringsValues("Video", "Desplazamiento de video", "Ajuste de video de %s", "No hay canción actual.", "Un valor + mueve el video a un tiempo posterior; un valor - lo retrasa. Se suma al desplazamiento de la letra.", "Restablecer desplazamiento de video", "Desplazamiento de video %s");
-            case "fr":
-                return videoSyncOffsetStringsValues("Vidéo", "Décalage vidéo", "Correction vidéo de %s", "Aucun morceau en cours.", "Une valeur + avance la vidéo dans le temps, une valeur - la recule. Elle s'ajoute au décalage des paroles.", "Réinitialiser le décalage vidéo", "Décalage vidéo %s");
-            case "ar":
-                return videoSyncOffsetStringsValues("فيديو", "إزاحة مزامنة الفيديو", "تصحيح فيديو %s", "لا توجد أغنية حالية.", "القيمة + تنقل الفيديو إلى وقت لاحق، والقيمة - تعيده إلى وقت سابق. تُضاف فوق إزاحة مزامنة الكلمات.", "إعادة ضبط إزاحة الفيديو", "إزاحة الفيديو %s");
-            case "fa":
-                return videoSyncOffsetStringsValues("ویدیو", "افست همگام سازی ویدیو", "اصلاح ویدیوی %s", "آهنگ فعلی وجود ندارد.", "مقدار + ویدیو را به زمان جلوتر می برد و مقدار - آن را عقب می برد. این روی افست همگام سازی متن افزوده می شود.", "بازنشانی افست ویدیو", "افست ویدیو %s");
-            case "de":
-                return videoSyncOffsetStringsValues("Video", "Video-Sync-Offset", "%s Videokorrektur", "Kein aktueller Song.", "+ verschiebt das Video zu einer späteren Zeit, - zu einer früheren Zeit. Es wird zusätzlich zum Lyrics-Sync-Offset angewendet.", "Video-Offset zurücksetzen", "Video-Offset %s");
-            case "ru":
-                return videoSyncOffsetStringsValues("Видео", "Смещение синхронизации видео", "Коррекция видео %s", "Нет текущей песни.", "+ переносит видео на более позднее время, - на более раннее. Значение добавляется к смещению текста.", "Сбросить смещение видео", "Смещение видео %s");
-            case "sv":
-                return videoSyncOffsetStringsValues("Video", "Videosynkförskjutning", "%s videokorrigering", "Ingen aktuell låt.", "+ flyttar videon till en senare tid, - till en tidigare tid. Det läggs ovanpå textens synkförskjutning.", "Återställ videooffset", "Videooffset %s");
-            case "pt":
-                return videoSyncOffsetStringsValues("Vídeo", "Deslocamento de vídeo", "Correção de vídeo de %s", "Nenhuma música atual.", "Um valor + move o vídeo para um tempo posterior; um valor - o atrasa. Ele é somado ao deslocamento da letra.", "Redefinir deslocamento do vídeo", "Deslocamento de vídeo %s");
-            case "bn":
-                return videoSyncOffsetStringsValues("ভিডিও", "ভিডিও সিঙ্ক অফসেট", "%s ভিডিও সংশোধন", "বর্তমান গান নেই।", "+ মান ভিডিওকে পরের সময়ে নেয়, - মান আগের সময়ে নেয়। এটি লিরিক্স সিঙ্ক অফসেটের ওপর যোগ হয়।", "ভিডিও অফসেট রিসেট", "ভিডিও অফসেট %s");
-            case "it":
-                return videoSyncOffsetStringsValues("Video", "Offset sincronizzazione video", "Correzione video di %s", "Nessun brano corrente.", "Un valore + porta il video a un tempo successivo, un valore - a un tempo precedente. Si aggiunge all'offset delle parole.", "Reimposta offset video", "Offset video %s");
-            case "th":
-                return videoSyncOffsetStringsValues("วิดีโอ", "ออฟเซ็ตซิงค์วิดีโอ", "ปรับวิดีโอของ %s", "ไม่มีเพลงปัจจุบัน", "ค่า + เลื่อนวิดีโอไปเวลาถัดไป ค่า - เลื่อนกลับไปเวลาก่อนหน้า และจะบวกเพิ่มจากออฟเซ็ตเนื้อเพลง", "รีเซ็ตออฟเซ็ตวิดีโอ", "ออฟเซ็ตวิดีโอ %s");
-            case "vi":
-                return videoSyncOffsetStringsValues("Video", "Bù đồng bộ video", "Chỉnh video cho %s", "Không có bài hát hiện tại.", "Giá trị + đưa video tới thời điểm muộn hơn, giá trị - đưa về sớm hơn. Nó được cộng thêm vào bù đồng bộ lời.", "Đặt lại bù video", "Bù video %s");
-            case "id":
-                return videoSyncOffsetStringsValues("Video", "Offset sinkronisasi video", "Koreksi video %s", "Tidak ada lagu saat ini.", "Nilai + memindahkan video ke waktu yang lebih maju, nilai - ke waktu sebelumnya. Ini ditambahkan di atas offset sinkronisasi lirik.", "Reset offset video", "Offset video %s");
-            case "ms":
-                return videoSyncOffsetStringsValues("Video", "Offset penyegerakan video", "Pembetulan video %s", "Tiada lagu semasa.", "Nilai + mengalihkan video ke masa lebih lewat, nilai - ke masa lebih awal. Ia ditambah pada offset penyegerakan lirik.", "Tetapkan semula offset video", "Offset video %s");
-            case "tr":
-                return videoSyncOffsetStringsValues("Video", "Video Senkron Ofseti", "%s video düzeltmesi", "Geçerli şarkı yok.", "+ değerler videoyu daha sonraki zamana, - değerler daha önceki zamana taşır. Bu, söz senkron ofsetinin üzerine eklenir.", "Video Ofsetini Sıfırla", "Video ofseti %s");
-            default:
-                return videoSyncOffsetStringsValues("Video", "Video Sync Offset", "%s video adjustment", "No current song.", "+ values move the video to a later timestamp, while - values move it earlier. This is added on top of the lyric sync offset.", "Reset Video Offset", "Video offset %s");
-        }
-    }
-
-    private static String[] videoSyncOffsetStringsValues(String tab, String title, String trackScope, String noTrack, String help, String reset, String toast) {
-        return new String[]{
-                "lyrics.tab.video", tab,
-                "lyrics.video_sync.title", title,
-                "lyrics.video_sync.track_scope", trackScope,
-                "lyrics.video_sync.no_track", noTrack,
-                "lyrics.video_sync.help", help,
-                "lyrics.video_sync.reset", reset,
-                "toast.video_sync_offset_format", toast
-        };
-    }
-
     private static Map<String, String> koStrings() {
         return strings(
                 "button.close", "닫기",
@@ -6446,8 +6266,6 @@ final class AppI18n {
                 "setting.brightness_desc", "앨범 커버와 그라데이션 배경의 밝기입니다.",
                 "setting.blur", "블러",
                 "setting.blur_desc", "앨범 커버와 그라데이션에 적용되는 블러 강도입니다. 영상 배경에는 이 값의 2배가 적용됩니다.",
-                "setting.video_scale", "영상 확대",
-                "setting.video_scale_desc", "영상 자체에 레터박스가 있거나 가장자리를 더 채우고 싶을 때 배경 영상을 확대합니다.",
                 "setting.noise", "노이즈 텍스처",
                 "setting.noise_desc", "원본 Lyriscope처럼 아주 약한 입자감을 배경에 얹습니다.",
                 "setting.reduce_motion", "움직임 줄이기",
@@ -6690,8 +6508,6 @@ final class AppI18n {
                 "setting.brightness_desc", "Brightness for album cover and gradient backgrounds.",
                 "setting.blur", "Blur",
                 "setting.blur_desc", "Blur intensity for album cover and gradient backgrounds. Video backgrounds use twice this value.",
-                "setting.video_scale", "Video zoom",
-                "setting.video_scale_desc", "Zoom the video background when the source has letterboxing or needs to fill more of the screen.",
                 "setting.noise", "Noise texture",
                 "setting.noise_desc", "Adds a subtle grain texture like the original Lyriscope.",
                 "setting.reduce_motion", "Reduce motion",
@@ -11290,8 +11106,6 @@ final class AppI18n {
                 "setting.brightness_desc", "Jas pro obal alba a pozadí s přechodem.",
                 "setting.blur", "Rozostření",
                 "setting.blur_desc", "Intenzita rozostření pro obal alba a přechodové pozadí. Pozadí videa používá dvojnásobek této hodnoty.",
-                "setting.video_scale", "Zoom videa",
-                "setting.video_scale_desc", "Zvětšení pozadí videa, když má zdroj letterbox nebo potřebuje vyplnit větší část obrazovky.",
                 "setting.noise", "Šumová textura",
                 "setting.noise_desc", "Přidá jemnou zrnitou texturu podobnou původnímu Lyriscope.",
                 "setting.reduce_motion", "Omezit pohyb",
@@ -11589,8 +11403,6 @@ final class AppI18n {
                 "toast.invalid_color_format", "Formát barev %s je neplatný.",
                 "setting.creator_speaker_colors", "Používat vlastní barvy autora synchronizace",
                 "setting.creator_speaker_colors_desc", "Použije vlastní barvy hlasů vložené autorem synchronizace. Po vypnutí použijí hlasy CUSTOM náhradní barvu zvolenou autorem.",
-                "background.mode.video", "Video",
-                "background.mode.video_desc", "Načte metadata videa Lyriscope YouTube a přehraje skutečné video za přehrávačem.",
                 "lyrics.tab.background", "Pozadí",
                 "lyrics.background.title", "Pozadí aktuální stopy",
                 "lyrics.background.desc", "Uložte přepsání pozadí pro tuto stopu namísto globálního nastavení pozadí.",
@@ -11623,13 +11435,6 @@ final class AppI18n {
                 "toast.pip_settings_saved", "Nastavení PiP uloženo.",
                 "setting.pip_lyrics_size", "Velikost textu v PiP",
                 "setting.pip_lyrics_size_desc", "Změní pouze velikost textu v PiP jako procento běžné velikosti na stránce textů.",
-                "lyrics.tab.video", "Video",
-                "lyrics.video_sync.title", "Posun synchronizace videa",
-                "lyrics.video_sync.track_scope", "Úprava videa %s",
-                "lyrics.video_sync.no_track", "Žádná aktuální skladba.",
-                "lyrics.video_sync.help", "Hodnoty + posunou video na pozdější časovou značku, zatímco hodnoty - jej posunou dříve. Toto je přidáno k offsetu synchronizace textu.",
-                "lyrics.video_sync.reset", "Obnovit posun videa",
-                "toast.video_sync_offset_format", "Posun videa %s",
                 "lyrics.bluetooth_sync.title", "Offset zařízení Bluetooth",
                 "lyrics.bluetooth_sync.no_device", "Není připojeno žádné zvukové zařízení Bluetooth.",
                 "lyrics.bluetooth_sync.device_scope", "Uloženo pouze pro \"%s\".",
@@ -11729,8 +11534,6 @@ final class AppI18n {
                 "setting.brightness_desc", "Albüm kapağı ve gradyan arka planları için parlaklık.",
                 "setting.blur", "Bulanıklık",
                 "setting.blur_desc", "Albüm kapağı ve gradyan arka planları için bulanıklık yoğunluğu. Video arka planları bu değerin iki katını kullanır.",
-                "setting.video_scale", "Video yakınlaştırma",
-                "setting.video_scale_desc", "Kaynakta siyah kenarlık varsa veya ekranı daha fazla doldurması gerekiyorsa video arka planını yakınlaştırır.",
                 "setting.noise", "Gürültü dokusu",
                 "setting.noise_desc", "Orijinal Lyriscope gibi hafif bir gren dokusu ekler.",
                 "setting.reduce_motion", "Hareketi azalt",

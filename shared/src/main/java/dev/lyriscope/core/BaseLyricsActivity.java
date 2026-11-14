@@ -124,8 +124,7 @@ public class BaseLyricsActivity extends Activity implements
         LyricsRepository.Callback,
         LyricsRepository.ManualLrclibCallback,
         AiLyricsRepository.Callback,
-        FuriganaRepository.Callback,
-        YouTubeBackgroundRepository.Callback {
+        FuriganaRepository.Callback {
     public static final String EXTRA_OPEN_LYRICS_PAGE = "dev.lyriscope.core.OPEN_LYRICS_PAGE";
     private static final String EXTRA_DEBUG_LYRICS_LOADING_PROVIDER =
             "dev.lyriscope.core.DEBUG_LYRICS_LOADING_PROVIDER";
@@ -150,7 +149,6 @@ public class BaseLyricsActivity extends Activity implements
     private static final int SETTINGS_PREVIEW_TYPOGRAPHY = 100;
     private static final String LYRICS_POPUP_TAB_LANGUAGE = "language";
     private static final String LYRICS_POPUP_TAB_SYNC = "sync";
-    private static final String LYRICS_POPUP_TAB_VIDEO = "video";
     private static final String LYRICS_POPUP_TAB_BACKGROUND = "background";
     private static final String LYRICS_POPUP_TAB_LRCLIB = "lrclib";
     private static final String CREATOR_PROFILE_ENDPOINT = "https://lyrics.api.ivl.is/user/creator-profile";
@@ -195,7 +193,6 @@ public class BaseLyricsActivity extends Activity implements
     private LyricsRepository lyricsRepository;
     private AiLyricsRepository aiLyricsRepository;
     private FuriganaRepository furiganaRepository;
-    private YouTubeBackgroundRepository youtubeBackgroundRepository;
     private CreatorSupportRepository creatorSupportRepository;
     private UpdateChecker updateChecker;
     private AiLyricsSettings aiLyricsSettings;
@@ -242,7 +239,6 @@ public class BaseLyricsActivity extends Activity implements
     private final Map<String, Integer> stableBackgroundColors = new HashMap<>();
     private PlayerBackgroundView backgroundView;
     private PlayerBackgroundView pictureInPictureBackgroundView;
-    private YouTubeBackgroundView youtubeBackgroundView;
     private FrameLayout rootView;
     private FrameLayout mainPage;
     private FrameLayout lyricsPage;
@@ -294,8 +290,6 @@ public class BaseLyricsActivity extends Activity implements
     private TextView selectedLanguageRuleView;
     private TextView lyricsSyncOffsetValueView;
     private TextView lyricsSyncOffsetDescriptionView;
-    private TextView videoSyncOffsetValueView;
-    private TextView videoSyncOffsetDescriptionView;
     private TextView lyricsLanguageButton;
     private TextView permissionButton;
     private PopupWindow lyricsMetaTipPopup;
@@ -323,7 +317,6 @@ public class BaseLyricsActivity extends Activity implements
     private Button lyricsMatchRestoreButton;
     private boolean lyricsMatchStatusExpanded;
     private LinearLayout lyricsSyncSettingsContent;
-    private LinearLayout videoSyncSettingsContent;
     private LinearLayout lyricsBackgroundSettingsContent;
     private LinearLayout lyricsBackgroundModeButtonsContainer;
     private LinearLayout lyricsManualSearchContent;
@@ -381,8 +374,6 @@ public class BaseLyricsActivity extends Activity implements
     private SettingsKit.Choice pipOrientationChoice;
     private SettingsKit.Choice pipLyricsAlignmentChoice;
     private SettingsKit.Choice backgroundModeChoice;
-    private SettingsKit.Choice videoFallbackChoice;
-    private SettingsKit.Choice videoAspectChoice;
     private SettingsKit.Choice titleTapChoice;
     private SettingsKit.Choice vinylTonearmStyleChoice;
     private SettingsKit.Choice vinylTonearmFinishChoice;
@@ -406,7 +397,6 @@ public class BaseLyricsActivity extends Activity implements
     private LinearLayout aiConnectionsContainer;
     private String aiTranslationOwnerId = "";
     private String aiPronunciationOwnerId = "";
-    private Switch videoEdgeToEdgeSwitch;
     private Switch landscapeShowOriginalSwitch;
     private Switch landscapeShowArtworkSwitch;
     private Switch showLyricsNotFoundSwitch;
@@ -443,14 +433,12 @@ public class BaseLyricsActivity extends Activity implements
     private Switch creatorProfilePrivacySwitch;
     private SeekBar backgroundBrightnessSeekBar;
     private SeekBar backgroundBlurSeekBar;
-    private SeekBar backgroundVideoScaleSeekBar;
     private SeekBar pipLyricsSizeSeekBar;
     private SeekBar vinylAlbumSizeSeekBar;
     private SeekBar vinylRecordSizeSeekBar;
     private SeekBar vinylTonearmSizeSeekBar;
     private SeekBar lyricsBackgroundBrightnessSeekBar;
     private SeekBar lyricsBackgroundBlurSeekBar;
-    private SeekBar lyricsBackgroundVideoScaleSeekBar;
     private SeekBar culturalAnnotationFontSizeSeekBar;
     private SeekBar culturalAnnotationFontWeightSeekBar;
     private SeekBar culturalAnnotationOpacitySeekBar;
@@ -460,7 +448,6 @@ public class BaseLyricsActivity extends Activity implements
     private View culturalAnnotationStyleGroup;
     private TextView lyricsBackgroundBrightnessValueView;
     private TextView lyricsBackgroundBlurValueView;
-    private TextView lyricsBackgroundVideoScaleValueView;
     private EditText apiKeysInput;
     private EditText modelInput;
     private TextView aiModelPickerButton;
@@ -474,9 +461,7 @@ public class BaseLyricsActivity extends Activity implements
     private View backgroundSolidColorSwatch;
     private View lyricsBackgroundSolidColorSwatch;
     private View backgroundSolidColorGroup;
-    private View backgroundVideoScaleGroup;
     private View lyricsBackgroundSolidColorGroup;
-    private View lyricsBackgroundVideoScaleGroup;
     private EditText spotifyClientIdInput;
     private EditText spotifyClientSecretInput;
     private EditText spotifySetupClientIdInput;
@@ -545,8 +530,6 @@ public class BaseLyricsActivity extends Activity implements
     private LyricsResult currentFuriganaResult;
     private List<CulturalAnnotation> currentCulturalAnnotations = Collections.emptyList();
     private String currentCulturalAnnotationRequestKey = "";
-    private YouTubeBackgroundRepository.VideoInfo currentYouTubeBackgroundInfo;
-    private boolean currentYouTubeBackgroundLoading;
     private String currentFuriganaKey = "";
     private String currentLyricsKey = "";
     private boolean embeddedInitialLyricsConsumed;
@@ -574,8 +557,6 @@ public class BaseLyricsActivity extends Activity implements
     private boolean cachedPreviewRowsGenerating;
     private List<MainLyricPreviewView.PreviewLine> cachedPreviewRows = Collections.emptyList();
     private String currentArtworkKey = "";
-    private long youtubeBackgroundRequestGeneration;
-    private String currentYouTubeBackgroundRequestKey = "";
     private String currentResolvedIsrc = "";
     private String currentResolvedSpotifyTrackId = "";
     private Bitmap currentArtworkBitmap;
@@ -628,7 +609,6 @@ public class BaseLyricsActivity extends Activity implements
     private String selectedRuleSourceLang = "auto";
     private String activeLyricsPopupTab = LYRICS_POPUP_TAB_LANGUAGE;
     private int currentTrackSyncOffsetMs;
-    private int currentVideoSyncOffsetMs;
     private long currentSpotifyDjLyricsOffsetMs;
     private boolean lyricsLanguageSettingsVisible;
     private ViewGroup lyricsLanguageSettingsOriginalParent;
@@ -704,7 +684,6 @@ public class BaseLyricsActivity extends Activity implements
     private boolean pictureInPictureActionsInitialized;
     private boolean pictureInPictureActionsPlaying;
     private boolean lyricsPageVisibleBeforePictureInPicture;
-    private boolean youtubeBackgroundAttachedToPictureInPicture;
     private boolean pictureInPicturePinchTracking;
     private boolean pictureInPicturePinchTriggered;
     private boolean vinylModeVisible;
@@ -859,7 +838,6 @@ public class BaseLyricsActivity extends Activity implements
         lyricsRepository = new LyricsRepository(this);
         manualLyricsPicks = new ManualLyricsPicks(this);
         observeLocalLyricsChanges();
-        youtubeBackgroundRepository = new YouTubeBackgroundRepository(this);
         if (!IvLyricsBridge.isEmbedded(this)) updateChecker = new UpdateChecker(this);
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         Window window = getWindow();
@@ -975,9 +953,6 @@ public class BaseLyricsActivity extends Activity implements
             updatePictureInPictureUiFromCurrentState();
             updatePictureInPictureParamsIfNeeded();
             return;
-        }
-        if (youtubeBackgroundView != null) {
-            youtubeBackgroundView.suppressHardSyncFor(900L);
         }
         cancelLyricsMetaLongPress();
         dismissLyricsMetaMenuPopup();
@@ -1175,9 +1150,6 @@ public class BaseLyricsActivity extends Activity implements
         if (aiLyricsSettings != null) {
             aiLyricsSettings.shutdown();
         }
-        if (youtubeBackgroundRepository != null) {
-            youtubeBackgroundRepository.shutdown();
-        }
         if (updateChecker != null) {
             updateChecker.shutdown();
         }
@@ -1185,7 +1157,6 @@ public class BaseLyricsActivity extends Activity implements
             creatorSupportRepository.shutdown();
         }
         destroyInAppBrowserWebView();
-        destroyYouTubeBackgroundView();
         if (vinylPlayerModeView != null) {
             vinylPlayerModeView.release();
         }
@@ -1547,13 +1518,11 @@ public class BaseLyricsActivity extends Activity implements
             currentResolvedSpotifyTrackId = "";
             currentArtworkFromSpotify = false;
             currentTrackSyncOffsetMs = 0;
-            currentVideoSyncOffsetMs = 0;
             aiLyricsGenerating = false;
             detectedLyricsSourceLang = "en";
             selectedRuleSourceLang = "auto";
             updateLyricsLanguageSettingsUi();
             resetManualLrclibSearchForTrack(null);
-            resetYouTubeBackgroundForTrack();
             applyBackgroundSettings(aiLyricsSettings.snapshot());
             return;
         }
@@ -1580,7 +1549,6 @@ public class BaseLyricsActivity extends Activity implements
             currentResolvedIsrc = snapshot.isrc;
             currentResolvedSpotifyTrackId = snapshot.trackId;
             currentTrackSyncOffsetMs = aiLyricsSettings == null ? 0 : aiLyricsSettings.trackSyncOffsetMs(nextKey);
-            currentVideoSyncOffsetMs = aiLyricsSettings == null ? 0 : aiLyricsSettings.trackVideoSyncOffsetMs(nextKey);
         }
         updateTrackMetadataTextViews(snapshot);
         String artworkKey = snapshot.artworkKey();
@@ -1630,7 +1598,6 @@ public class BaseLyricsActivity extends Activity implements
             currentLyricsKey = nextKey;
             resetWordSyncState();
             currentTrackSyncOffsetMs = aiLyricsSettings == null ? 0 : aiLyricsSettings.trackSyncOffsetMs(currentLyricsKey);
-            currentVideoSyncOffsetMs = aiLyricsSettings == null ? 0 : aiLyricsSettings.trackVideoSyncOffsetMs(currentLyricsKey);
             aiLyricsGenerating = false;
             currentCulturalAnnotations = Collections.emptyList();
             currentCulturalAnnotationRequestKey = "";
@@ -1656,11 +1623,9 @@ public class BaseLyricsActivity extends Activity implements
             currentBaseLyricsResult = currentLyricsResult;
             currentFuriganaResult = null;
             currentFuriganaKey = "";
-            resetYouTubeBackgroundForTrack();
             applyBackgroundSettings(aiLyricsSettings.snapshot());
             if (!currentResolvedIsrc.isEmpty()) {
-                syncYouTubeBackgroundState();
-            }
+                }
             setLyricsTrackDurationOnViews(snapshot.durationMs);
             setLyricsResultOnViews(currentLyricsResult);
             setLyricsSupplementLoading(false, false);
@@ -1705,7 +1670,6 @@ public class BaseLyricsActivity extends Activity implements
                 @Override public void onLyricsWordSyncFinished(String key, LyricsResult upgraded) { BaseLyricsActivity.this.onLyricsWordSyncFinished(key, upgraded); }
             });
         }
-        updateYouTubeBackgroundPlaybackState();
     }
 
     /**
@@ -1780,7 +1744,6 @@ public class BaseLyricsActivity extends Activity implements
         currentResolvedIsrc = "";
         currentResolvedSpotifyTrackId = "";
         currentTrackSyncOffsetMs = 0;
-        currentVideoSyncOffsetMs = 0;
         aiLyricsGenerating = false;
         lyricsLookupInFlight = false;
         lyricsLoadingProviderName = "";
@@ -1803,7 +1766,6 @@ public class BaseLyricsActivity extends Activity implements
         updateLyricPreview(0L);
         updateLyricsLanguageSettingsUi();
         resetManualLrclibSearchForTrack(snapshot);
-        resetYouTubeBackgroundForTrack();
         if (aiLyricsSettings != null) {
             applyBackgroundSettings(aiLyricsSettings.snapshot());
         }
@@ -1852,13 +1814,11 @@ public class BaseLyricsActivity extends Activity implements
         currentResolvedSpotifyTrackId = "";
         currentArtworkFromSpotify = false;
         currentTrackSyncOffsetMs = 0;
-        currentVideoSyncOffsetMs = 0;
         aiLyricsGenerating = false;
         detectedLyricsSourceLang = "en";
         selectedRuleSourceLang = "auto";
         updateLyricsLanguageSettingsUi();
         resetManualLrclibSearchForTrack(null);
-        resetYouTubeBackgroundForTrack();
         if (aiLyricsSettings != null) {
             applyBackgroundSettings(aiLyricsSettings.snapshot());
         }
@@ -1907,7 +1867,6 @@ public class BaseLyricsActivity extends Activity implements
         if (!maybeShowFirstLanguagePrompt()) {
             requestAiLyrics(false);
         }
-        syncYouTubeBackgroundState();
     }
 
     @Override
@@ -2007,7 +1966,6 @@ public class BaseLyricsActivity extends Activity implements
         updateDetectedLyricsSourceLanguage(null);
         updateLyricsLanguageSettingsUi();
         requestMetadataTranslation(false);
-        resetYouTubeBackgroundForTrack();
     }
 
     @Override
@@ -2060,12 +2018,6 @@ public class BaseLyricsActivity extends Activity implements
         if (!safeSpotifyTrackId.isEmpty() && !safeSpotifyTrackId.equals(currentResolvedSpotifyTrackId)) {
             currentResolvedSpotifyTrackId = safeSpotifyTrackId;
             changed = true;
-        }
-        if (changed && !currentResolvedIsrc.isEmpty()) {
-            appendLog("youtube background: metadata ready, preloading video isrc="
-                    + currentResolvedIsrc
-                    + (currentResolvedSpotifyTrackId.isEmpty() ? "" : " / trackId=" + currentResolvedSpotifyTrackId));
-            syncYouTubeBackgroundState();
         }
     }
 
@@ -2123,7 +2075,6 @@ public class BaseLyricsActivity extends Activity implements
         if (!maybeShowFirstLanguagePrompt()) {
             requestAiLyrics(false);
         }
-        syncYouTubeBackgroundState();
     }
 
     @Override
@@ -2147,50 +2098,6 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         appendLog(message);
-    }
-
-    @Override
-    public void onYouTubeBackgroundLoaded(String requestKey, YouTubeBackgroundRepository.VideoInfo info, boolean fromCache) {
-        if (!isCurrentYouTubeBackgroundRequest(requestKey)) {
-            return;
-        }
-        currentYouTubeBackgroundLoading = false;
-        currentYouTubeBackgroundInfo = info;
-        appendLog("youtube background: "
-                + (fromCache ? "cache" : "loaded")
-                + " / videoId=" + info.youtubeVideoId
-                + (info.youtubeTitle.isEmpty() ? "" : " / title=\"" + info.youtubeTitle + "\"")
-                + (info.hasCaptionStartTime ? " / captionStart=" + info.captionStartTimeSeconds + "s" : "")
-                + (info.autoGenerated ? " / auto" : ""));
-        if (youtubeBackgroundView != null && isVideoBackgroundMode()) {
-            youtubeBackgroundView.loadVideo(info);
-            updateYouTubeBackgroundPlaybackState();
-        }
-    }
-
-    @Override
-    public void onYouTubeBackgroundError(String requestKey, String message) {
-        if (!isCurrentYouTubeBackgroundRequest(requestKey)) {
-            return;
-        }
-        currentYouTubeBackgroundLoading = false;
-        currentYouTubeBackgroundInfo = null;
-        appendLog(message == null || message.trim().isEmpty()
-                ? "youtube background: unavailable"
-                : message.trim());
-        if (youtubeBackgroundView != null) {
-            youtubeBackgroundView.clearVideo();
-        }
-    }
-
-    @Override
-    public void onYouTubeBackgroundLog(String requestKey, String message) {
-        if (!isCurrentYouTubeBackgroundRequest(requestKey)
-                || message == null
-                || message.trim().isEmpty()) {
-            return;
-        }
-        appendLog(message.trim());
     }
 
     @Override
@@ -2443,11 +2350,6 @@ public class BaseLyricsActivity extends Activity implements
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
 
-        youtubeBackgroundView = reusableYouTubeBackgroundView();
-        root.addView(youtubeBackgroundView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             applyAppearanceInsets(insets);
             return insets;
@@ -2660,15 +2562,6 @@ public class BaseLyricsActivity extends Activity implements
             mainPage.setScaleY(1f);
         }
         requestDefaultRemoteFocus(false);
-    }
-
-    private YouTubeBackgroundView reusableYouTubeBackgroundView() {
-        if (youtubeBackgroundView == null) {
-            return new YouTubeBackgroundView(this);
-        }
-        detachFromParent(youtubeBackgroundView);
-        youtubeBackgroundAttachedToPictureInPicture = false;
-        return youtubeBackgroundView;
     }
 
     private void detachFromParent(View view) {
@@ -2891,10 +2784,6 @@ public class BaseLyricsActivity extends Activity implements
         if (pictureInPictureStage == null) {
             return;
         }
-        if (youtubeBackgroundView != null && youtubeBackgroundView.getParent() == pictureInPictureStage) {
-            detachFromParent(youtubeBackgroundView);
-            youtubeBackgroundAttachedToPictureInPicture = false;
-        }
         pictureInPictureStage.removeAllViews();
         pictureInPictureStage.setVirtualSize(dp(pictureInPictureStageWidthDp()), dp(pictureInPictureStageHeightDp()));
 
@@ -2933,7 +2822,6 @@ public class BaseLyricsActivity extends Activity implements
         }
 
         updatePictureInPictureUiFromCurrentState();
-        syncPictureInPictureBackgroundLayer(isVideoBackgroundMode());
     }
 
     private void buildLandscapePictureInPictureContent(FrameLayout page) {
@@ -5714,9 +5602,6 @@ public class BaseLyricsActivity extends Activity implements
         // Language and lyric source are one page now; the separate provider tab is gone.
         addLyricsPopupTabButton(LYRICS_POPUP_TAB_LANGUAGE, ui("lyrics.tab.lyrics_translation"));
         addLyricsPopupTabButton(LYRICS_POPUP_TAB_SYNC, ui("lyrics.tab.sync"));
-        if (!videoBackgroundUnavailable()) {
-            addLyricsPopupTabButton(LYRICS_POPUP_TAB_VIDEO, ui("lyrics.tab.video"));
-        }
         addLyricsPopupTabButton(LYRICS_POPUP_TAB_BACKGROUND, ui("lyrics.tab.background"));
 
         lyricsLanguageSettingsContent = new LinearLayout(this);
@@ -5777,8 +5662,6 @@ public class BaseLyricsActivity extends Activity implements
         lyricsSyncSettingsContent = buildLyricsSyncSettingsContent();
         panel.addView(lyricsSyncSettingsContent, topMargin(matchWrap(), dp(10)));
 
-        videoSyncSettingsContent = buildVideoSyncSettingsContent();
-        panel.addView(videoSyncSettingsContent, topMargin(matchWrap(), dp(10)));
 
         lyricsBackgroundSettingsContent = buildLyricsBackgroundSettingsContent();
         panel.addView(lyricsBackgroundSettingsContent, topMargin(matchWrap(), dp(10)));
@@ -5908,41 +5791,6 @@ public class BaseLyricsActivity extends Activity implements
         return content;
     }
 
-    private LinearLayout buildVideoSyncSettingsContent() {
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-
-        TextView chooseVideo = languageButton(ui("video.choose"), false);
-        chooseVideo.setOnClickListener(view -> showVideoSelectionDialog());
-        content.addView(chooseVideo, topMargin(matchWrap(), dp(8)));
-
-        TextView title = label(ui("lyrics.video_sync.title"), 14f, panelPalette.text, AppFonts.bold(this));
-        content.addView(title, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        videoSyncOffsetDescriptionView = label("", 11f, withAlpha(panelPalette.text, 168), AppFonts.regular(this));
-        videoSyncOffsetDescriptionView.setLineSpacing(dp(2), 1f);
-        content.addView(videoSyncOffsetDescriptionView, topMargin(matchWrap(), dp(5)));
-
-        videoSyncOffsetValueView = label("", 25f, panelPalette.text, AppFonts.bold(this));
-        videoSyncOffsetValueView.setGravity(Gravity.CENTER);
-        videoSyncOffsetValueView.setBackground(roundDrawable(withAlpha(panelPalette.text, 34), dp(14)));
-        content.addView(videoSyncOffsetValueView, topMargin(matchWrap(), dp(12)));
-
-        content.addView(buildOffsetButtonRow(-100, -50, -10, this::adjustCurrentVideoSyncOffset), topMargin(matchWrap(), dp(10)));
-        content.addView(buildOffsetButtonRow(10, 50, 100, this::adjustCurrentVideoSyncOffset), topMargin(matchWrap(), dp(8)));
-
-        TextView resetButton = languageButton(ui("lyrics.video_sync.reset"), false);
-        resetButton.setOnClickListener(view -> setCurrentVideoSyncOffset(0, true));
-        content.addView(resetButton, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        ), dp(8)));
-        return content;
-    }
-
     private LinearLayout buildLyricsBackgroundSettingsContent() {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -6024,8 +5872,7 @@ public class BaseLyricsActivity extends Activity implements
                         current.blur,
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor,
-                        current.videoScale
+                        current.solidColor
                 ), false);
             }
         });
@@ -6057,46 +5904,11 @@ public class BaseLyricsActivity extends Activity implements
                         seekBar.getProgress(),
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor,
-                        current.videoScale
+                        current.solidColor
                 ), false);
             }
         });
         content.addView(settingGroup(ui("setting.blur"), ui("setting.blur_desc"), buildSliderRow(lyricsBackgroundBlurSeekBar, lyricsBackgroundBlurValueView)), topMargin(matchWrap(), dp(12)));
-
-        lyricsBackgroundVideoScaleSeekBar = new SeekBar(this);
-        lyricsBackgroundVideoScaleSeekBar.setMax(80);
-        lyricsBackgroundVideoScaleValueView = label("", 12f, withAlpha(panelPalette.text, 180), AppFonts.semiBold(this));
-        lyricsBackgroundVideoScaleSeekBar.setOnSeekBarChangeListener(new SimpleSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (!fromUser || suppressSettingsEvents || aiLyricsSettings == null) {
-                    return;
-                }
-                if (lyricsBackgroundVideoScaleValueView != null) {
-                    lyricsBackgroundVideoScaleValueView.setText((100 + progress) + "%");
-                }
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
-                if (current == null) {
-                    return;
-                }
-                saveCurrentTrackBackgroundSettings(new AiLyricsSettings.BackgroundSettings(
-                        current.mode,
-                        current.brightness,
-                        current.blur,
-                        current.noise,
-                        current.reduceMotion,
-                        current.solidColor,
-                        100 + seekBar.getProgress()
-                ), false);
-            }
-        });
-        lyricsBackgroundVideoScaleGroup = settingGroup(ui("setting.video_scale"), ui("setting.video_scale_desc"), buildSliderRow(lyricsBackgroundVideoScaleSeekBar, lyricsBackgroundVideoScaleValueView));
-        content.addView(lyricsBackgroundVideoScaleGroup, topMargin(matchWrap(), dp(12)));
 
         lyricsBackgroundNoiseSwitch = settingSwitch(ui("setting.noise"), ui("setting.noise_desc"));
         lyricsBackgroundNoiseSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -6113,8 +5925,7 @@ public class BaseLyricsActivity extends Activity implements
                     current.blur,
                     isChecked,
                     current.reduceMotion,
-                    current.solidColor,
-                    current.videoScale
+                    current.solidColor
             ), false);
         });
         content.addView(lyricsBackgroundNoiseSwitch, topMargin(matchWrap(), dp(12)));
@@ -6134,8 +5945,7 @@ public class BaseLyricsActivity extends Activity implements
                     current.blur,
                     current.noise,
                     isChecked,
-                    current.solidColor,
-                    current.videoScale
+                    current.solidColor
             ), false);
         });
         content.addView(lyricsBackgroundReduceMotionSwitch, topMargin(matchWrap(), dp(12)));
@@ -7308,7 +7118,7 @@ public class BaseLyricsActivity extends Activity implements
         page.addView(currentTrackSettingsSummary, matchWrap());
         List<String> sections = settingsMenuSections.get(SETTINGS_TAB_CURRENT_TRACK);
         Collections.addAll(sections, ui("lyrics.tab.language"), ui("lyrics.tab.sync"),
-                ui("lyrics.tab.video"), ui("lyrics.tab.background"), ui("section.lyrics_providers"));
+                ui("lyrics.tab.background"), ui("section.lyrics_providers"));
         if (!IvLyricsBridge.isEmbedded(this)) {
             sections.add(ui("vinyl.mode"));
             settingsAction(settingsGroup(page), ui("vinyl.mode"), null, SettingsKit.ACTION_NORMAL, view -> {
@@ -8026,38 +7836,6 @@ public class BaseLyricsActivity extends Activity implements
 
         LinearLayout details = settingsGroup(section);
         String backgroundLabel = ui("setting.background_mode");
-        videoFallbackChoice = settingsKit.segmented(fallbackOptions(), AiLyricsSettings.BACKGROUND_MODE_GRADIENT,
-                value -> applyAppearanceChoice(AppearanceOptions.FALLBACK, value));
-        focusableItems(videoFallbackChoice);
-        settingsConditional(settingsStackRow(details, ui("appearance.fallback"), null, videoFallbackChoice.view),
-                this::isGlobalVideoBackground, backgroundLabel);
-        List<SettingsKit.Option> aspects = new ArrayList<>();
-        aspects.add(new SettingsKit.Option("fit", ui("appearance.video_fit")));
-        aspects.add(new SettingsKit.Option("fill", ui("appearance.video_fill")));
-        aspects.add(new SettingsKit.Option("stretch", ui("appearance.video_stretch")));
-        videoAspectChoice = settingsKit.segmented(aspects, "fill",
-                value -> applyAppearanceChoice(AppearanceOptions.VIDEO_ASPECT, value));
-        focusableItems(videoAspectChoice);
-        settingsConditional(settingsStackRow(details, ui("appearance.video_aspect"), null, videoAspectChoice.view),
-                this::isGlobalVideoBackground, backgroundLabel);
-        videoEdgeToEdgeSwitch = settingsToggle(details, ui("appearance.video_edges"), null);
-        videoEdgeToEdgeSwitch.setOnCheckedChangeListener((button, value) ->
-                applyAppearanceToggle(AppearanceOptions.VIDEO_EDGES, value));
-        settingsConditional(videoEdgeToEdgeSwitch, this::isGlobalVideoBackground, backgroundLabel);
-        SettingsKit.Range videoScale = settingsRange(100, 180, 1, "%", ui("setting.video_scale"));
-        backgroundVideoScaleSeekBar = videoScale.seekBar;
-        videoScale.listener = (value, commit) -> {
-            if (!commit || suppressSettingsEvents || aiLyricsSettings == null) {
-                return;
-            }
-            aiLyricsSettings.setBackgroundVideoScale(value);
-            AiLyricsSettings.Snapshot snapshot = aiLyricsSettings.snapshot();
-            updateBackgroundSettingsUi(snapshot, false);
-            applyBackgroundSettings(snapshot);
-        };
-        backgroundVideoScaleGroup = settingsConditional(
-                settingsStackRow(details, ui("setting.video_scale"), ui("setting.video_scale_desc"), videoScale.view),
-                this::isGlobalVideoBackground, backgroundLabel);
         View solidColorRow = settingsKit.inlineRow(ui("field.solid_color"), ui("field.solid_color_desc"),
                 buildBackgroundSolidColorControl());
         details.addView(solidColorRow, matchWrap());
@@ -8156,19 +7934,9 @@ public class BaseLyricsActivity extends Activity implements
                 applyAppearanceToggle(AppearanceOptions.EMPTY_NOTICE, value));
     }
 
-    private List<SettingsKit.Option> fallbackOptions() {
-        List<SettingsKit.Option> options = new ArrayList<>();
-        for (String mode : new String[]{AiLyricsSettings.BACKGROUND_MODE_GRADIENT,
-                AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT, AiLyricsSettings.BACKGROUND_MODE_SOLID}) {
-            options.add(new SettingsKit.Option(mode, backgroundModeLabel(mode)));
-        }
-        return options;
-    }
-
     private int backgroundModeVisual(String mode) {
         String normalized = AiLyricsSettings.normalizeBackgroundMode(mode);
         if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(normalized)) return SettingsKit.VISUAL_BLUR;
-        if (AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(normalized)) return SettingsKit.VISUAL_VIDEO;
         if (AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(normalized)) return SettingsKit.VISUAL_SOLID;
         return SettingsKit.VISUAL_ALBUM;
     }
@@ -8321,19 +8089,12 @@ public class BaseLyricsActivity extends Activity implements
             updateLyricsTransport(currentPlaybackPosition(currentTrack), currentTrack.durationMs);
         }
     }
-    private boolean isGlobalVideoBackground() {
-        return aiLyricsSettings != null && AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(
-                AiLyricsSettings.normalizeBackgroundMode(aiLyricsSettings.snapshot().background.mode));
-    }
-
     private boolean isGlobalSolidBackground() {
         if (aiLyricsSettings == null) return false;
         // The cover's own colour replaces the manual one, so the picker steps aside.
         if (lyricsPageSettings != null && lyricsPageSettings.artworkSolidBackground()) return false;
         String mode = AiLyricsSettings.normalizeBackgroundMode(aiLyricsSettings.snapshot().background.mode);
-        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(mode)
-                || (AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(mode)
-                && AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(aiLyricsSettings.videoFallback()));
+        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(mode);
     }
 
     /** The former option buttons' behaviour: save, refresh the background and confirm. */
@@ -8354,12 +8115,9 @@ public class BaseLyricsActivity extends Activity implements
 
     private void syncAppearanceOptionControls() {
         if (aiLyricsSettings == null) return;
-        if (videoFallbackChoice != null) videoFallbackChoice.select(aiLyricsSettings.videoFallback());
-        if (videoAspectChoice != null) videoAspectChoice.select(aiLyricsSettings.videoAspect());
         if (titleTapChoice != null) titleTapChoice.select(aiLyricsSettings.titleTapAction());
         boolean previous = suppressSettingsEvents;
         suppressSettingsEvents = true;
-        if (videoEdgeToEdgeSwitch != null) videoEdgeToEdgeSwitch.setChecked(aiLyricsSettings.videoEdgeToEdge());
         if (landscapeShowOriginalSwitch != null) landscapeShowOriginalSwitch.setChecked(aiLyricsSettings.landscapeShowOriginal());
         if (landscapeShowArtworkSwitch != null) landscapeShowArtworkSwitch.setChecked(aiLyricsSettings.landscapeShowArtwork());
         if (showLyricsNotFoundSwitch != null) showLyricsNotFoundSwitch.setChecked(aiLyricsSettings.showLyricsNotFound());
@@ -9532,7 +9290,6 @@ public class BaseLyricsActivity extends Activity implements
         currentArtworkFromSpotify = artworkFromSpotify;
         updateArtwork(artwork, currentArtworkKey);
         restoreNowPlayingViewsAfterUiLanguageChange();
-        syncYouTubeBackgroundState();
 
         if (!isInitialSetupComplete()) {
             onboardingStep = Math.max(0, Math.min(ONBOARDING_STEP_COUNT - 1, previousOnboardingStep));
@@ -9576,7 +9333,6 @@ public class BaseLyricsActivity extends Activity implements
             sourceView.setText(currentLyricsResult.providerLabel);
             statusView.setText(currentLyricsResult.detail);
         }
-        syncYouTubeBackgroundState();
 
         if (!isInitialSetupComplete()) {
             onboardingStep = Math.max(0, Math.min(ONBOARDING_STEP_COUNT - 1, previousOnboardingStep));
@@ -9664,7 +9420,6 @@ public class BaseLyricsActivity extends Activity implements
         if (playPauseButton != null) playPauseButton.setPlaying(currentTrack.playing);
         updateLyricsLanguageSettingsUi();
         updateLyricsSyncSettingsUi();
-        updateVideoSyncSettingsUi();
     }
 
     private List<LanguageChoice> uiLanguageChoices() {
@@ -10442,8 +10197,7 @@ public class BaseLyricsActivity extends Activity implements
                             latest.blur,
                             latest.noise,
                             latest.reduceMotion,
-                            hexColor(selectedColor),
-                            latest.videoScale
+                            hexColor(selectedColor)
                     ), false);
                 }
         );
@@ -11565,9 +11319,6 @@ public class BaseLyricsActivity extends Activity implements
         if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(normalized)) {
             return ui("background.mode.blur_gradient");
         }
-        if (AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(normalized)) {
-            return ui("background.mode.video");
-        }
         if (AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(normalized)) {
             return ui("background.mode.solid");
         }
@@ -11578,9 +11329,6 @@ public class BaseLyricsActivity extends Activity implements
         String normalized = AiLyricsSettings.normalizeBackgroundMode(modeId);
         if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(normalized)) {
             return ui("background.mode.blur_gradient_desc");
-        }
-        if (AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(normalized)) {
-            return ui("background.mode.video_desc");
         }
         if (AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(normalized)) {
             return ui("background.mode.solid_desc");
@@ -11901,8 +11649,7 @@ public class BaseLyricsActivity extends Activity implements
                         current.blur,
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor,
-                        current.videoScale
+                        current.solidColor
                 ), true);
             });
             row.addView(button, choiceGridButtonParams(index, 46));
@@ -11923,9 +11670,6 @@ public class BaseLyricsActivity extends Activity implements
         }
         if (backgroundBlurSeekBar != null) {
             backgroundBlurSeekBar.setProgress(background.blur);
-        }
-        if (backgroundVideoScaleSeekBar != null) {
-            backgroundVideoScaleSeekBar.setProgress(background.videoScale - 100);
         }
         if (backgroundNoiseSwitch != null) {
             backgroundNoiseSwitch.setChecked(background.noise);
@@ -11948,7 +11692,6 @@ public class BaseLyricsActivity extends Activity implements
                     parseColor(background.solidColor, Color.rgb(30, 58, 138))));
         }
         suppressSettingsEvents = false;
-        // Video and solid-colour details follow the background mode (see the conditional rows).
         refreshSettingsVisibility();
     }
 
@@ -11974,9 +11717,6 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsBackgroundBlurSeekBar != null) {
             lyricsBackgroundBlurSeekBar.setProgress(background.blur);
         }
-        if (lyricsBackgroundVideoScaleSeekBar != null) {
-            lyricsBackgroundVideoScaleSeekBar.setProgress(background.videoScale - 100);
-        }
         if (lyricsBackgroundNoiseSwitch != null) {
             lyricsBackgroundNoiseSwitch.setChecked(background.noise);
         }
@@ -11990,18 +11730,11 @@ public class BaseLyricsActivity extends Activity implements
             lyricsBackgroundSolidColorSwatch.setBackground(roundDrawable(parseColor(background.solidColor, Color.rgb(30, 58, 138)), dp(10)));
         }
         suppressSettingsEvents = false;
-        boolean videoMode = AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(background.mode);
-        boolean solidMode = AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode);
-        setBackgroundOptionVisibility(lyricsBackgroundVideoScaleGroup, videoMode);
-        setBackgroundOptionVisibility(lyricsBackgroundSolidColorGroup, solidMode);
         if (lyricsBackgroundBrightnessValueView != null) {
             lyricsBackgroundBrightnessValueView.setText(background.brightness + "%");
         }
         if (lyricsBackgroundBlurValueView != null) {
             lyricsBackgroundBlurValueView.setText(background.blur + "%");
-        }
-        if (lyricsBackgroundVideoScaleValueView != null) {
-            lyricsBackgroundVideoScaleValueView.setText(background.videoScale + "%");
         }
     }
 
@@ -12020,43 +11753,19 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         if (backgroundView != null) {
-            backgroundView.setBackgroundSettings(fallbackBackgroundSettings(settings));
+            backgroundView.setBackgroundSettings(settings);
         }
         if (pictureInPictureBackgroundView != null) {
-            pictureInPictureBackgroundView.setBackgroundSettings(fallbackBackgroundSettings(settings));
-        }
-        if (youtubeBackgroundView != null) {
-            youtubeBackgroundView.setBackgroundSettings(settings);
-            youtubeBackgroundView.setVideoAspect(aiLyricsSettings.videoAspect());
+            pictureInPictureBackgroundView.setBackgroundSettings(settings);
         }
         applyMobileAppearance();
-        syncYouTubeBackgroundState();
-    }
-
-    private AiLyricsSettings.BackgroundSettings fallbackBackgroundSettings(AiLyricsSettings.BackgroundSettings settings) {
-        if (!AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(settings.mode)) return settings;
-        if (videoBackgroundUnavailable()) {
-            // The Spotify module has no video background: a saved video choice degrades to a still one
-            // instead of starting a search, a download or a player.
-            return new AiLyricsSettings.BackgroundSettings(AiLyricsSettings.BACKGROUND_MODE_GRADIENT,
-                    settings.brightness, settings.blur, settings.noise, settings.reduceMotion,
-                    settings.solidColor, settings.videoScale);
-        }
-        return new AiLyricsSettings.BackgroundSettings(aiLyricsSettings.videoFallback(), settings.brightness,
-                settings.blur, settings.noise, settings.reduceMotion, settings.solidColor, settings.videoScale);
-    }
-
-    /** Video backgrounds are a standalone-app feature; the Spotify host never gets one. */
-    private boolean videoBackgroundUnavailable() {
-        return IvLyricsBridge.isEmbedded(this);
     }
 
     private void applyMobileAppearance() {
         if (aiLyricsSettings == null) return;
         boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         if (lyricsBackgroundShade != null) {
-            // Video dimming belongs to the background layer, never the foreground content.
-            lyricsBackgroundShade.setBackgroundColor(isVideoBackgroundMode() ? Color.TRANSPARENT : Color.argb(54, 6, 7, 12));
+            lyricsBackgroundShade.setBackgroundColor(Color.argb(54, 6, 7, 12));
         }
         if (lyricsView != null) {
             lyricsView.setOriginalVisible(!landscape || aiLyricsSettings.landscapeShowOriginal());
@@ -12069,13 +11778,6 @@ public class BaseLyricsActivity extends Activity implements
         if (pictureInPictureLyricsView != null) pictureInPictureLyricsView.setEmptyNoticeVisible(aiLyricsSettings.showLyricsNotFound());
         if (landscape && artworkView != null) artworkView.setVisibility(aiLyricsSettings.landscapeShowArtwork() ? View.VISIBLE : View.GONE);
         if (landscape && lyricsArtworkView != null) lyricsArtworkView.setVisibility(aiLyricsSettings.landscapeShowArtwork() ? View.VISIBLE : View.GONE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && getWindow() != null) {
-            WindowManager.LayoutParams attributes = getWindow().getAttributes();
-            attributes.layoutInDisplayCutoutMode = landscape && aiLyricsSettings.videoEdgeToEdge()
-                    ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                    : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
-            getWindow().setAttributes(attributes);
-        }
         if (rootView != null) rootView.requestApplyInsets();
     }
 
@@ -12099,253 +11801,6 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsPage != null) lyricsPage.setPadding(left, 0, right, bottom);
         // The settings shell owns its system/cutout/IME insets. Padding its outer
         // panel too subtracts the cutout twice and can collapse narrow form fields.
-        if (youtubeBackgroundView != null && !youtubeBackgroundAttachedToPictureInPicture) {
-            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) youtubeBackgroundView.getLayoutParams();
-            boolean edges = aiLyricsSettings.videoEdgeToEdge();
-            params.setMargins(edges ? 0 : left, edges ? 0 : top, edges ? 0 : right, edges ? 0 : bottom);
-            youtubeBackgroundView.setLayoutParams(params);
-        }
-    }
-
-    private boolean isVideoBackgroundMode() {
-        if (aiLyricsSettings == null) {
-            return false;
-        }
-        AiLyricsSettings.BackgroundSettings settings = effectiveBackgroundSettings(aiLyricsSettings.snapshot());
-        return settings != null && AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(settings.mode);
-    }
-
-    private void syncYouTubeBackgroundState() {
-        if (youtubeBackgroundView == null) {
-            return;
-        }
-        boolean videoMode = isVideoBackgroundMode() && !videoBackgroundUnavailable();
-        syncPictureInPictureBackgroundLayer(videoMode);
-        youtubeBackgroundView.setVideoBackgroundEnabled(videoMode);
-        if (!videoMode) {
-            return;
-        }
-        if (currentYouTubeBackgroundInfo != null) {
-            youtubeBackgroundView.loadVideo(currentYouTubeBackgroundInfo);
-        } else {
-            requestYouTubeBackgroundIfNeeded();
-        }
-        updateYouTubeBackgroundPlaybackState();
-    }
-
-    private void syncPictureInPictureBackgroundLayer(boolean videoMode) {
-        if (youtubeBackgroundView == null) {
-            return;
-        }
-        if (videoMode && aiLyricsSettings != null) {
-            AiLyricsSettings.BackgroundSettings settings = effectiveBackgroundSettings(aiLyricsSettings.snapshot());
-            if (settings != null) {
-                youtubeBackgroundView.setBackgroundSettings(settings);
-            }
-        }
-        if (isPictureInPictureUiActive() && videoMode) {
-            attachYouTubeBackgroundToPictureInPicture();
-        } else {
-            attachYouTubeBackgroundToRoot();
-        }
-    }
-
-    private void attachYouTubeBackgroundToPictureInPicture() {
-        if (youtubeBackgroundView == null || pictureInPictureStage == null || youtubeBackgroundAttachedToPictureInPicture) {
-            return;
-        }
-        detachFromParent(youtubeBackgroundView);
-        pictureInPictureStage.addView(youtubeBackgroundView, Math.min(1, pictureInPictureStage.getChildCount()), new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        youtubeBackgroundAttachedToPictureInPicture = true;
-    }
-
-    private void attachYouTubeBackgroundToRoot() {
-        if (youtubeBackgroundView == null || rootView == null) {
-            return;
-        }
-        if (!youtubeBackgroundAttachedToPictureInPicture && youtubeBackgroundView.getParent() == rootView) {
-            return;
-        }
-        detachFromParent(youtubeBackgroundView);
-        int insertIndex = 1;
-        if (backgroundView != null) {
-            int backgroundIndex = rootView.indexOfChild(backgroundView);
-            if (backgroundIndex >= 0) {
-                insertIndex = backgroundIndex + 1;
-            }
-        }
-        rootView.addView(youtubeBackgroundView, Math.min(insertIndex, rootView.getChildCount()), new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        youtubeBackgroundAttachedToPictureInPicture = false;
-    }
-
-    protected void showVideoSelectionDialog() {
-        if (currentTrack == null || !currentTrack.hasUsableMetadata() || youtubeBackgroundRepository == null) {
-            showSavedToast(ui("toast.current_track_missing"));
-            return;
-        }
-        TrackSnapshot track = currentTrack;
-        String trackKey = track.stableKey();
-        String isrc = nonEmpty(currentResolvedIsrc, nonEmpty(currentBaseLyricsResult == null ? "" : currentBaseLyricsResult.isrc, track.isrc));
-        String[] options = {ui("label.auto"), ui("video.url"), ui("video.community")};
-        new AlertDialog.Builder(this).setTitle(ui("video.choose"))
-                .setItems(options, (dialog, which) -> {
-                    if (!isCurrentVideoSelectionTrack(trackKey)) return;
-                    if (which == 0) {
-                        applySelectedVideo(trackKey, null);
-                    } else if (which == 1) {
-                        EditText input = settingEditText("https://www.youtube.com/watch?v=...", false, false);
-                        YouTubeBackgroundRepository.VideoInfo selected = youtubeBackgroundRepository.selectedVideo(trackKey);
-                        if (selected != null) input.setText("https://www.youtube.com/watch?v=" + selected.youtubeVideoId);
-                        AlertDialog editor = new AlertDialog.Builder(this).setTitle(ui("video.url"))
-                                .setView(input).setPositiveButton(android.R.string.ok, null)
-                                .setNegativeButton(android.R.string.cancel, null).create();
-                        editor.setOnShowListener(ignored -> editor.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                            String id = YouTubeVideoSelection.extractId(textOf(input));
-                            if (id.isEmpty()) { input.setError(ui("video.invalid")); return; }
-                            applySelectedVideo(trackKey, new YouTubeBackgroundRepository.VideoInfo(
-                                    isrc, track.trackId, id, id, false, 0d, false, ""));
-                            editor.dismiss();
-                        }));
-                        editor.show();
-                    } else {
-                        youtubeBackgroundRepository.loadCommunityVideos(isrc, track, (videos, error) -> {
-                            if (!isCurrentVideoSelectionTrack(trackKey)) return;
-                            if (error != null || videos.isEmpty()) {
-                                showSavedToast(ui(error == null ? "video.empty" : "video.failed"));
-                                return;
-                            }
-                            String[] titles = new String[videos.size()];
-                            for (int index = 0; index < videos.size(); index++) {
-                                var video = videos.get(index);
-                                titles[index] = nonEmpty(video.youtubeTitle, video.youtubeVideoId);
-                            }
-                            new AlertDialog.Builder(this).setTitle(ui("video.community"))
-                                    .setItems(titles, (choices, index) -> applySelectedVideo(trackKey, videos.get(index)))
-                                    .setNegativeButton(android.R.string.cancel, null).show();
-                        });
-                    }
-                }).setNegativeButton(android.R.string.cancel, null).show();
-    }
-
-    private boolean isCurrentVideoSelectionTrack(String trackKey) {
-        return !isFinishing() && !isDestroyed() && currentTrack != null && trackKey.equals(currentTrack.stableKey());
-    }
-
-    private void applySelectedVideo(String trackKey, YouTubeBackgroundRepository.VideoInfo info) {
-        if (!isCurrentVideoSelectionTrack(trackKey)) return;
-        youtubeBackgroundRepository.selectVideo(trackKey, info);
-        if (info == null) {
-            String isrc = nonEmpty(currentResolvedIsrc, nonEmpty(currentBaseLyricsResult == null ? "" : currentBaseLyricsResult.isrc, currentTrack.isrc));
-            youtubeBackgroundRepository.clearCacheForIsrc(isrc);
-        }
-        resetYouTubeBackgroundForTrack();
-        syncYouTubeBackgroundState();
-        showSavedToast(ui("toast.settings_saved"));
-    }
-
-    private void requestYouTubeBackgroundIfNeeded() {
-        if (videoBackgroundUnavailable()) {
-            return;
-        }
-        if (!isVideoBackgroundMode()
-                || youtubeBackgroundRepository == null
-                || currentTrack == null
-                || !currentTrack.hasUsableMetadata()
-                || currentTrack.isSpotifyDjSegment()) {
-            return;
-        }
-        LyricsResult lyricsResult = currentBaseLyricsResult == null ? LyricsResult.empty("") : currentBaseLyricsResult;
-        String isrc = nonEmpty(lyricsResult.isrc, nonEmpty(currentResolvedIsrc, currentTrack.isrc));
-        if (isrc.isEmpty() && youtubeBackgroundRepository.selectedVideo(currentTrack.stableKey()) == null) {
-            appendLog("youtube background: waiting for ISRC");
-            return;
-        }
-        String trackId = nonEmpty(lyricsResult.spotifyTrackId, nonEmpty(currentResolvedSpotifyTrackId, currentTrack.trackId));
-        String requestPrefix = "track:" + currentTrack.stableKey() + ":isrc:" + isrc + "#";
-        if (currentYouTubeBackgroundRequestKey.startsWith(requestPrefix)
-                && (currentYouTubeBackgroundLoading || currentYouTubeBackgroundInfo != null)) {
-            return;
-        }
-        String requestKey = requestPrefix + (++youtubeBackgroundRequestGeneration);
-        currentYouTubeBackgroundRequestKey = requestKey;
-        currentYouTubeBackgroundLoading = true;
-        youtubeBackgroundRepository.load(requestKey, currentTrack, youtubeMetadataResult(lyricsResult, isrc, trackId), this);
-    }
-
-    private LyricsResult youtubeMetadataResult(LyricsResult source, String isrc, String spotifyTrackId) {
-        LyricsResult safeSource = source == null ? LyricsResult.empty("") : source;
-        String normalizedIsrc = TrackSnapshot.normalizeIsrc(isrc);
-        String safeSpotifyTrackId = spotifyTrackId == null ? "" : spotifyTrackId.trim();
-        if (normalizedIsrc.equals(safeSource.isrc)
-                && safeSpotifyTrackId.equals(safeSource.spotifyTrackId)) {
-            return safeSource;
-        }
-        return safeSource.withMetadata(normalizedIsrc, safeSpotifyTrackId);
-    }
-
-    private boolean isCurrentYouTubeBackgroundRequest(String requestKey) {
-        return requestKey != null && requestKey.equals(currentYouTubeBackgroundRequestKey);
-    }
-
-    private void resetYouTubeBackgroundForTrack() {
-        currentYouTubeBackgroundInfo = null;
-        currentYouTubeBackgroundLoading = false;
-        currentYouTubeBackgroundRequestKey = "";
-        if (youtubeBackgroundView != null) {
-            youtubeBackgroundView.clearVideo();
-            youtubeBackgroundView.setVideoBackgroundEnabled(isVideoBackgroundMode());
-        }
-    }
-
-    private void updateYouTubeBackgroundPlaybackState() {
-        if (youtubeBackgroundView == null
-                || !isVideoBackgroundMode()
-                || currentTrack == null
-                || !currentTrack.hasUsableMetadata()) {
-            return;
-        }
-        long position = currentPlaybackPosition(currentTrack);
-        youtubeBackgroundView.setPlaybackState(
-                position,
-                currentTrack.playing,
-                firstLyricTimeMs(currentBaseLyricsResult),
-                currentTrackSyncOffsetMs + currentVideoSyncOffsetMs
-        );
-    }
-
-    private long firstLyricTimeMs(LyricsResult result) {
-        if (result == null || result.lines == null || result.lines.isEmpty()) {
-            return 0L;
-        }
-        long best = Long.MAX_VALUE;
-        for (LyricsLine line : result.lines) {
-            if (line == null) {
-                continue;
-            }
-            if (line.vocalParts != null && !line.vocalParts.isEmpty()) {
-                for (LyricsLine.VocalPart part : line.vocalParts) {
-                    if (part != null && part.startTimeMs >= 0L) {
-                        best = Math.min(best, part.startTimeMs);
-                    }
-                }
-            } else if (line.isTimed()) {
-                best = Math.min(best, line.startTimeMs);
-            }
-        }
-        return best == Long.MAX_VALUE ? 0L : best;
-    }
-
-    private void destroyYouTubeBackgroundView() {
-        if (youtubeBackgroundView != null) {
-            youtubeBackgroundView.destroy();
-            youtubeBackgroundView = null;
-        }
     }
 
     private void applyTypographySettings(AiLyricsSettings.Snapshot snapshot) {
@@ -12532,9 +11987,6 @@ public class BaseLyricsActivity extends Activity implements
         if (LYRICS_POPUP_TAB_SYNC.equals(activeLyricsPopupTab)) {
             return lyricsSyncSettingsContent;
         }
-        if (LYRICS_POPUP_TAB_VIDEO.equals(activeLyricsPopupTab)) {
-            return videoSyncSettingsContent;
-        }
         if (LYRICS_POPUP_TAB_BACKGROUND.equals(activeLyricsPopupTab)) {
             return lyricsBackgroundSettingsContent;
         }
@@ -12566,10 +12018,6 @@ public class BaseLyricsActivity extends Activity implements
             lyricsSyncSettingsContent.setVisibility(
                     LYRICS_POPUP_TAB_SYNC.equals(activeLyricsPopupTab) ? View.VISIBLE : View.GONE);
         }
-        if (videoSyncSettingsContent != null) {
-            videoSyncSettingsContent.setVisibility(
-                    LYRICS_POPUP_TAB_VIDEO.equals(activeLyricsPopupTab) ? View.VISIBLE : View.GONE);
-        }
         if (lyricsBackgroundSettingsContent != null) {
             lyricsBackgroundSettingsContent.setVisibility(
                     LYRICS_POPUP_TAB_BACKGROUND.equals(activeLyricsPopupTab) ? View.VISIBLE : View.GONE);
@@ -12597,7 +12045,6 @@ public class BaseLyricsActivity extends Activity implements
         updateLyricsPopupTabButtons();
         scrollSelectedTabIntoView(lyricsPopupTabButtonsContainer);
         updateLyricsSyncSettingsUi();
-        updateVideoSyncSettingsUi();
         resizeLyricsMetaMenuPopupForActiveTab(true);
     }
 
@@ -12645,9 +12092,6 @@ public class BaseLyricsActivity extends Activity implements
         if (LYRICS_POPUP_TAB_SYNC.equals(tabId)) {
             return LYRICS_POPUP_TAB_SYNC;
         }
-        if (LYRICS_POPUP_TAB_VIDEO.equals(tabId)) {
-            return LYRICS_POPUP_TAB_VIDEO;
-        }
         if (LYRICS_POPUP_TAB_BACKGROUND.equals(tabId)) {
             return LYRICS_POPUP_TAB_BACKGROUND;
         }
@@ -12668,54 +12112,6 @@ public class BaseLyricsActivity extends Activity implements
             lyricsSyncOffsetDescriptionView.setText(trackText
                     + "\n" + ui("lyrics.sync.help"));
         }
-    }
-
-    private void updateVideoSyncSettingsUi() {
-        if (videoSyncOffsetValueView != null) {
-            videoSyncOffsetValueView.setText(formatSignedMs(currentVideoSyncOffsetMs));
-        }
-        if (videoSyncOffsetDescriptionView != null) {
-            String trackText = currentTrack == null || !currentTrack.hasUsableMetadata()
-                    ? ui("lyrics.video_sync.no_track")
-                    : uiFormat("lyrics.video_sync.track_scope", currentTrack.title);
-            videoSyncOffsetDescriptionView.setText(trackText
-                    + "\n" + ui("lyrics.video_sync.help"));
-        }
-    }
-
-    private VideoTimingSubmission captureCurrentVideoTiming() {
-        if (!isVideoBackgroundMode() || youtubeBackgroundView == null || currentBaseLyricsResult == null
-                || !isCurrentVideoSelectionTrack(currentLyricsKey)) return null;
-        YouTubeBackgroundRepository.VideoInfo applied = youtubeBackgroundView.appliedVideoInfo();
-        if (applied == null || applied != currentYouTubeBackgroundInfo) return null;
-        long firstLyricMs = currentVideoFirstLyricTimeMs();
-        if (firstLyricMs < 0L) return null;
-        String isrc = nonEmpty(currentBaseLyricsResult.isrc, nonEmpty(currentResolvedIsrc, currentTrack.isrc));
-        String trackId = nonEmpty(currentBaseLyricsResult.spotifyTrackId,
-                nonEmpty(currentResolvedSpotifyTrackId, currentTrack.trackId));
-        return VideoTimingSubmission.capture(currentTrack, isrc, trackId, applied,
-                firstLyricMs, currentVideoSyncOffsetMs);
-    }
-
-    private long currentVideoFirstLyricTimeMs() {
-        if (currentBaseLyricsResult == null) return -1L;
-        for (LyricsLine line : currentBaseLyricsResult.lines) {
-            if (line != null && (line.isTimed() || (line.vocalParts != null && !line.vocalParts.isEmpty()))) {
-                return firstLyricTimeMs(currentBaseLyricsResult);
-            }
-        }
-        return -1L;
-    }
-
-    private void materializeEditedVideoTiming(String trackKey) {
-        YouTubeBackgroundRepository.VideoInfo applied = currentYouTubeBackgroundInfo;
-        if (!isCurrentVideoSelectionTrack(trackKey) || applied == null || !applied.autoGenerated
-                || youtubeBackgroundRepository == null || youtubeBackgroundView == null) return;
-        YouTubeBackgroundRepository.VideoInfo manual = applied.withManualTiming(currentVideoFirstLyricTimeMs());
-        if (manual == null) return;
-        youtubeBackgroundRepository.selectVideo(trackKey, manual);
-        currentYouTubeBackgroundInfo = manual;
-        youtubeBackgroundView.loadVideo(manual);
     }
 
     private void populateManualLrclibSearchDefaults(boolean overwrite) {
@@ -13337,10 +12733,6 @@ public class BaseLyricsActivity extends Activity implements
         setCurrentTrackSyncOffset(currentTrackSyncOffsetMs + deltaMs, true);
     }
 
-    private void adjustCurrentVideoSyncOffset(int deltaMs) {
-        setCurrentVideoSyncOffset(currentVideoSyncOffsetMs + deltaMs, true);
-    }
-
     private void setCurrentTrackSyncOffset(int offsetMs, boolean notify) {
         int nextOffset = clampSyncOffset(offsetMs);
         currentTrackSyncOffsetMs = nextOffset;
@@ -13357,24 +12749,6 @@ public class BaseLyricsActivity extends Activity implements
         }
     }
 
-    private void setCurrentVideoSyncOffset(int offsetMs, boolean notify) {
-        int nextOffset = clampSyncOffset(offsetMs);
-        boolean edited = notify && nextOffset != currentVideoSyncOffsetMs;
-        currentVideoSyncOffsetMs = nextOffset;
-        String key = currentLyricsKey == null || currentLyricsKey.trim().isEmpty()
-                ? currentTrack == null ? "" : currentTrack.stableKey()
-                : currentLyricsKey;
-        if (aiLyricsSettings != null && !key.trim().isEmpty()) {
-            aiLyricsSettings.setTrackVideoSyncOffsetMs(key, nextOffset);
-        }
-        if (edited) materializeEditedVideoTiming(key);
-        updateVideoSyncSettingsUi();
-        updateYouTubeBackgroundPlaybackState();
-        if (notify) {
-            showSavedToast(uiFormat("toast.video_sync_offset_format", formatSignedMs(nextOffset)));
-        }
-    }
-
     private void updateLyricsOffsetSensitiveViews() {
         if (currentTrack == null || !currentTrack.hasUsableMetadata()) {
             return;
@@ -13383,7 +12757,6 @@ public class BaseLyricsActivity extends Activity implements
         long lyricsPosition = lyricsPlaybackPosition(position, currentTrack.durationMs);
         setLyricsPlaybackPositionOnViews(lyricsPosition);
         updateLyricPreview(lyricsPosition);
-        updateYouTubeBackgroundPlaybackState();
     }
 
     private long lyricsPlaybackPosition(long playerPositionMs, long durationMs) {
@@ -14225,12 +13598,8 @@ public class BaseLyricsActivity extends Activity implements
         // 歌词与翻译 does, and sizing to it dropped the whole sheet whenever it was selected.
         String saved = activeLyricsPopupTab;
         int content = 0;
-        String[] tabs = {LYRICS_POPUP_TAB_LANGUAGE, LYRICS_POPUP_TAB_SYNC,
-                LYRICS_POPUP_TAB_VIDEO, LYRICS_POPUP_TAB_BACKGROUND};
+        String[] tabs = {LYRICS_POPUP_TAB_LANGUAGE, LYRICS_POPUP_TAB_SYNC, LYRICS_POPUP_TAB_BACKGROUND};
         for (String tab : tabs) {
-            if (LYRICS_POPUP_TAB_VIDEO.equals(tab) && videoBackgroundUnavailable()) {
-                continue;
-            }
             activeLyricsPopupTab = tab;
             applyLyricsPopupTabVisibility();
             lyricsLanguageSettingsPanel.measure(exact, unspecified);
@@ -14252,9 +13621,6 @@ public class BaseLyricsActivity extends Activity implements
         java.util.List<String> order = new java.util.ArrayList<>();
         order.add(LYRICS_POPUP_TAB_LANGUAGE);
         order.add(LYRICS_POPUP_TAB_SYNC);
-        if (!videoBackgroundUnavailable()) {
-            order.add(LYRICS_POPUP_TAB_VIDEO);
-        }
         order.add(LYRICS_POPUP_TAB_BACKGROUND);
         int index = order.indexOf(normalizeLyricsPopupTab(activeLyricsPopupTab));
         int next = Math.max(0, Math.min(order.size() - 1, index + direction));
@@ -14638,11 +14004,8 @@ public class BaseLyricsActivity extends Activity implements
         pictureInPicturePage.setAlpha(1f);
         pictureInPicturePage.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) {
-            syncPictureInPictureBackgroundLayer(isVideoBackgroundMode());
             pictureInPicturePage.bringToFront();
             updatePictureInPictureUiFromCurrentState();
-        } else {
-            attachYouTubeBackgroundToRoot();
         }
     }
 
@@ -14808,7 +14171,6 @@ public class BaseLyricsActivity extends Activity implements
         updateLyricsLanguageButtonState();
         switchLyricsPopupTab(activeLyricsPopupTab);
         updateLyricsSyncSettingsUi();
-        updateVideoSyncSettingsUi();
         updateLyricsRegenerateActions();
     }
 
@@ -15515,12 +14877,6 @@ public class BaseLyricsActivity extends Activity implements
                     nonEmpty(currentResolvedIsrc, snapshot.isrc)
             ));
         }
-        if (youtubeBackgroundRepository != null) {
-            youtubeBackgroundRepository.clearCacheForIsrc(nonEmpty(
-                    currentBaseLyricsResult == null ? "" : currentBaseLyricsResult.isrc,
-                    nonEmpty(currentResolvedIsrc, snapshot.isrc)
-            ));
-        }
         if (aiLyricsRepository != null) {
             aiLyricsRepository.clearTrackCache(key);
         }
@@ -15547,9 +14903,6 @@ public class BaseLyricsActivity extends Activity implements
         if (furiganaRepository != null) {
             furiganaRepository.clearCache();
         }
-        if (youtubeBackgroundRepository != null) {
-            youtubeBackgroundRepository.clearCache();
-        }
         translatedTrackTitle = "";
         translatedTrackArtist = "";
         appendLog("lyrics cache cleared: all tracks");
@@ -15575,9 +14928,6 @@ public class BaseLyricsActivity extends Activity implements
         currentTrackSyncOffsetMs = snapshot == null || aiLyricsSettings == null
                 ? 0
                 : aiLyricsSettings.trackSyncOffsetMs(snapshot.stableKey());
-        currentVideoSyncOffsetMs = snapshot == null || aiLyricsSettings == null
-                ? 0
-                : aiLyricsSettings.trackVideoSyncOffsetMs(snapshot.stableKey());
         sourceView.setText(lyricsLoadingText());
         statusView.setText(ui("status.reload_after_spotify"));
         setLyricsTrackDurationOnViews(snapshot == null ? 0L : snapshot.durationMs);
@@ -18599,8 +17949,7 @@ public class BaseLyricsActivity extends Activity implements
             updateLyricPreview(lyricsPosition);
             if (playPauseButton != null) playPauseButton.setPlaying(snapshot.playing);
             syncLyricsTransportPlaybackState(snapshot.playing);
-            updateYouTubeBackgroundPlaybackState();
-        }
+            }
         setLyricPreviewFramePosition(lyricsFramePosition, frameTimeNanos);
     }
 
@@ -21040,7 +20389,6 @@ public class BaseLyricsActivity extends Activity implements
         setLyricsPlaybackPositionOnViews(lyricsPosition);
         updateLyricPreview(lyricsPosition);
         updateProgressViews(target, duration);
-        updateYouTubeBackgroundPlaybackState();
         if (now - lastSeekCommandUptimeMs < 220L && Math.abs(target - lastSeekCommandPositionMs) < 700L) {
             return;
         }

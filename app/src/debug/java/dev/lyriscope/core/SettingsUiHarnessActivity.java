@@ -22,7 +22,6 @@ public final class SettingsUiHarnessActivity extends BaseLyricsActivity {
     private Context storage;
     public int supplementActions;
     public int culturalActions;
-    public int videoActions;
     public int searchActions;
     public int metadataActions;
 
@@ -67,7 +66,6 @@ public final class SettingsUiHarnessActivity extends BaseLyricsActivity {
         call("setLyricsSupplementLoading", new Class<?>[]{boolean.class, boolean.class}, true, true);
     }
     @Override protected void requestCulturalAnnotations(boolean clearCache) { culturalActions++; }
-    @Override protected void showVideoSelectionDialog() { videoActions++; }
     @Override protected void performManualLrclibSearch() { searchActions++; }
     @Override protected void requestMetadataTranslation(boolean clearCache) { metadataActions++; }
 

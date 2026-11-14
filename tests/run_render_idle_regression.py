@@ -35,7 +35,6 @@ def offsets(baseline):
     value = source("AiLyricsSettings", baseline)
     declarations = "\n".join(declaration(value, signature) for signature in (
         "int trackSyncOffsetMs(String trackKey)",
-        "int trackVideoSyncOffsetMs(String trackKey)",
         "private int trackOffsetMs(" if baseline else "private synchronized int trackOffsetMs(",
     ))
     if not baseline:

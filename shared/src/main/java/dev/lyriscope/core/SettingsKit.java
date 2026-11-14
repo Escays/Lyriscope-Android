@@ -866,10 +866,9 @@ final class SettingsKit {
 
     static final int VISUAL_ALBUM = 0;
     static final int VISUAL_BLUR = 1;
-    static final int VISUAL_VIDEO = 2;
     static final int VISUAL_SOLID = 3;
 
-    /** The small picture on a background-mode card (album cover, blurred gradient, video, solid). */
+    /** The small picture on a background-mode card (album cover, blurred gradient, solid). */
     View modeVisual(int type, int solidColor) {
         View view = new View(context);
         view.setBackground(modeDrawable(type, solidColor));
@@ -880,7 +879,6 @@ final class SettingsKit {
 
     Drawable modeDrawable(int type, int solidColor) {
         if (type == VISUAL_SOLID) return rect(solidColor, 6f);
-        if (type == VISUAL_VIDEO) return new VideoVisual(dp(6), dp(10));
         if (type == VISUAL_BLUR) {
             GradientDrawable base = rect(0xFF182026, 6f);
             GradientDrawable warm = rect(0x00000000, 6f);
@@ -914,45 +912,6 @@ final class SettingsKit {
     }
 
     /** Dark film stripes with a play mark, the lab's picture for the video background. */
-    static final class VideoVisual extends Drawable {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path clip = new Path();
-        private final RectF bounds = new RectF();
-        private final float radius;
-        private final float stripe;
-
-        VideoVisual(float radius, float stripe) {
-            this.radius = radius;
-            this.stripe = Math.max(1f, stripe);
-        }
-
-        @Override public void draw(Canvas canvas) {
-            Rect area = getBounds();
-            bounds.set(area);
-            clip.reset();
-            clip.addRoundRect(bounds, radius, radius, Path.Direction.CW);
-            int saved = canvas.save();
-            canvas.clipPath(clip);
-            for (float x = area.left; x < area.right; x += stripe) {
-                paint.setColor(((int) ((x - area.left) / stripe)) % 2 == 0 ? 0xFF1B1F2B : 0xFF222838);
-                canvas.drawRect(x, area.top, Math.min(area.right, x + stripe), area.bottom, paint);
-            }
-            float size = Math.min(area.width(), area.height()) * 0.32f;
-            Path play = new Path();
-            play.moveTo(area.exactCenterX() - size * 0.4f, area.exactCenterY() - size * 0.5f);
-            play.lineTo(area.exactCenterX() + size * 0.55f, area.exactCenterY());
-            play.lineTo(area.exactCenterX() - size * 0.4f, area.exactCenterY() + size * 0.5f);
-            play.close();
-            paint.setColor(0xD9FFFFFF);
-            canvas.drawPath(play, paint);
-            canvas.restoreToCount(saved);
-        }
-
-        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
-        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
-        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
-    }
-
     // ------------------------------------------------------------------ numbers
 
     interface RangeListener {

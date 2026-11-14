@@ -131,13 +131,7 @@ final class SettingsPreviewView extends View {
             canvas.drawRect(rect, fill);
             return;
         }
-        if (AiLyricsSettings.BACKGROUND_MODE_VIDEO.equals(mode)) {
-            float stripe = dp(12);
-            for (float x = left; x < right; x += stripe) {
-                fill.setColor(((int) ((x - left) / stripe)) % 2 == 0 ? 0xFF17181C : 0xFF1D1F25);
-                canvas.drawRect(x, top, Math.min(right, x + stripe), bottom, fill);
-            }
-        } else if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(mode)) {
+        if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(mode)) {
             fill.setColor(0xFF182026);
             canvas.drawRect(rect, fill);
             fill.setShader(new RadialGradient(left + width * 0.3f, top + height * 0.4f, Math.max(1f, width * 0.6f),

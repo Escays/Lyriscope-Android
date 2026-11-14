@@ -49,8 +49,7 @@ public final class AppI18nInitializationTest {
 
     @Test
     public void appearanceChoicesHaveTranslationsInEveryLanguage() {
-        String[] keys = {"fallback", "title_tap", "title_player", "title_disabled", "title_album", "title_context",
-                "video_aspect", "video_fit", "video_fill", "video_stretch", "video_edges",
+        String[] keys = {"title_tap", "title_player", "title_disabled", "title_album", "title_context",
                 "landscape_original", "landscape_artwork", "empty_notice", "context_unavailable"};
         for (AiLyricsSettings.Language language : AppI18n.UI_LANGUAGES) {
             for (String suffix : keys) {
@@ -102,11 +101,11 @@ public final class AppI18nInitializationTest {
         // Helpers without a Czech case used to overwrite these entries of the Czech table with English.
         String[] keys = {"update.status_idle", "section.app_update", "button.check_updates", "section.typography",
                 "typography.weight", "typography.weight.regular", "section.speaker_colors", "button.apply_colors",
-                "setting.lyrics_alignment", "section.pip", "pip.unavailable", "lyrics.video_sync.title",
+                "setting.lyrics_alignment",                 "section.pip", "pip.unavailable",
                 "lyrics.bluetooth_sync.title", "tmi.did_you_know", "tmi.require_key", "lyrics.lrclib_search.title",
                 "section.spotify_shortcut", "setting.keep_screen_on", "toast.spotify_open_failed",
-                "label.same_as_ui_language", "section.language_desc", "setting.video_scale",
-                "background.mode.video_desc", "setting.creator_speaker_colors", "lyrics.tab.background"};
+                "label.same_as_ui_language", "section.language_desc",
+                "setting.creator_speaker_colors", "lyrics.tab.background"};
         for (String key : keys) {
             org.junit.Assert.assertNotEquals(key, AppI18n.t("en", key), AppI18n.t("cs", key));
         }
