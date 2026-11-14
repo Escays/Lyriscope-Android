@@ -2426,6 +2426,8 @@ final class AppI18n {
                 copy.put("lyrics.lrclib_search.all_empty_format", "%1$s의 결과에 가사가 하나도 없습니다.");
                 copy.put("lyrics.lrclib_search.tried", "확인함");
                 copy.put("lyrics.lrclib_search.match_format", "일치 %1$d%%");
+                copy.put("translation.mix_hint",
+                        "끄면 한 가사 저장소의 번역만 사용합니다. 빈 줄은 그대로 두고 번역 엔진을 호출하지 않습니다.");
                 return;
             case "zh-CN":
                 copy.put("lyrics.verdict.instrumental_hint",
@@ -2440,6 +2442,8 @@ final class AppI18n {
                 copy.put("lyrics.lrclib_search.all_empty_format", "%1$s 这些结果都没有歌词。");
                 copy.put("lyrics.lrclib_search.tried", "已试");
                 copy.put("lyrics.lrclib_search.match_format", "匹配 %1$d%%");
+                copy.put("translation.mix_hint",
+                        "关闭后只用单一曲库自己的译文：缺口保持空白，不再混合其他曲库，也不再调用翻译引擎。");
                 return;
             case "zh-TW":
                 copy.put("lyrics.verdict.instrumental_hint",
@@ -2454,6 +2458,8 @@ final class AppI18n {
                 copy.put("lyrics.lrclib_search.all_empty_format", "%1$s 這些結果都沒有歌詞。");
                 copy.put("lyrics.lrclib_search.tried", "已試");
                 copy.put("lyrics.lrclib_search.match_format", "符合 %1$d%%");
+                copy.put("translation.mix_hint",
+                        "關閉後只用單一曲庫自己的譯文：缺口保持空白，不再混合其他曲庫，也不再呼叫翻譯引擎。");
                 return;
             default:
                 copy.put("lyrics.verdict.instrumental_hint",
@@ -2468,6 +2474,8 @@ final class AppI18n {
                 copy.put("lyrics.lrclib_search.all_empty_format", "None of %1$s's results has lyrics.");
                 copy.put("lyrics.lrclib_search.tried", "Tried");
                 copy.put("lyrics.lrclib_search.match_format", "match %1$d%%");
+                copy.put("translation.mix_hint",
+                        "Off means one catalogue's own translation only: its gaps stay blank, and no other catalogue or translation engine is called.");
         }
     }
 

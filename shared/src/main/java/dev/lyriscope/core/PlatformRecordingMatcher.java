@@ -175,6 +175,12 @@ final class PlatformRecordingMatcher {
         if (!fullArtist.isEmpty() && !fullArtist.equalsIgnoreCase(primary)) {
             addQuery(queries, cleanTitle, fullArtist);
         }
+        // A catalogue that indexes simplified only still has to find a traditional title.
+        String foldedTitle = HanFold.toSimplified(cleanTitle);
+        if (!foldedTitle.equals(cleanTitle)) {
+            addQuery(queries, foldedTitle, primary);
+            addQuery(queries, foldedTitle, "");
+        }
         // Proper nouns write the particle either way: "丸ノ内サディスティック" is "丸の内サディスティック"
         // elsewhere on the same catalogue, and the two spellings do not share search results.
         String particleTitle = foldParticleNo(cleanTitle);
@@ -269,7 +275,11 @@ final class PlatformRecordingMatcher {
         double total = (0.46d * titleScore) + (0.30d * artistScore) + (0.19d * durationScore)
                 + (0.05d * albumScore);
         total -= tagPenalty(title + " " + album, candidate.title + " " + candidate.album);
-        if (titleScore < 0.55d || artistScore < 0.40d) {
+        // Only a comparison that had something to compare can disqualify the candidate: with the artist
+        // field left empty there is no act to disagree with, and capping every row at the same score is
+        // how a perfect match used to look identical to an unrelated song.
+        boolean artistComparable = !artistTokens(artist).isEmpty();
+        if (titleScore < 0.55d || (artistComparable && artistScore < 0.40d)) {
             total = Math.min(total, 0.30d);
         }
         return new Score(candidate, Math.max(0d, Math.min(1d, total)), durationVetoed);
@@ -513,7 +523,9 @@ final class PlatformRecordingMatcher {
     }
 
     private static String squashed(String text) {
-        String normalized = LyricsTextComparison.normalize(text);
+        // Traditional and simplified are one word: 王菲《臉》 has to match a catalogue's "脸", or a
+        // one-character title compares as two unrelated characters and scores zero.
+        String normalized = HanFold.toSimplified(LyricsTextComparison.normalize(text));
         StringBuilder builder = new StringBuilder(normalized.length());
         for (int index = 0; index < normalized.length(); index++) {
             char value = foldKana(normalized.charAt(index));

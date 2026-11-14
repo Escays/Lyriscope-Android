@@ -4,7 +4,7 @@ from regression_runtime import ROOT, SHARED, REPORTS, android_jar, classpath, co
 work = REPORTS / 'instrumental-verdict'
 work.mkdir(parents=True, exist_ok=True)
 cp = classpath(work, json_jar(), compiled_classes('shared'), android_jar())
-subprocess.run([java_tool('javac'), '-cp', cp, '-d', str(work),
+subprocess.run([java_tool('javac'), '-encoding', 'UTF-8', '-cp', cp, '-d', str(work),
                 str(SHARED / 'InstrumentalDetector.java'),
                 str(SHARED / 'TrackLyricsVerdict.java'),
                 str(SHARED / 'RecordingIdentity.java'),

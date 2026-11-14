@@ -171,6 +171,15 @@ final class PlatformTranslationService {
         this.currentTrackKey = currentTrackKey == null ? () -> "" : currentTrackKey;
     }
 
+    /** Test seam: the policy comes from the caller, so a switch can be exercised without a device. */
+    PlatformTranslationService(List<PlatformLyricSource> sources, PlatformTranslationSettings settings) {
+        this.settings = settings == null
+                ? new PlatformTranslationSettings((SharedPreferences) null) : settings;
+        this.cachePrefs = null;
+        this.sources = new ArrayList<>(sources);
+        this.currentTrackKey = () -> "";
+    }
+
     /**
      * Looks up a Chinese translation for {@code baseTexts}. Returns an empty snapshot when the feature
      * is off, the target language is not Chinese, or no platform had a usable translation.
@@ -527,6 +536,18 @@ final class PlatformTranslationService {
     /** True when the user wants platform translations only, with gaps left empty. */
     boolean platformOnly() {
         return settings != null && settings.platformOnly();
+    }
+
+    /**
+     * True when this track's translation must not leave the platform stage at all.
+     *
+     * <p>Mixing switched off means exactly what the switch says: one catalogue's own translation, and
+     * nothing blended into it — not another platform's lines, and not an engine filling the gaps. The
+     * alternative (mixing off still letting Bing translate the remainder) is what made readers turn the
+     * switch off twice and conclude it did nothing.
+     */
+    boolean stopsAtPlatform() {
+        return platformOnly() || (settings != null && !settings.mixSources());
     }
 
     boolean enabled() {

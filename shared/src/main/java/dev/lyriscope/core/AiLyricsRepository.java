@@ -2162,7 +2162,7 @@ final class AiLyricsRepository {
         }
         if (track == null || requests.isEmpty() || !PlatformTranslationSettings.isChineseTarget(targetLang)) {
             return new PlatformSeed(values, pending, pendingTexts, pendingSlots, "", 0,
-                platformTranslations.platformOnly());
+                platformTranslations.stopsAtPlatform());
         }
         List<String> baseLines = new ArrayList<>(session.baseResult.lines.size());
         for (LyricsLine line : session.baseResult.lines) {
@@ -2183,7 +2183,7 @@ final class AiLyricsRepository {
         }
         if (!snapshot.hasAny()) {
             return new PlatformSeed(values, pending, pendingTexts, pendingSlots, "", 0,
-                platformTranslations.platformOnly());
+                platformTranslations.stopsAtPlatform());
         }
 
         List<SupplementRequest> remainingRequests = new ArrayList<>();
@@ -2207,7 +2207,7 @@ final class AiLyricsRepository {
             }
         }
         return new PlatformSeed(values, remainingRequests, remainingTexts, remainingSlots,
-                snapshot.providerLabel, covered, platformTranslations.platformOnly());
+                snapshot.providerLabel, covered, platformTranslations.stopsAtPlatform());
     }
 
     private static String combineProviderLabels(String platformLabel, String aiLabel) {
@@ -2216,10 +2216,16 @@ final class AiLyricsRepository {
         if (platform.isEmpty()) {
             return ai;
         }
-        if (ai.isEmpty() || platform.equals(ai)) {
-            return platform;
+        // One catalogue, one engine: never name a source twice when both labels already share it.
+        List<String> parts = new ArrayList<>();
+        parts.add(platform);
+        for (String part : ai.split("[+＋]")) {
+            String label = part.trim();
+            if (!label.isEmpty() && !platform.equalsIgnoreCase(label) && !parts.contains(label)) {
+                parts.add(label);
+            }
         }
-        return platform + " + " + ai;
+        return String.join(" + ", parts);
     }
 
     /** The platform policy is part of the translation cache identity, so toggling it refetches. */

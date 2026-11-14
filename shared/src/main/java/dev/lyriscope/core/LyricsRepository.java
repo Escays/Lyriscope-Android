@@ -4567,6 +4567,9 @@ final class LyricsRepository {
         String normalized = Normalizer.normalize(value, Normalizer.Form.NFKC)
                 .toLowerCase(Locale.ROOT)
                 .trim();
+        // 臉 and 脸 are the same word: a spotify title in traditional must still match a catalogue entry
+        // in simplified, which a character-by-character score otherwise reads as two different words.
+        normalized = HanFold.toSimplified(normalized);
         normalized = COMPARABLE_APOSTROPHE_PATTERN.matcher(normalized).replaceAll("'");
         normalized = COMPARABLE_QUOTE_PATTERN.matcher(normalized).replaceAll("\"");
         normalized = COMPARABLE_BRACKET_PATTERN.matcher(normalized).replaceAll("");

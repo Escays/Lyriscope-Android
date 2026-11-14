@@ -12904,6 +12904,12 @@ public class BaseLyricsActivity extends Activity implements
         }
         final String trackKey = currentTrack == null ? "" : currentTrack.stableKey();
         final String query = artist.isEmpty() ? title : title + " " + artist;
+        // A catalogue that indexes simplified only finds nothing for 臉: ask again with the folded title
+        // before reporting "no results", since the reader typed a spelling the catalogue may not use.
+        final String foldedTitle = HanFold.toSimplified(title);
+        final String foldedQuery = foldedTitle.equals(title)
+                ? ""
+                : (artist.isEmpty() ? foldedTitle : foldedTitle + " " + artist);
         final String brand = manualSourceBrand(manualSearchSource);
         manualLrclibSearchInFlight = true;
         setManualLrclibStatus(uiFormat("lyrics.lrclib_search.searching_format", brand));
@@ -12911,9 +12917,12 @@ public class BaseLyricsActivity extends Activity implements
             lyricsManualSearchResultsContainer.removeAllViews();
         }
         new Thread(() -> {
-            java.util.List<PlatformRecordingMatcher.Candidate> hits;
+            java.util.List<PlatformRecordingMatcher.Candidate> found;
             try {
-                hits = source.search(query, 8);
+                found = source.search(query, 8);
+                if ((found == null || found.isEmpty()) && !foldedQuery.isEmpty()) {
+                    found = source.search(foldedQuery, 8);
+                }
             } catch (Exception error) {
                 final String reason = describeTranslationFailure(error);
                 runOnUiThread(() -> {
@@ -12924,6 +12933,7 @@ public class BaseLyricsActivity extends Activity implements
                 });
                 return;
             }
+            final java.util.List<PlatformRecordingMatcher.Candidate> hits = found;
             runOnUiThread(() -> {
                 manualLrclibSearchInFlight = false;
                 if (!isCurrentManualLrclibTrack(trackKey)) {
@@ -13940,6 +13950,8 @@ public class BaseLyricsActivity extends Activity implements
                         platformTranslationSettings.setMixSources(checked);
                         reloadLyricsForTranslation();
                     });
+            translationSettingsContent.addView(translationHint(ui("translation.mix_hint")),
+                    topMargin(matchWrap(), dp(2)));
         } else {
             addTranslationSwitch(ui("lyrics_action.translation"),
                     platformTranslationSettings.enabledForTrack(trackKey),
@@ -13969,6 +13981,8 @@ public class BaseLyricsActivity extends Activity implements
                         platformTranslationSettings.setMixSources(checked);
                         reloadLyricsForTranslation();
                     });
+            translationSettingsContent.addView(translationHint(ui("translation.mix_hint")),
+                    topMargin(matchWrap(), dp(2)));
         }
 
         Button reload = SettingsAppearance.button(this, ui("translation.reload"), 14f);
@@ -13980,6 +13994,13 @@ public class BaseLyricsActivity extends Activity implements
     private View translationSectionTitle(String text) {
         TextView title = label(text, 13f, Color.argb(165, 255, 255, 255), AppFonts.bold(this));
         return title;
+    }
+
+    /** The one line under a switch that says what turning it off actually stops. */
+    private View translationHint(String text) {
+        TextView hint = label(text, 11.5f, Color.argb(130, 255, 255, 255), AppFonts.regular(this));
+        hint.setLineSpacing(dp(1), 1f);
+        return hint;
     }
 
     private void addTranslationSwitch(String text, boolean checked,
@@ -17891,15 +17912,38 @@ public class BaseLyricsActivity extends Activity implements
         return text.toString();
     }
 
+    /**
+     * "QQ音乐 + Bing翻译" — never "QQ音乐 + QQ音乐 + Bing翻译".
+     *
+     * <p>The result's own label already names the platform that supplied the lines plus whoever filled
+     * the gaps, so the platform snapshot has to be merged rather than prefixed: it used to be glued in
+     * front of the label, which repeated the catalogue name every time an engine also ran.
+     */
     private String translationSourceLabel(LyricsResult result) {
         String ai = result == null || result.translationProviderLabel == null
                 ? "" : result.translationProviderLabel.trim();
         String platform = currentPlatformSnapshot == null || currentPlatformSnapshot.providerLabel == null
                 ? "" : currentPlatformSnapshot.providerLabel.trim();
-        if (!platform.isEmpty() && !ai.isEmpty() && !platform.equals(ai)) {
-            return platform + " + " + ai;
+        List<String> parts = new ArrayList<>();
+        for (String part : ai.split("[+＋]")) {
+            String label = part.trim();
+            if (!label.isEmpty() && !containsLabel(parts, label)) {
+                parts.add(label);
+            }
         }
-        return !platform.isEmpty() ? platform : ai;
+        if (!platform.isEmpty() && !containsLabel(parts, platform)) {
+            parts.add(platform);
+        }
+        return TextUtils.join(" + ", parts);
+    }
+
+    private static boolean containsLabel(List<String> labels, String value) {
+        for (String label : labels) {
+            if (label.equalsIgnoreCase(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void updateLyricsProviderAttributionView(
