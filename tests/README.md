@@ -26,6 +26,7 @@ python3 tests/run_frame_layout_pool_regression.py
 python3 tests/run_render_idle_regression.py
 python3 tests/run_playback_scheduler_regression.py
 python3 tests/run_card_presence_regression.py
+python3 tests/run_compose_interop_regression.py
 python3 tests/run_karaoke_controller_regression.py
 python3 tests/run_inline_gate_regression.py
 python3 tests/run_inline_hooks_regression.py
