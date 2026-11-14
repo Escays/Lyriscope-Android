@@ -48,3 +48,5 @@ __pycache__/
 
 # Release upload staging (built artifacts, published as GitHub release assets)
 release-assets/
+release-apks/
+release-metadata/

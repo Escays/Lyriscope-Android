@@ -69,9 +69,12 @@ def sdk_tool(name):
         versions = sorted((sdk / "build-tools").glob("*"),
                           key=lambda p: tuple(int(n) for n in re.findall(r"\d+", p.name)), reverse=True)
         for version in versions:
-            tool = version / name
-            if tool.is_file():
-                return str(tool)
+            # Windows ships these as aapt.exe / apksigner.bat, so the bare name
+            # never matches there even though the tool is installed.
+            for filename in (name, f"{name}.exe", f"{name}.bat"):
+                tool = version / filename
+                if tool.is_file():
+                    return str(tool)
     raise RuntimeError(f"Android SDK tool {name} not found; set ANDROID_HOME")
 
 

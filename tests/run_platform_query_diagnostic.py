@@ -10,6 +10,7 @@ work.mkdir(parents=True, exist_ok=True)
 sources = [
     SHARED / "LyricsTextComparison.java",
     SHARED / "PlatformLyricRow.java",
+    SHARED / "LyricAdBlockFilter.java",
     SHARED / "PlatformLyricSource.java",
     SHARED / "ChineseLyricText.java",
     SHARED / "PlatformRecordingMatcher.java",
