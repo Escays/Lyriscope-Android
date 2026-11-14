@@ -339,7 +339,11 @@ final class LyricsRepository {
     ) {
         if (result == null || result.lines.isEmpty()) return false;
         if ("manual".equals(result.selectionPolicyKey)) {
-            return settings == null || settings.order.size() != 1 || settings.config(result.providerId) != null;
+            // A hand-picked set belongs to the reader, not to the provider order. The old test asked
+            // whether this provider was configured, which the platform catalogues never are (NetEase,
+            // QQ and Kugou are translation sources, not lyric providers), so a manual NetEase pick was
+            // thrown away on a single-provider setup and the previous automatic result came back.
+            return true;
         }
         return settings != null
                 && settings.cacheKeyForProvider(result.providerId).equals(result.selectionPolicyKey);
@@ -382,6 +386,12 @@ final class LyricsRepository {
         LyricsProviderSettings.Snapshot providerSettings = lyricsProviderSettings.snapshotForTrack(key);
         LyricsResult cached = getMemoryCachedLyrics(key);
         if (!isCachedResultReusable(cached, providerSettings)) {
+            // A miss is the normal case, so the log has to survive an empty slot: reading the fields of
+            // a null result here crashed the module the moment a card attached.
+            if (cached != null) {
+                emitLog(key, callback, "cache discarded: provider=" + cached.providerId
+                        + " / selection=" + cached.selectionPolicyKey, request);
+            }
             cached = null;
             removeMemoryCachedLyrics(key);
         }
@@ -414,6 +424,10 @@ final class LyricsRepository {
                     reusableCached = diskCache == null ? null : diskCache.get(key);
                 }
                 if (!isCachedResultReusable(reusableCached, providerSettings)) {
+                    if (reusableCached != null) {
+                        log.write("disk cache discarded: provider=" + reusableCached.providerId
+                                + " / selection=" + reusableCached.selectionPolicyKey);
+                    }
                     reusableCached = null;
                     if (diskCache != null) diskCache.remove(key);
                 }
@@ -676,6 +690,10 @@ final class LyricsRepository {
         if (diskCache != null) {
             diskCache.put(trackKey, result);
         }
+        // Anything already in flight was looking for the old answer; let it land nowhere rather than
+        // overwrite the pick a moment after it was made.
+        providerPolicyGeneration.incrementAndGet();
+        latestLyricsRequest.cancel();
     }
 
     void loadManualLrclibCandidate(
