@@ -2476,30 +2476,42 @@ final class AppI18n {
         }
     }
 
-    /** The cover-derived colour row that replaced the video background card. */
+    /** The cover-derived colour row that replaced the video background card, and where its colour comes from. */
     private static void addArtworkPaletteStrings(Map<String, String> copy, String lang) {
         switch (lang == null ? "" : lang) {
             case "ko":
                 copy.put("field.cover_palette", "앨범 커버 색상");
                 copy.put("field.cover_palette_desc", "현재 앨범 커버에서 뽑은 색입니다. 누르면 그 색으로 배경이 바뀝니다.");
-                copy.put("field.cover_palette_hint", "지금은 앨범 커버 색을 자동으로 따릅니다. 색을 고르면 그 색으로 고정됩니다.");
+                copy.put("setting.solid_source", "단색 색상 출처");
+                copy.put("setting.solid_source_desc", "커버에서 자동으로 뽑을지, 직접 고른 색을 쓸지 정합니다.");
+                copy.put("setting.solid_source_auto", "커버 따르기");
+                copy.put("setting.solid_source_fixed", "직접 선택");
                 return;
             case "zh-CN":
                 copy.put("field.cover_palette", "封面配色");
                 copy.put("field.cover_palette_desc", "从当前封面取的五个颜色，点一下就换成纯色背景。");
-                copy.put("field.cover_palette_hint", "当前跟随封面自动取色；点任一色块会改为固定这个颜色。");
+                copy.put("setting.solid_source", "纯色来源");
+                copy.put("setting.solid_source_desc", "配色从哪里来：每首歌自动跟着封面，还是使用你选的颜色。");
+                copy.put("setting.solid_source_auto", "跟随封面");
+                copy.put("setting.solid_source_fixed", "自选颜色");
                 return;
             case "zh-TW":
                 copy.put("field.cover_palette", "封面配色");
                 copy.put("field.cover_palette_desc", "從目前封面取的五個顏色，點一下就換成純色背景。");
-                copy.put("field.cover_palette_hint", "目前跟隨封面自動取色；點任一色塊會改為固定這個顏色。");
+                copy.put("setting.solid_source", "純色來源");
+                copy.put("setting.solid_source_desc", "配色從哪裡來：每首歌自動跟著封面，還是使用你選的顏色。");
+                copy.put("setting.solid_source_auto", "跟隨封面");
+                copy.put("setting.solid_source_fixed", "自選顏色");
                 return;
             default:
                 copy.put("field.cover_palette", "Cover colours");
                 copy.put("field.cover_palette_desc",
                         "Five colours taken from this cover; tap one to use it as the solid background.");
-                copy.put("field.cover_palette_hint",
-                        "The background is following the cover automatically; picking a colour pins it instead.");
+                copy.put("setting.solid_source", "Solid colour source");
+                copy.put("setting.solid_source_desc",
+                        "Whether each song takes its colour from its cover, or uses the colour you picked.");
+                copy.put("setting.solid_source_auto", "Follow the cover");
+                copy.put("setting.solid_source_fixed", "My colour");
         }
     }
 

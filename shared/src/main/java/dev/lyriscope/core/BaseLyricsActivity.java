@@ -461,13 +461,12 @@ public class BaseLyricsActivity extends Activity implements
     private View backgroundSolidColorSwatch;
     private View lyricsBackgroundSolidColorSwatch;
     private View backgroundSolidColorGroup;
+    private SettingsKit.Choice backgroundSolidSourceChoice;
     /** The cover's five colours; the row that replaced the video card in the background section. */
     private LinearLayout backgroundPaletteRow;
     private LinearLayout lyricsBackgroundPaletteRow;
     private View lyricsBackgroundPaletteGroup;
-    /** Explains what the swatches do while the background is following the cover on its own. */
-    private TextView backgroundPaletteHint;
-    private TextView lyricsBackgroundPaletteHint;
+    private View lyricsBackgroundSolidSourceGroup;
     private View lyricsBackgroundSolidColorGroup;
     private EditText spotifyClientIdInput;
     private EditText spotifyClientSecretInput;
@@ -839,6 +838,7 @@ public class BaseLyricsActivity extends Activity implements
         getContentResolver().registerContentObserver(Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
                 false, onboardingMotionObserver);
         lyricsProviderSettings = new LyricsProviderSettings(this);
+        migrateLegacyArtworkSolidBackground();
         creatorSupportRepository = new CreatorSupportRepository(this);
         aiLyricsRepository = new AiLyricsRepository(this);
         furiganaRepository = new FuriganaRepository(this);
@@ -4075,7 +4075,13 @@ public class BaseLyricsActivity extends Activity implements
         if (backgroundView == null) {
             return;
         }
-        boolean enabled = lyricsPageSettings != null && lyricsPageSettings.artworkSolidBackground();
+        AiLyricsSettings.BackgroundSettings background = aiLyricsSettings == null
+                ? null : effectiveBackgroundSettings(aiLyricsSettings.snapshot());
+        // "跟随封面" is a property of the solid background, not an override above every mode: it only
+        // supplies the colour while the solid background is the one being drawn.
+        boolean enabled = background != null
+                && AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode)
+                && AiLyricsSettings.SOLID_SOURCE_AUTO.equals(background.solidSource);
         if (!enabled || currentTrack == null) {
             backgroundView.setStableSolidColor(0);
             stableBackgroundTrackKey = "";
@@ -5879,7 +5885,8 @@ public class BaseLyricsActivity extends Activity implements
                         current.blur,
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor
+                        current.solidColor,
+                        current.solidSource
                 ), false);
             }
         });
@@ -5911,7 +5918,8 @@ public class BaseLyricsActivity extends Activity implements
                         seekBar.getProgress(),
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor
+                        current.solidColor,
+                        current.solidSource
                 ), false);
             }
         });
@@ -5932,7 +5940,8 @@ public class BaseLyricsActivity extends Activity implements
                     current.blur,
                     isChecked,
                     current.reduceMotion,
-                    current.solidColor
+                    current.solidColor,
+                    current.solidSource
             ), false);
         });
         content.addView(lyricsBackgroundNoiseSwitch, topMargin(matchWrap(), dp(12)));
@@ -5952,10 +5961,18 @@ public class BaseLyricsActivity extends Activity implements
                     current.blur,
                     current.noise,
                     isChecked,
-                    current.solidColor
+                    current.solidColor,
+                    current.solidSource
             ), false);
         });
         content.addView(lyricsBackgroundReduceMotionSwitch, topMargin(matchWrap(), dp(12)));
+
+        lyricsBackgroundSolidSourceGroup = settingGroup(
+                ui("setting.solid_source"),
+                ui("setting.solid_source_desc"),
+                buildLyricsBackgroundSolidSourceRow()
+        );
+        content.addView(lyricsBackgroundSolidSourceGroup, topMargin(matchWrap(), dp(12)));
 
         View lyricsPaletteGroup = buildArtworkPaletteGroup(true);
         content.addView(lyricsPaletteGroup, topMargin(matchWrap(), dp(12)));
@@ -7849,30 +7866,37 @@ public class BaseLyricsActivity extends Activity implements
         View paletteRow = buildArtworkPaletteGroup(false);
         details.addView(paletteRow, matchWrap());
         registerSetting(paletteRow, ui("field.cover_palette"), ui("field.cover_palette_desc"), null);
-        settingsConditional(paletteRow, this::isBackgroundPaletteVisible, backgroundLabel);
+        settingsConditional(paletteRow, this::isGlobalSolidBackground, backgroundLabel);
         View solidColorRow = settingsKit.inlineRow(ui("field.solid_color"), ui("field.solid_color_desc"),
                 buildBackgroundSolidColorControl());
         details.addView(solidColorRow, matchWrap());
         registerSetting(solidColorRow, ui("field.solid_color"), ui("field.solid_color_desc"), null);
         backgroundSolidColorGroup = settingsConditional(solidColorRow, this::isGlobalSolidBackground, backgroundLabel);
 
-        // The per-song cover colour belongs with the background choices, right under the solid one.
-        Switch perSongSolid = settingsToggle(details, ui("lyrics_enhance.artwork_solid"),
-                ui("lyrics_enhance.artwork_solid_desc"));
-        perSongSolid.setChecked(lyricsPageSettings.artworkSolidBackground());
-        perSongSolid.setOnCheckedChangeListener((button, checked) -> {
-            if (suppressSettingsEvents) {
-                return;
-            }
-            lyricsPageSettings.setArtworkSolidBackground(checked);
-            stableBackgroundTrackKey = "";
-            stableBackgroundHadArtwork = false;
-            updateArtworkPaletteHint();
-            applyStableBackgroundColor(currentTrack == null ? null : currentTrack.artwork);
-            // With a colour taken from the cover the manual picker no longer applies.
-            refreshSettingsVisibility();
-            showSavedToast(ui("toast.settings_saved"));
-        });
+        // Where the solid background takes its colour from. It sits beside the colour itself, because
+        // "跟随封面" is not a mode of its own: it is the solid background with an automatic colour.
+        List<SettingsKit.Option> sources = new ArrayList<>();
+        sources.add(new SettingsKit.Option(AiLyricsSettings.SOLID_SOURCE_AUTO, ui("setting.solid_source_auto")));
+        sources.add(new SettingsKit.Option(AiLyricsSettings.SOLID_SOURCE_FIXED, ui("setting.solid_source_fixed")));
+        SettingsKit.Choice solidSourceChoice = settingsKit.segmented(sources,
+                AiLyricsSettings.SOLID_SOURCE_FIXED, value -> {
+                    if (suppressSettingsEvents) {
+                        return;
+                    }
+                    setSolidSourceEverywhere(value);
+                    stableBackgroundTrackKey = "";
+                    stableBackgroundHadArtwork = false;
+                    applyStableBackgroundColor(currentTrack == null ? null : currentTrack.artwork);
+                    refreshSettingsVisibility();
+                    showSavedToast(ui("toast.settings_saved"));
+                });
+        focusableItems(solidSourceChoice);
+        View solidSourceRow = settingsStackRow(details, ui("setting.solid_source"),
+                ui("setting.solid_source_desc"), solidSourceChoice.view);
+        details.addView(solidSourceRow, matchWrap());
+        registerSetting(solidSourceRow, ui("setting.solid_source"), ui("setting.solid_source_desc"), null);
+        settingsConditional(solidSourceRow, this::isSolidBackgroundSelected, backgroundLabel);
+        backgroundSolidSourceChoice = solidSourceChoice;
 
         LinearLayout tune = settingsGroup(section);
         SettingsKit.Range brightness = settingsRange(0, 100, 1, "%", ui("setting.brightness"));
@@ -8104,12 +8128,18 @@ public class BaseLyricsActivity extends Activity implements
             updateLyricsTransport(currentPlaybackPosition(currentTrack), currentTrack.durationMs);
         }
     }
+    /** The colour rows only apply when the solid background uses a colour the reader picked. */
     private boolean isGlobalSolidBackground() {
         if (aiLyricsSettings == null) return false;
-        // The cover's own colour replaces the manual one, so the picker steps aside.
-        if (lyricsPageSettings != null && lyricsPageSettings.artworkSolidBackground()) return false;
-        String mode = AiLyricsSettings.normalizeBackgroundMode(aiLyricsSettings.snapshot().background.mode);
-        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(mode);
+        AiLyricsSettings.BackgroundSettings background = aiLyricsSettings.snapshot().background;
+        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode)
+                && AiLyricsSettings.SOLID_SOURCE_FIXED.equals(background.solidSource);
+    }
+
+    /** Whether the solid background asks for a colour at all, whatever its source. */
+    private boolean isSolidBackgroundSelected() {
+        if (aiLyricsSettings == null) return false;
+        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(aiLyricsSettings.snapshot().background.mode);
     }
 
     /** The former option buttons' behaviour: save, refresh the background and confirm. */
@@ -10100,53 +10130,111 @@ public class BaseLyricsActivity extends Activity implements
      * The cover's own colours, one tap each. This is what took the video card's place: it needs no
      * network, no decoder and no second screen, and it changes with the song by definition.
      */
+    /** 跟随封面 / 自定义, for this track. */
+    private View buildLyricsBackgroundSolidSourceRow() {
+        LinearLayout row = new SettingsControlRow(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String selected = editableTrackBackgroundSettings() == null
+                ? AiLyricsSettings.SOLID_SOURCE_FIXED
+                : editableTrackBackgroundSettings().solidSource;
+        String[][] options = {
+                {AiLyricsSettings.SOLID_SOURCE_AUTO, ui("setting.solid_source_auto")},
+                {AiLyricsSettings.SOLID_SOURCE_FIXED, ui("setting.solid_source_fixed")}
+        };
+        for (int index = 0; index < options.length; index++) {
+            final String source = options[index][0];
+            TextView button = languageButton(options[index][1], source.equals(selected));
+            button.setTag(source);
+            button.setOnClickListener(view -> {
+                AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
+                if (current == null) {
+                    return;
+                }
+                saveCurrentTrackBackgroundSettings(new AiLyricsSettings.BackgroundSettings(
+                        current.mode,
+                        current.brightness,
+                        current.blur,
+                        current.noise,
+                        current.reduceMotion,
+                        current.solidColor,
+                        source
+                ), true);
+                refreshLyricsSolidSourceButtons();
+            });
+            row.addView(button, choiceGridButtonParams(index, 44));
+        }
+        return row;
+    }
+
+    private void refreshLyricsSolidSourceButtons() {
+        if (lyricsBackgroundSolidSourceGroup == null) {
+            return;
+        }
+        View row = lyricsBackgroundSolidSourceGroup instanceof LinearLayout
+                ? ((LinearLayout) lyricsBackgroundSolidSourceGroup).getChildAt(
+                        ((LinearLayout) lyricsBackgroundSolidSourceGroup).getChildCount() - 1)
+                : null;
+        if (!(row instanceof LinearLayout)) {
+            return;
+        }
+        AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
+        String selected = current == null ? "" : current.solidSource;
+        LinearLayout buttons = (LinearLayout) row;
+        for (int index = 0; index < buttons.getChildCount(); index++) {
+            View child = buttons.getChildAt(index);
+            if (!(child instanceof TextView) || child.getTag() == null) {
+                continue;
+            }
+            setSelectableButtonState((TextView) child,
+                    child.getTag().equals(selected), 14f);
+        }
+    }
+
     private View buildArtworkPaletteGroup(boolean panelStyle) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(dp(48));
-        LinearLayout column = new LinearLayout(this);
-        column.setOrientation(LinearLayout.VERTICAL);
-        column.addView(row, matchWrap());
-        TextView hint = label("", 11.5f, withAlpha(panelPalette.text, 150), AppFonts.regular(this));
-        hint.setLineSpacing(dp(1), 1f);
-        hint.setVisibility(View.GONE);
-        column.addView(hint, topMargin(matchWrap(), dp(6)));
         View group;
         if (panelStyle) {
             lyricsBackgroundPaletteRow = row;
-            lyricsBackgroundPaletteHint = hint;
-            group = settingGroup(ui("field.cover_palette"), ui("field.cover_palette_desc"), column);
+            group = settingGroup(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
         } else {
             backgroundPaletteRow = row;
-            backgroundPaletteHint = hint;
-            group = settingsKit.inlineRow(ui("field.cover_palette"), ui("field.cover_palette_desc"), column);
+            group = settingsKit.inlineRow(ui("field.cover_palette"), ui("field.cover_palette_desc"), row);
         }
         refreshArtworkPalette(row, currentPaletteSelection());
-        updateArtworkPaletteHint();
         return group;
     }
 
-    /** "Following the cover automatically": the swatches still work, they just override it. */
-    private void updateArtworkPaletteHint() {
-        boolean automatic = lyricsPageSettings != null && lyricsPageSettings.artworkSolidBackground();
-        String text = automatic ? ui("field.cover_palette_hint") : "";
-        for (TextView hint : new TextView[]{backgroundPaletteHint, lyricsBackgroundPaletteHint}) {
-            if (hint == null) {
-                continue;
-            }
-            hint.setText(text);
-            hint.setVisibility(automatic ? View.VISIBLE : View.GONE);
+    /**
+     * The old "每首歌固定纯色背景" switch was an override above every mode; it is now the solid background
+     * with the colour source set to the cover. Installations that had it on keep exactly what they saw.
+     */
+    private void migrateLegacyArtworkSolidBackground() {
+        if (aiLyricsSettings == null || lyricsPageSettings == null
+                || !aiLyricsSettings.solidSourceUnset()) {
+            return;
+        }
+        if (lyricsPageSettings.artworkSolidBackground()) {
+            aiLyricsSettings.setBackgroundMode(AiLyricsSettings.BACKGROUND_MODE_SOLID);
+            aiLyricsSettings.setSolidSource(AiLyricsSettings.SOLID_SOURCE_AUTO);
+            lyricsPageSettings.setArtworkSolidBackground(false);
+        } else {
+            aiLyricsSettings.setSolidSource(AiLyricsSettings.SOLID_SOURCE_FIXED);
         }
     }
 
-    /** The palette belongs to the solid background, whether or not the cover also drives it by itself. */
-    private boolean isBackgroundPaletteVisible() {
-        if (aiLyricsSettings == null || lyricsPageSettings == null) {
-            return false;
+    /** Turns the solid background's colour source, keeping every other background value as it is. */
+    private void setSolidSourceEverywhere(String source) {
+        if (aiLyricsSettings == null) {
+            return;
         }
-        String mode = AiLyricsSettings.normalizeBackgroundMode(aiLyricsSettings.snapshot().background.mode);
-        return AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(mode);
+        aiLyricsSettings.setSolidSource(source);
+        AiLyricsSettings.Snapshot snapshot = aiLyricsSettings.snapshot();
+        updateBackgroundSettingsUi(snapshot, false);
+        applyBackgroundSettings(snapshot);
+        updateLyricsBackgroundSettingsUi(false);
     }
 
     /** Colours the swatch row from the cover on screen, marking the one in use. */
@@ -10193,9 +10281,6 @@ public class BaseLyricsActivity extends Activity implements
         if (aiLyricsSettings == null) {
             return;
         }
-        // An explicit pick is a decision, not a hint: it replaces the automatic cover colour instead of
-        // being silently ignored by it.
-        stopFollowingCoverColour();
         if (trackScope) {
             AiLyricsSettings.BackgroundSettings current = editableTrackBackgroundSettings();
             if (current == null) {
@@ -10207,7 +10292,8 @@ public class BaseLyricsActivity extends Activity implements
                     current.blur,
                     current.noise,
                     current.reduceMotion,
-                    hex
+                    hex,
+                    AiLyricsSettings.SOLID_SOURCE_FIXED
             ), true);
             updateLyricsBackgroundSettingsUi(true);
             return;
@@ -10218,20 +10304,6 @@ public class BaseLyricsActivity extends Activity implements
         updateBackgroundSettingsUi(snapshot, true);
         applyBackgroundSettings(snapshot);
         showSavedToast(ui("toast.background_saved"));
-    }
-
-    /** Turns "use the cover's colour" off, so a colour picked by hand is the one that shows. */
-    private void stopFollowingCoverColour() {
-        if (lyricsPageSettings == null || !lyricsPageSettings.artworkSolidBackground()) {
-            return;
-        }
-        lyricsPageSettings.setArtworkSolidBackground(false);
-        stableBackgroundTrackKey = "";
-        stableBackgroundHadArtwork = false;
-        if (backgroundView != null) {
-            backgroundView.setStableSolidColor(0);
-        }
-        updateArtworkPaletteHint();
     }
 
     private View buildBackgroundSolidColorControl() {
@@ -10350,7 +10422,8 @@ public class BaseLyricsActivity extends Activity implements
                             latest.blur,
                             latest.noise,
                             latest.reduceMotion,
-                            hexColor(selectedColor)
+                            hexColor(selectedColor),
+                            AiLyricsSettings.SOLID_SOURCE_FIXED
                     ), false);
                 }
         );
@@ -11544,6 +11617,9 @@ public class BaseLyricsActivity extends Activity implements
         AiLyricsSettings.Snapshot snapshot = aiLyricsSettings.snapshot();
         updateLyricsBackgroundSettingsUi(rebuildModes);
         applyBackgroundSettings(snapshot);
+        // The stable solid colour is chosen per background settings, so a mode or source change has to
+        // re-derive it — otherwise the old automatic colour keeps painting over the new choice.
+        applyStableBackgroundColor(currentTrack == null ? null : currentTrack.artwork);
         showSavedToast(ui("toast.track_background_saved"));
     }
 
@@ -11802,7 +11878,8 @@ public class BaseLyricsActivity extends Activity implements
                         current.blur,
                         current.noise,
                         current.reduceMotion,
-                        current.solidColor
+                        current.solidColor,
+                        current.solidSource
                 ), true);
             });
             row.addView(button, choiceGridButtonParams(index, 46));
@@ -11840,13 +11917,15 @@ public class BaseLyricsActivity extends Activity implements
         if (backgroundSolidColorSwatch != null) {
             backgroundSolidColorSwatch.setBackground(solidSwatchDrawable(background.solidColor));
         }
+        if (backgroundSolidSourceChoice != null) {
+            backgroundSolidSourceChoice.select(background.solidSource);
+        }
         if (backgroundSolidModeVisual != null && settingsKit != null) {
             backgroundSolidModeVisual.setBackground(settingsKit.modeDrawable(SettingsKit.VISUAL_SOLID,
                     parseColor(background.solidColor, Color.rgb(30, 58, 138))));
         }
         suppressSettingsEvents = false;
         refreshArtworkPalette(backgroundPaletteRow, background.solidColor);
-        updateArtworkPaletteHint();
         refreshSettingsVisibility();
     }
 
@@ -11886,10 +11965,13 @@ public class BaseLyricsActivity extends Activity implements
         }
         suppressSettingsEvents = false;
         boolean solidMode = AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(background.mode);
+        boolean manualColour = solidMode
+                && AiLyricsSettings.SOLID_SOURCE_FIXED.equals(background.solidSource);
         refreshArtworkPalette(lyricsBackgroundPaletteRow, background.solidColor);
-        updateArtworkPaletteHint();
-        setBackgroundOptionVisibility(lyricsBackgroundSolidColorGroup, solidMode);
-        setBackgroundOptionVisibility(lyricsBackgroundPaletteGroup, solidMode);
+        setBackgroundOptionVisibility(lyricsBackgroundSolidSourceGroup, solidMode);
+        setBackgroundOptionVisibility(lyricsBackgroundSolidColorGroup, manualColour);
+        setBackgroundOptionVisibility(lyricsBackgroundPaletteGroup, manualColour);
+        refreshLyricsSolidSourceButtons();
         if (lyricsBackgroundBrightnessValueView != null) {
             lyricsBackgroundBrightnessValueView.setText(background.brightness + "%");
         }

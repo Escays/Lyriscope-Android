@@ -60,6 +60,8 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String KEY_BACKGROUND_NOISE = "background_noise";
     static final String KEY_BACKGROUND_REDUCE_MOTION = "background_reduce_motion";
     static final String KEY_BACKGROUND_SOLID_COLOR = "background_solid_color";
+    /** Where the solid background takes its colour from: the cover, or the colour the reader picked. */
+    static final String KEY_SOLID_SOURCE = "background_solid_source";
     static final String KEY_TRACK_BACKGROUND_SETTINGS = "track_background_settings_v1";
     static final String KEY_LANDSCAPE_AUTO_HIDE_CONTROLS = "landscape_auto_hide_controls";
     static final String KEY_LANDSCAPE_CENTER_NO_LYRICS = "landscape_center_no_lyrics";
@@ -103,6 +105,10 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String BACKGROUND_MODE_GRADIENT = "gradient-background";
     static final String BACKGROUND_MODE_BLUR_GRADIENT = "blur-gradient-background";
     static final String BACKGROUND_MODE_SOLID = "solid-background";
+    /** "跟随封面": a readable colour is taken from each cover. */
+    static final String SOLID_SOURCE_AUTO = "auto";
+    /** "自定义": the stored hex, chosen from the cover's palette or typed by hand. */
+    static final String SOLID_SOURCE_FIXED = "fixed";
     static final String OUTPUT_LANG_SAME_UI = "same_ui";
     static final String PRONUNCIATION_NOTATION_TRANSLATION = "translation";
     static final String PRONUNCIATION_NOTATION_LATIN = "latin";
@@ -156,6 +162,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     private static final String DEFAULT_PIP_LYRICS_TEXT_ALIGNMENT = LYRICS_ALIGN_CENTER;
     private static final int DEFAULT_PIP_LYRICS_SIZE_PERCENT = 150;
     private static final String DEFAULT_SOLID_BACKGROUND_COLOR = "#1e3a8a";
+    private static final String DEFAULT_SOLID_SOURCE = SOLID_SOURCE_FIXED;
     private static final Set<String> CLOUD_SETTING_KEYS = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
             KEY_TRANSLATION_ENABLED, KEY_PRONUNCIATION_ENABLED, KEY_BING_TRANSLATE_ENABLED,
             KEY_GOOGLE_TRANSLATE_ENABLED, KEY_AI_PROVIDER_ORDER, KEY_AI_PROVIDER_ENABLED,
@@ -167,7 +174,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
             KEY_KARAOKE_DATA_AS_LINE_SYNCED, KEY_KARAOKE_DISPLAY_GRANULARITY,
             KEY_BACKGROUND_MODE, KEY_BACKGROUND_BRIGHTNESS, KEY_PLAYER_CARD_BACKGROUND_ENABLED,
             KEY_BACKGROUND_BLUR, KEY_BACKGROUND_NOISE, KEY_BACKGROUND_REDUCE_MOTION,
-            KEY_BACKGROUND_SOLID_COLOR, KEY_LANDSCAPE_AUTO_HIDE_CONTROLS,
+            KEY_BACKGROUND_SOLID_COLOR, KEY_SOLID_SOURCE, KEY_LANDSCAPE_AUTO_HIDE_CONTROLS,
             KEY_LANDSCAPE_CENTER_NO_LYRICS, KEY_KEEP_SCREEN_ON, KEY_PIP_SHOW_ARTWORK,
             KEY_PIP_ORIENTATION, KEY_PIP_LYRICS_TEXT_ALIGNMENT, KEY_PIP_LYRICS_SIZE_PERCENT,
             KEY_METADATA_TRANSLATION_ENABLED, KEY_JAPANESE_FURIGANA_ENABLED,
@@ -960,6 +967,24 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         prefs.edit().putString(KEY_BACKGROUND_SOLID_COLOR, normalizeHexColor(color, DEFAULT_SOLID_BACKGROUND_COLOR)).apply();
     }
 
+    String solidSource() {
+        return normalizeSolidSource(prefs.getString(KEY_SOLID_SOURCE, DEFAULT_SOLID_SOURCE));
+    }
+
+    void setSolidSource(String source) {
+        prefs.edit().putString(KEY_SOLID_SOURCE, normalizeSolidSource(source)).apply();
+    }
+
+    /** True while the old "fixed solid per song" switch still owns the answer, i.e. nothing was stored yet. */
+    boolean solidSourceUnset() {
+        return !prefs.contains(KEY_SOLID_SOURCE);
+    }
+
+    static String normalizeSolidSource(String source) {
+        String value = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
+        return SOLID_SOURCE_AUTO.equals(value) ? SOLID_SOURCE_AUTO : DEFAULT_SOLID_SOURCE;
+    }
+
     BackgroundSettings trackBackgroundSettings(String trackKey) {
         String key = trackKey == null ? "" : trackKey.trim();
         if (key.isEmpty()) {
@@ -1102,13 +1127,14 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
                 clampInt(prefs.getInt(KEY_BACKGROUND_BLUR, 20), 0, 100),
                 prefs.getBoolean(KEY_BACKGROUND_NOISE, false),
                 prefs.getBoolean(KEY_BACKGROUND_REDUCE_MOTION, false),
-                normalizeHexColor(prefs.getString(KEY_BACKGROUND_SOLID_COLOR, DEFAULT_SOLID_BACKGROUND_COLOR), DEFAULT_SOLID_BACKGROUND_COLOR)
+                normalizeHexColor(prefs.getString(KEY_BACKGROUND_SOLID_COLOR, DEFAULT_SOLID_BACKGROUND_COLOR), DEFAULT_SOLID_BACKGROUND_COLOR),
+                solidSource()
         );
     }
 
     private static JSONObject backgroundSettingsToJson(BackgroundSettings settings) throws JSONException {
         BackgroundSettings safeSettings = settings == null
-                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
+                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, DEFAULT_SOLID_SOURCE)
                 : settings;
         JSONObject object = new JSONObject();
         object.put("mode", safeSettings.mode);
@@ -1117,12 +1143,13 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         object.put("noise", safeSettings.noise);
         object.put("reduceMotion", safeSettings.reduceMotion);
         object.put("solidColor", safeSettings.solidColor);
+        object.put("solidSource", safeSettings.solidSource);
         return object;
     }
 
     private static BackgroundSettings backgroundSettingsFromJson(JSONObject object, BackgroundSettings fallback) {
         BackgroundSettings safeFallback = fallback == null
-                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
+                ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, DEFAULT_SOLID_SOURCE)
                 : fallback;
         if (object == null) {
             return safeFallback;
@@ -1133,7 +1160,8 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
                 object.optInt("blur", safeFallback.blur),
                 object.optBoolean("noise", safeFallback.noise),
                 object.optBoolean("reduceMotion", safeFallback.reduceMotion),
-                object.optString("solidColor", safeFallback.solidColor)
+                object.optString("solidColor", safeFallback.solidColor),
+                object.optString("solidSource", safeFallback.solidSource)
         );
     }
 
@@ -2098,14 +2126,18 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         final boolean noise;
         final boolean reduceMotion;
         final String solidColor;
+        /** Whether the colour above is used, or replaced per song by one derived from the cover. */
+        final String solidSource;
 
-        BackgroundSettings(String mode, int brightness, int blur, boolean noise, boolean reduceMotion, String solidColor) {
+        BackgroundSettings(String mode, int brightness, int blur, boolean noise, boolean reduceMotion,
+                String solidColor, String solidSource) {
             this.mode = normalizeBackgroundMode(mode);
             this.brightness = clampInt(brightness, 0, 100);
             this.blur = clampInt(blur, 0, 100);
             this.noise = noise;
             this.reduceMotion = reduceMotion;
             this.solidColor = normalizeHexColor(solidColor, DEFAULT_SOLID_BACKGROUND_COLOR);
+            this.solidSource = normalizeSolidSource(solidSource);
         }
     }
 
@@ -2452,7 +2484,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
             this.karaokeDisplayGranularity = normalizeKaraokeDisplayGranularity(karaokeDisplayGranularity);
             this.karaokeDataAsLineSynced = KARAOKE_DISPLAY_LINE.equals(this.karaokeDisplayGranularity);
             this.background = background == null
-                    ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR)
+                    ? new BackgroundSettings(DEFAULT_BACKGROUND_MODE, 30, 20, false, false, DEFAULT_SOLID_BACKGROUND_COLOR, DEFAULT_SOLID_SOURCE)
                     : background;
             this.landscapeAutoHideControls = landscapeAutoHideControls;
             this.landscapeCenterNoLyrics = landscapeCenterNoLyrics;
