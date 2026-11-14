@@ -911,10 +911,6 @@ public final class PageSlideRegression {
         names.add("open, close, reopen"); scripts.add(run -> {
             open.accept(run); run.at(900, run.page::closeBrowser); run.at(1500, run.page::openBrowser);
         });
-        names.add("login open, back-close"); scripts.add(run -> {
-            run.at(0, () -> { run.page.creatorPrivacyLoginInProgress = true; run.page.openBrowser(); });
-            run.at(900, run.page::closeBrowser);
-        });
         for (int i = 0; i < names.size(); i++) {
             Run before = new Run(baseline.get());
             scripts.get(i).accept(before);
@@ -924,9 +920,8 @@ public final class PageSlideRegression {
             after.advance(3000);
             check(sameFrames(before, after), "browser " + names.get(i) + ": identical frames");
             check(before.page.browserHandle.clicks == after.page.browserHandle.clicks
-                    && before.page.browserContent.pageEvents == after.page.browserContent.pageEvents
-                    && before.page.creatorPrivacyRepository.cancels == after.page.creatorPrivacyRepository.cancels,
-                    "browser " + names.get(i) + ": same handle clicks, page events and login cancels");
+                    && before.page.browserContent.pageEvents == after.page.browserContent.pageEvents,
+                    "browser " + names.get(i) + ": same handle clicks and page events");
             String rest = browserRest(after);
             check("open".equals(rest) || "closed".equals(rest), "browser " + names.get(i) + " rests: " + rest);
         }
@@ -959,23 +954,17 @@ public final class PageSlideRegression {
         System.out.printf(Locale.ROOT, "Browser handle jitter at rest: frozen baseline %s, candidate %s%n", rests[0], rests[1]);
     }
 
-    /** A drag midway through a close: an ordinary browser is carried, one whose close ended a Discord login is not. */
-    static void closingLoginBrowser(java.util.function.Supplier<PageFields> baseline,
-                                    java.util.function.Supplier<PageFields> candidate) {
-        Run reference = playBrowser(candidate, B_BACK, 0, null, null, true);
+    /**
+     * A drag midway through a close is carried through. This used to contrast an ordinary browser with
+     * one whose close ended a Discord login; that login state went with CreatorPrivacyRepository, so
+     * the only behaviour left to protect is the carried drag.
+     */
+    static void closingBrowserIsCarried(java.util.function.Supplier<PageFields> baseline,
+                                        java.util.function.Supplier<PageFields> candidate) {
         for (String targetName : BROWSER_TARGETS) {
-            Run login = playBrowser(candidate, B_BACK, 0.5, targetName, DRAG_UP, true);
             Run plain = playBrowser(candidate, B_BACK, 0.5, targetName, DRAG_UP, false);
-            Run before = playBrowser(baseline, B_BACK, 0.5, targetName, DRAG_UP, true);
-            check(sameFrames(login, reference) && "closed".equals(browserRest(login)),
-                    targetName + ": the login browser's close finishes untouched");
-            check(login.page.creatorPrivacyRepository.cancels == 1 && login.page.browserContent.pageEvents == 0,
-                    targetName + ": the login is canceled once and the page gets nothing");
             check(!sameFrames(plain, playBrowser(candidate, B_BACK, 0, null, null, false)),
                     targetName + ": an ordinary browser's close is carried");
-            System.out.printf(Locale.ROOT, "Drag up midway through a login browser's close (%s): frozen baseline %s, "
-                    + "candidate %s untouched; an ordinary browser is carried and %s%n",
-                    targetName, browserRest(before), browserRest(login), browserRest(plain));
         }
     }
 
@@ -987,7 +976,7 @@ public final class PageSlideRegression {
         interruptedBrowserSlides(BaselinePage::new, CandidatePage::new);
         normalBrowserPaths(BaselinePage::new, CandidatePage::new);
         browserHandleJitterAtRest(BaselinePage::new, CandidatePage::new);
-        closingLoginBrowser(BaselinePage::new, CandidatePage::new);
+        closingBrowserIsCarried(BaselinePage::new, CandidatePage::new);
         System.out.println("PageSlideRegression: " + checks + " checks passed");
     }
 }

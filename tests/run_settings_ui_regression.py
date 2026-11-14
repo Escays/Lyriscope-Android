@@ -100,7 +100,7 @@ public final class SettingsUiContractRegression {
         Result currentBaseLyricsResult;
         boolean lyricsLookupInFlight, aiLyricsGenerating, lyricsSupplementPronunciationLoading,
             lyricsSupplementTranslationLoading, lyricsSupplementFuriganaLoading, lyricsCulturalAnnotationsLoading;
-        Widget lyricsRegenerateButton = new Widget(), culturalAnnotationRegenerateButton = new Widget();
+        Widget lyricsRegenerateButton = new Widget();
         String language;
         String ui(String key) { return AppI18n.t(language, key); }
         // METHOD
@@ -125,12 +125,11 @@ public final class SettingsUiContractRegression {
                 state.updateLyricsRegenerateActions();
                 boolean enabled = track == 1 && base == 2 && mask == 0;
                 check(state.lyricsRegenerateButton.enabled == enabled);
-                check(state.culturalAnnotationRegenerateButton.enabled == enabled);
-                check(state.lyricsRegenerateButton.alpha == (enabled ? 1f : .5f));
+                        check(state.lyricsRegenerateButton.alpha == (enabled ? 1f : .5f));
                 check(state.lyricsRegenerateButton.text.equals((mask & 30) == 0 ? label : AppI18n.t(language.code, "status.ai_generating")));
             }
             State absent = new State(); absent.language = language.code;
-            absent.lyricsRegenerateButton = null; absent.culturalAnnotationRegenerateButton = null;
+            absent.lyricsRegenerateButton = null;
             absent.updateLyricsRegenerateActions();
         }
         check(AppI18n.t("ko", "lyrics.regenerate_supplements").equals("번역·발음 재생성"));

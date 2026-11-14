@@ -7,9 +7,18 @@ from regression_runtime import ROOT, SHARED, REPORTS, android_jar, compiled_clas
 source = (SHARED / "LyricsView.java").read_text()
 
 def declaration(signature):
+    """The declaration that starts at `signature`: a field up to its `;`, otherwise the whole body.
+
+    Fields have no braces, so the old version walked to the next `{` and swallowed every member in
+    between — which is how this fixture ended up defining half of LyricsView and failing to compile.
+    """
     assert source.count(signature) == 1, signature
     start = source.index(signature)
-    cursor = source.index("{", start) + 1
+    brace = source.index("{", start)
+    semicolon = source.find(";", start)
+    if semicolon != -1 and semicolon < brace:
+        return source[start:semicolon + 1]
+    cursor = brace + 1
     depth = 1
     while depth:
         depth += (source[cursor] == "{") - (source[cursor] == "}")
