@@ -78,6 +78,8 @@ final class LyricsRepository {
     private static final long OPENDB_UNAVAILABLE_RETRY_MS = 5L * 60L * 1_000L;
     private static final int SPOTIFY_ARTWORK_CACHE_MAX_ENTRIES = 8;
     private static final double DURATION_TOLERANCE_SECONDS = 15.0;
+    /** Score given to a candidate that cannot be the same recording; below every real score. */
+    private static final double REJECTED_CANDIDATE_SCORE = -1.0;
     private static final double LRCLIB_SYNCED_FALLBACK_SCORE_WINDOW = 0.50;
     private static final double LRCLIB_SYNCED_FALLBACK_MIN_TITLE_SCORE = 0.78;
     private static final double LRCLIB_SYNCED_FALLBACK_MIN_ARTIST_SCORE = 0.45;
@@ -138,6 +140,7 @@ final class LyricsRepository {
     private final RawResponseDiskCache syncDataResponseCache;
     private final SharedPreferences openDbPrefs;
     private final boolean embeddedSpotify;
+    private final TrackLyricsVerdict verdicts;
     private final Map<String, Long> syncDataServerCacheBypassUntil = new HashMap<>();
     private final Object spotifyTokenLock = new Object();
     private String spotifyAccessToken = "";
@@ -164,6 +167,7 @@ final class LyricsRepository {
         openDbPrefs = appContext == null
                 ? null
                 : appContext.getSharedPreferences(OPENDB_PREFS, Context.MODE_PRIVATE);
+        verdicts = new TrackLyricsVerdict(appContext);
         restoreSpotifyToken();
     }
 
@@ -382,6 +386,18 @@ final class LyricsRepository {
             } catch (IOException error) {
                 emitLog(key, callback, "local lyrics unavailable: " + error.getMessage(), request);
             }
+        }
+        // A conclusion reached on an earlier visit ("this one has no words", "this catalogue has
+        // nothing") is the answer, not a cache to be revalidated: asking four catalogues again would
+        // only risk replacing it with another band's song that happens to share the title.
+        String rememberedVerdict = verdicts == null ? "" : verdicts.find(key);
+        if (!rememberedVerdict.isEmpty()) {
+            emitLog(key, callback, "verdict: " + rememberedVerdict + " for this track", request);
+            LyricsResult verdict = verdictResultFor(rememberedVerdict);
+            callback.onLyricsLoaded(key, verdict);
+            // A track without words is not a page without artwork: the card still paints the cover.
+            requestSpotifyArtwork(track, verdict, key, callback, request);
+            return;
         }
         LyricsProviderSettings.Snapshot providerSettings = lyricsProviderSettings.snapshotForTrack(key);
         LyricsResult cached = getMemoryCachedLyrics(key);
@@ -652,7 +668,11 @@ final class LyricsRepository {
                 List<LrclibCandidate> candidates = searchManualLrclibCandidates(queryTitle, queryArtist, log);
                 TrackSnapshot scoringTrack = manualScoringTrack(track, queryTitle, queryArtist);
                 for (LrclibCandidate candidate : candidates) {
-                    candidate.score = scoringTrack == null ? 0.0 : scoreCandidate(scoringTrack, candidate, null);
+                    // Ordering only: the reader is looking at this list to overrule the automatic pick,
+                    // so a namesake keeps its real score instead of being pushed out of sight.
+                    candidate.score = scoringTrack == null
+                            ? 0.0
+                            : scoreCandidate(scoringTrack, candidate, null, false);
                 }
                 candidates.sort(this::compareLrclibCandidates);
                 List<ManualLrclibCandidate> result = new ArrayList<>();
@@ -689,6 +709,10 @@ final class LyricsRepository {
         if (result == null || result.lines.isEmpty() || trackKey == null || trackKey.trim().isEmpty()) {
             return;
         }
+        // Real lyrics picked by hand overturn whatever was concluded about this track before.
+        if (verdicts != null) {
+            verdicts.forget(trackKey);
+        }
         putMemoryCachedLyrics(trackKey, result);
         if (diskCache != null) {
             diskCache.put(trackKey, result);
@@ -697,6 +721,48 @@ final class LyricsRepository {
         // overwrite the pick a moment after it was made.
         providerPolicyGeneration.incrementAndGet();
         latestLyricsRequest.cancel();
+    }
+
+    void forgetVerdict(String trackKey) {
+        if (verdicts != null) {
+            verdicts.forget(trackKey);
+        }
+    }
+
+    /**
+     * Records what one catalogue answered about this track and drops the lyrics it was showing.
+     *
+     * <p>Used when a manual search ends on "纯音乐" or on an empty body: the point of the verdict is
+     * that the wrong lyric sheet must stop being cached for this key, and that the next visit must not
+     * run the same four searches to arrive at the same answer.
+     */
+    void applyManualVerdict(String trackKey, String verdict) {
+        if (verdicts == null || trackKey == null || trackKey.trim().isEmpty()) {
+            return;
+        }
+        verdicts.remember(trackKey, verdict);
+        removeMemoryCachedLyrics(trackKey);
+        if (diskCache != null) {
+            diskCache.remove(trackKey);
+        }
+        providerPolicyGeneration.incrementAndGet();
+        latestLyricsRequest.cancel();
+    }
+
+    /** The result a verdict renders as: no lines, and a status line that says why. */
+    LyricsResult verdictResultFor(String verdict) {
+        boolean instrumental = TrackLyricsVerdict.INSTRUMENTAL.equals(verdict);
+        return LyricsResult.empty(ui(instrumental ? "repo.instrumental" : "repo.no_renderable_lyrics"))
+                .withSelection("", TrackLyricsVerdict.selectionKey(
+                        instrumental ? TrackLyricsVerdict.INSTRUMENTAL : TrackLyricsVerdict.NO_LYRICS));
+    }
+
+    /** An instrumental answer: remembered for this track, and rendered as the verdict it is. */
+    private LyricsResult instrumentalResult(TrackSnapshot track) {
+        if (verdicts != null && track != null) {
+            verdicts.remember(track.stableKey(), TrackLyricsVerdict.INSTRUMENTAL);
+        }
+        return verdictResultFor(TrackLyricsVerdict.INSTRUMENTAL);
     }
 
     void loadManualLrclibCandidate(
@@ -717,6 +783,11 @@ final class LyricsRepository {
                 LrclibCandidate candidate = fetchLrclibCandidateById(selected.id, log);
                 if (candidate == null) {
                     throw new IOException(ui("repo.lyrics_not_found"));
+                }
+                if (candidate.instrumental && verdicts != null && !key.isEmpty()) {
+                    // The reader picked an entry LRCLIB itself marks as instrumental: that is the answer
+                    // for this track, not a lyric sheet with one empty line.
+                    verdicts.remember(key, TrackLyricsVerdict.INSTRUMENTAL);
                 }
                 LyricsResult result = lyricsResultFromManualCandidate(candidate, track);
                 if (!key.isEmpty()) {
@@ -1365,7 +1436,7 @@ final class LyricsRepository {
         if (baseLines.isEmpty()) {
             if (candidate.instrumental) {
                 log.write("result: instrumental track");
-                return LyricsResult.empty(ui("repo.instrumental"));
+                return instrumentalResult(track);
             }
             log.write("result: LRCLIB result has no renderable lyrics");
             return null;
@@ -1590,15 +1661,12 @@ final class LyricsRepository {
         ))
                 : LrcParser.parsePlain(candidate.plainLyrics);
         if (lines.isEmpty()) {
-            return new LyricsResult(
-                    Collections.emptyList(),
-                    "LRCLIB",
-                    candidate.instrumental ? ui("repo.instrumental") : ui("repo.no_renderable_lyrics"),
-                    false,
-                    firstNonEmpty(candidate.isrc, track == null ? "" : track.isrc),
-                    track == null ? "" : track.trackId,
-                    Collections.emptyList()
-            );
+            // No lines from a source the reader picked by hand is still an answer: LRCLIB marks
+            // instrumentals as such, and an entry with an empty body is simply empty. Both become the
+            // same remembered verdict the platform catalogues produce, so the sheet can undo it.
+            return verdictResultFor(candidate.instrumental
+                    ? TrackLyricsVerdict.INSTRUMENTAL
+                    : TrackLyricsVerdict.NO_LYRICS);
         }
         return new LyricsResult(
                 lines,
@@ -1851,12 +1919,28 @@ final class LyricsRepository {
         for (LrclibCandidate candidate : candidates) {
             decorateCandidateForSyncData(candidate, syncData);
             candidate.albumMatchScore = 0.0;
-            candidate.score = scoreCandidate(track, candidate, syncData);
-            if (spotifySearchTrack != null) {
-                candidate.score = Math.max(candidate.score, scoreCandidate(spotifySearchTrack, candidate, syncData));
-            }
+            double fromTrack = scoreCandidate(track, candidate, syncData);
+            double fromSpotify = spotifySearchTrack == null
+                    ? fromTrack
+                    : scoreCandidate(spotifySearchTrack, candidate, syncData);
+            candidate.score = Math.max(fromTrack, fromSpotify);
+            candidate.rejectedAsDifferentRecording = candidate.score <= REJECTED_CANDIDATE_SCORE;
         }
         candidates.sort(this::compareLrclibCandidates);
+        int rejected = 0;
+        for (LrclibCandidate candidate : candidates) {
+            if (candidate.rejectedAsDifferentRecording) {
+                rejected++;
+            }
+        }
+        if (rejected > 0) {
+            // The reader sees the debug panel; a namesake being dropped has to be visible there, or the
+            // next "no lyrics" for a track that is plainly on LRCLIB looks like a bug.
+            LrclibCandidate worst = candidates.get(candidates.size() - 1);
+            log.write("lrclib rejected " + rejected + " candidate(s) as a different recording"
+                    + " (e.g. \"" + worst.trackName + "\" / \"" + worst.artistName + "\""
+                    + " / " + fmt(worst.durationSeconds) + "s)");
+        }
         if (syncData != null && !syncData.lineCharCounts().isEmpty()) {
             log.write("lrclib sync-data exact line-shape candidates="
                     + countSyncLineExactCandidates(candidates));
@@ -1870,7 +1954,8 @@ final class LyricsRepository {
                     + " sourceScore=" + candidate.syncSourceMatchScore
                     + " syncLineExact=" + candidate.syncLineExactMatch
                     + " preferred=" + candidate.preferredLyricsSource
-                    + " " + describeLrclibCandidate(candidate));
+                    + " " + describeLrclibCandidate(candidate)
+                    + (candidate.rejectedAsDifferentRecording ? " [different recording]" : ""));
         }
         if (shouldPreferLegacyExactSyncLineShape(syncData)) {
             LrclibCandidate exact = selectLegacyExactLineShapeCandidate(track, candidates, log);
@@ -3362,6 +3447,24 @@ final class LyricsRepository {
     }
 
     private double scoreCandidate(TrackSnapshot track, LrclibCandidate candidate, SyncDataResult syncData) {
+        return scoreCandidate(track, candidate, syncData, true);
+    }
+
+    /**
+     * Scores one candidate against one track.
+     *
+     * <p>{@code strict} is what separates the automatic pick from the manual search list: an automatic
+     * pick may only use a candidate that is plausibly the same recording, while a manual list still has
+     * to be orderable, so it keeps the raw score for every row and lets the reader decide. Without the
+     * veto, a title worth 4 points alone cleared the acceptance threshold, which is how an instrumental
+     * track ended up showing another band's song with the same name.
+     */
+    private double scoreCandidate(
+            TrackSnapshot track,
+            LrclibCandidate candidate,
+            SyncDataResult syncData,
+            boolean strict
+    ) {
         double titleScore = titleScore(track.title, candidate.trackName);
         double artistScore = bestArtistScore(track.artist, candidate.artistName);
         double albumScore = albumScore(track.album, candidate.albumName);
@@ -3385,7 +3488,34 @@ final class LyricsRepository {
         if (syncData != null && candidate.syncLineExactMatch) {
             score += 2.5;
         }
+        // Spotify's own sync data names this recording by id or by its exact line shape; that evidence
+        // outranks any similarity measured from strings, including a mismatch in the credited artist.
+        boolean syncDataNamesThisRecording = candidate.syncSourceMatchScore > 0 || candidate.syncLineExactMatch;
+        if (strict && !syncDataNamesThisRecording
+                && isDifferentRecording(track, candidate, artistScore, albumScore)) {
+            return REJECTED_CANDIDATE_SCORE;
+        }
         return score;
+    }
+
+    /**
+     * True when the candidate's credit and length both say it is another recording.
+     *
+     * <p>The rule itself lives in {@link RecordingIdentity} so it can be exercised without a device; see
+     * there for why a title alone must never be enough.
+     */
+    private boolean isDifferentRecording(
+            TrackSnapshot track,
+            LrclibCandidate candidate,
+            double artistScore,
+            double albumScore
+    ) {
+        return RecordingIdentity.isDifferentRecording(
+                track.durationMs,
+                candidate.durationSeconds,
+                artistScore,
+                albumScore
+        );
     }
 
     private void decorateCandidateForSyncData(LrclibCandidate candidate, SyncDataResult syncData) {
@@ -4478,6 +4608,8 @@ final class LyricsRepository {
         double albumMatchScore;
         boolean syncDataDecorationComputed;
         boolean loadedFromSyncSource;
+        /** The artist and the length both disagree: a namesake, not this recording. */
+        boolean rejectedAsDifferentRecording;
         SyncDataResult decoratedSyncData;
 
         LrclibCandidate(

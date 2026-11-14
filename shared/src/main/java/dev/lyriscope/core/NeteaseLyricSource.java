@@ -93,6 +93,9 @@ final class NeteaseLyricSource implements PlatformLyricSource {
         String original = lrc(root.optJSONObject("lrc"));
         String translated = lrc(root.optJSONObject("tlyric"));
         String romanised = lrc(root.optJSONObject("romalrc"));
+        // NetEase flags an instrumental recording with "nolyric" instead of sending an empty body
+        // silently; without this the page could only say "no lyrics here", never "纯音乐".
+        boolean noLyric = root.optBoolean("nolyric", false);
         return new PlatformLyricDocument(
                 ID,
                 LABEL,
@@ -103,7 +106,8 @@ final class NeteaseLyricSource implements PlatformLyricSource {
                 0L,
                 PlatformLyricRow.parseLrc(original),
                 PlatformLyricRow.parseLrc(translated),
-                !romanised.trim().isEmpty()
+                !romanised.trim().isEmpty(),
+                noLyric
         );
     }
 

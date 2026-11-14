@@ -2356,6 +2356,7 @@ final class AppI18n {
                     ? "가사 제공자 설정이 저장되었습니다"
                     : "Lyrics provider settings saved");
             addLyricsProviderTypeGateStrings(copy, language.code);
+            addLyricsVerdictStrings(copy, language.code);
             languages.put(language.code, Collections.unmodifiableMap(copy));
         }
     }
@@ -2405,8 +2406,72 @@ final class AppI18n {
         }
     }
 
-    private static void addPaxsenixProviderStrings(Map<String, Map<String, String>> languages) {
-        for (AiLyricsSettings.Language language : UI_LANGUAGES) {
+    /**
+     * What the page says once a track is concluded to have no words, and what the sheet offers to
+     * overturn that conclusion. A verdict is a remembered answer, so both sentences have to explain
+     * that nothing else will be asked until the reader says otherwise.
+     */
+    private static void addLyricsVerdictStrings(Map<String, String> copy, String lang) {
+        switch (lang == null ? "" : lang) {
+            case "ko":
+                copy.put("lyrics.verdict.instrumental_hint",
+                        "연주곡으로 처리했습니다. 직접 다른 곳에서 찾지 않는 한 다른 가사 저장소는 다시 조회하지 않습니다.");
+                copy.put("lyrics.verdict.empty_hint",
+                        "가사가 없는 곡으로 처리했습니다. 직접 다른 곳에서 찾지 않는 한 다른 가사 저장소는 다시 조회하지 않습니다.");
+                copy.put("lyrics.verdict.action", "연주곡이 아닙니다, 다른 곳에서 찾기");
+                copy.put("lyrics.verdict.instrumental_notice", "연주곡으로 처리했습니다.");
+                copy.put("lyrics.verdict.empty_notice_format", "%1$s에 이 곡의 가사가 없습니다.");
+                copy.put("lyrics.lrclib_search.empty_skipped_format",
+                        "이 항목에는 가사가 없습니다. 다음 항목으로 (%1$d/%2$d)…");
+                copy.put("lyrics.lrclib_search.all_empty_format", "%1$s의 결과에 가사가 하나도 없습니다.");
+                copy.put("lyrics.lrclib_search.tried", "확인함");
+                copy.put("lyrics.lrclib_search.match_format", "일치 %1$d%%");
+                return;
+            case "zh-CN":
+                copy.put("lyrics.verdict.instrumental_hint",
+                        "这首已按纯音乐处理：除非你手动换一个来源，否则不会再去其他曲库找歌词。");
+                copy.put("lyrics.verdict.empty_hint",
+                        "这首已按无歌词处理：除非你手动换一个来源，否则不会再去其他曲库找歌词。");
+                copy.put("lyrics.verdict.action", "这不是纯音乐，换一个来源");
+                copy.put("lyrics.verdict.instrumental_notice", "已按纯音乐处理。");
+                copy.put("lyrics.verdict.empty_notice_format", "%1$s 没有这首的歌词。");
+                copy.put("lyrics.lrclib_search.empty_skipped_format",
+                        "这条没有歌词，换下一条（%1$d/%2$d）…");
+                copy.put("lyrics.lrclib_search.all_empty_format", "%1$s 这些结果都没有歌词。");
+                copy.put("lyrics.lrclib_search.tried", "已试");
+                copy.put("lyrics.lrclib_search.match_format", "匹配 %1$d%%");
+                return;
+            case "zh-TW":
+                copy.put("lyrics.verdict.instrumental_hint",
+                        "這首已按純音樂處理：除非你手動換一個來源，否則不會再去其他曲庫找歌詞。");
+                copy.put("lyrics.verdict.empty_hint",
+                        "這首已按無歌詞處理：除非你手動換一個來源，否則不會再去其他曲庫找歌詞。");
+                copy.put("lyrics.verdict.action", "這不是純音樂，換一個來源");
+                copy.put("lyrics.verdict.instrumental_notice", "已按純音樂處理。");
+                copy.put("lyrics.verdict.empty_notice_format", "%1$s 沒有這首的歌詞。");
+                copy.put("lyrics.lrclib_search.empty_skipped_format",
+                        "這條沒有歌詞，換下一條（%1$d/%2$d）…");
+                copy.put("lyrics.lrclib_search.all_empty_format", "%1$s 這些結果都沒有歌詞。");
+                copy.put("lyrics.lrclib_search.tried", "已試");
+                copy.put("lyrics.lrclib_search.match_format", "符合 %1$d%%");
+                return;
+            default:
+                copy.put("lyrics.verdict.instrumental_hint",
+                        "This track is treated as instrumental: no other catalogue is asked unless you pick one yourself.");
+                copy.put("lyrics.verdict.empty_hint",
+                        "This track is treated as having no lyrics: no other catalogue is asked unless you pick one yourself.");
+                copy.put("lyrics.verdict.action", "It is not instrumental \u2014 try another source");
+                copy.put("lyrics.verdict.instrumental_notice", "Treated as an instrumental track.");
+                copy.put("lyrics.verdict.empty_notice_format", "%1$s has no lyrics for this track.");
+                copy.put("lyrics.lrclib_search.empty_skipped_format",
+                        "That result has no lyrics; trying the next one (%1$d/%2$d)…");
+                copy.put("lyrics.lrclib_search.all_empty_format", "None of %1$s's results has lyrics.");
+                copy.put("lyrics.lrclib_search.tried", "Tried");
+                copy.put("lyrics.lrclib_search.match_format", "match %1$d%%");
+        }
+    }
+
+    private static void addPaxsenixProviderStrings(Map<String, Map<String, String>> languages) {        for (AiLyricsSettings.Language language : UI_LANGUAGES) {
             Map<String, String> table = languages.get(language.code);
             if (table == null) continue;
             String[] values = paxsenixStrings(language.code);

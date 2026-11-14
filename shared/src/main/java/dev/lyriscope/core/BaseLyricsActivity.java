@@ -684,11 +684,22 @@ public class BaseLyricsActivity extends Activity implements
     private TextView lyricsTypeGateMessage;
     private TextView lyricsTypeGateAction;
     private String[] lyricsTypeGateTarget;
+    /** True while the card is showing a remembered verdict instead of a switch. */
+    private boolean lyricsTypeGateVerdict;
     /** The reader's hand-picked catalogue result per track, kept outside the lyric cache. */
     private ManualLyricsPicks manualLyricsPicks;
     /** Guards a replay so a restored pick cannot re-trigger itself. */
     private boolean manualPickRestoring;
     private PlatformHttpTransport.Transport manualSearchTransport;
+    /**
+     * The ranked result list of the current manual platform search, plus the ids already fetched.
+     * The list is kept so a result that turns out to carry no lyrics can move on to the next one
+     * without another search, and so a row can show that it was already tried.
+     */
+    private final java.util.List<PlatformRecordingMatcher.Score> manualPlatformScores =
+            new java.util.ArrayList<>();
+    private final java.util.Set<String> manualPlatformTried = new java.util.LinkedHashSet<>();
+    private String manualPlatformTrackKey = "";
     private boolean pictureInPictureUiActive;
     private boolean pictureInPictureActionsInitialized;
     private boolean pictureInPictureActionsPlaying;
@@ -6242,6 +6253,10 @@ public class BaseLyricsActivity extends Activity implements
 
         lyricsTypeGateAction = languageButton("", false);
         lyricsTypeGateAction.setOnClickListener(view -> {
+            if (lyricsTypeGateVerdict) {
+                clearLyricsVerdict();
+                return;
+            }
             if (lyricsTypeGateTarget != null) {
                 enableBlockedLyricsType(lyricsTypeGateTarget[0], lyricsTypeGateTarget[1]);
             }
@@ -6258,6 +6273,21 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsTypeGateCard == null || lyricsTypeGateMessage == null || lyricsTypeGateAction == null) {
             return;
         }
+        String verdict = currentLyricsVerdict();
+        if (!verdict.isEmpty()) {
+            // The card speaks twice: once for a switch holding a timeline back, once for a remembered
+            // "this track has no words" conclusion. Both are one tap away from being undone, and the
+            // conclusion card is the only way back to a search once it is remembered.
+            lyricsTypeGateVerdict = true;
+            lyricsTypeGateTarget = null;
+            lyricsTypeGateMessage.setText(ui(TrackLyricsVerdict.INSTRUMENTAL.equals(verdict)
+                    ? "lyrics.verdict.instrumental_hint"
+                    : "lyrics.verdict.empty_hint"));
+            lyricsTypeGateAction.setText(ui("lyrics.verdict.action"));
+            lyricsTypeGateCard.setVisibility(View.VISIBLE);
+            return;
+        }
+        lyricsTypeGateVerdict = false;
         String[] blocked = blockedLyricsType();
         lyricsTypeGateTarget = blocked;
         if (blocked == null) {
@@ -6271,6 +6301,22 @@ public class BaseLyricsActivity extends Activity implements
         lyricsTypeGateAction.setText(
                 uiFormat("lyrics_provider.type_off_action_format", typeLabel));
         lyricsTypeGateCard.setVisibility(View.VISIBLE);
+    }
+
+    /** The verdict the shown result stands for, or "" when it is an ordinary lyric result. */
+    private String currentLyricsVerdict() {
+        return TrackLyricsVerdict.verdictOf(currentLyricsResult);
+    }
+
+    /** Undoes a remembered conclusion and looks the track up again as if it had never been drawn. */
+    private void clearLyricsVerdict() {
+        if (lyricsRepository == null || currentTrack == null) {
+            return;
+        }
+        lyricsRepository.forgetVerdict(currentTrack.stableKey());
+        lyricsTypeGateVerdict = false;
+        dismissLyricsMetaMenuPopup();
+        onLyricsProviderSettingsChanged(true);
     }
 
     /** {@code [providerId, type]} for a source held back by its own type switch, else null. */
@@ -12894,29 +12940,67 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         lyricsManualSearchResultsContainer.removeAllViews();
+        manualPlatformScores.clear();
+        manualPlatformTried.clear();
+        manualPlatformTrackKey = trackKey;
         if (hits == null || hits.isEmpty()) {
             setManualLrclibStatus(uiFormat("lyrics.lrclib_search.no_results_format",
                     manualSourceBrand(source.id())));
             resizeLyricsMetaMenuPopupForActiveTab(false);
             return;
         }
+        // The catalogue returns its hits in popularity order, not in "is this the same recording" order.
+        // Without the matcher the first row was simply another act's song with the same title, which is
+        // exactly the result the reader then picked.
+        String title = textOf(lyricsManualSearchTitleInput);
+        String artist = textOf(lyricsManualSearchArtistInput);
+        manualPlatformScores.addAll(PlatformRecordingMatcher.rank(
+                title,
+                artist,
+                currentTrack == null ? "" : currentTrack.album,
+                currentTrack == null ? 0L : currentTrack.durationMs,
+                hits
+        ));
         setManualLrclibStatus(manualSourceBrand(source.id()) + " \u00b7 "
-                + uiFormat("lyrics.lrclib_search.result_count_format", hits.size()));
-        for (PlatformRecordingMatcher.Candidate candidate : hits) {
+                + uiFormat("lyrics.lrclib_search.result_count_format", manualPlatformScores.size()));
+        renderManualPlatformRows(source);
+    }
+
+    /** Draws the ranked list as it stands, so a row can show that it was already fetched. */
+    private void renderManualPlatformRows(PlatformLyricSource source) {
+        if (lyricsManualSearchResultsContainer == null) {
+            return;
+        }
+        lyricsManualSearchResultsContainer.removeAllViews();
+        for (PlatformRecordingMatcher.Score score : manualPlatformScores) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(dp(11), dp(10), dp(11), dp(10));
-            row.setBackground(roundDrawable(withAlpha(panelPalette.text, 22), dp(10)));
+            boolean tried = manualPlatformTried.contains(score.candidate.id);
+            boolean plausible = score.acceptable();
+            row.setBackground(roundDrawable(
+                    withAlpha(panelPalette.text, tried || !plausible ? 12 : 22), dp(10)));
             row.setClickable(true);
-            TextView name = label(candidate.title, 14f, panelPalette.text, AppFonts.semiBold(this));
+            TextView name = label(score.candidate.title, 14f,
+                    withAlpha(panelPalette.text, tried || !plausible ? 150 : 255),
+                    AppFonts.semiBold(this));
             row.addView(name, matchWrap());
-            String meta = candidate.artist;
-            if (!candidate.album.isEmpty()) {
-                meta = meta.isEmpty() ? candidate.album : meta + " · " + candidate.album;
+            String meta = score.candidate.artist;
+            if (!score.candidate.album.isEmpty()) {
+                meta = meta.isEmpty() ? score.candidate.album : meta + " · " + score.candidate.album;
             }
             TextView detail = label(meta, 11.5f, withAlpha(panelPalette.text, 168), AppFonts.regular(this));
             row.addView(detail, topMargin(matchWrap(), dp(3)));
-            row.setOnClickListener(view -> loadManualPlatformCandidate(source, trackKey, candidate));
+            TextView facts = label(manualPlatformCandidateFacts(score, tried), 10.5f,
+                    withAlpha(panelPalette.text, 134), AppFonts.semiBold(this));
+            row.addView(facts, topMargin(matchWrap(), dp(5)));
+            String candidateId = score.candidate.id;
+            row.setOnClickListener(view -> {
+                if (!manualLrclibSearchInFlight) {
+                    loadManualPlatformCandidate(source, manualPlatformTrackKey, score.candidate);
+                }
+            });
+            row.setTag(candidateId);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
@@ -12929,22 +13013,45 @@ public class BaseLyricsActivity extends Activity implements
         resizeLyricsMetaMenuPopupForActiveTab(false);
     }
 
+    /** "3:42 · match 87% · tried": what the reader needs to judge a row before tapping it. */
+    private String manualPlatformCandidateFacts(PlatformRecordingMatcher.Score score, boolean tried) {
+        List<String> pieces = new ArrayList<>();
+        if (score.candidate.durationMs > 0L) {
+            pieces.add(formatTime(score.candidate.durationMs));
+        }
+        pieces.add(uiFormat("lyrics.lrclib_search.match_format",
+                Math.round(score.total * 100d)));
+        if (tried) {
+            pieces.add(ui("lyrics.lrclib_search.tried"));
+        }
+        return TextUtils.join(" \u00b7 ", pieces);
+    }
+
     private void loadManualPlatformCandidate(PlatformLyricSource source, String trackKey,
             PlatformRecordingMatcher.Candidate candidate) {
         if (manualLrclibSearchInFlight) {
             return;
         }
         manualLrclibSearchInFlight = true;
+        manualPlatformTried.add(candidate.id);
+        renderManualPlatformRows(source);
         setManualLrclibStatus(uiFormat("lyrics.lrclib_search.selecting_format",
                 manualSourceBrand(source.id())));
+        final int attempt = manualPlatformTried.size();
+        final int total = manualPlatformScores.size();
         new Thread(() -> {
+            PlatformLyricSource.PlatformLyricDocument document = null;
             LyricsResult result = null;
             String reason = "";
             try {
-                result = manualResultFromDocument(source.fetch(candidate.id));
+                document = source.fetch(candidate.id);
+                if (document.verdict() == InstrumentalDetector.Verdict.NONE) {
+                    result = manualResultFromDocument(document);
+                }
             } catch (Exception error) {
                 reason = describeTranslationFailure(error);
             }
+            final PlatformLyricSource.PlatformLyricDocument fetched = document;
             final LyricsResult loaded = result;
             final String failure = reason;
             if (loaded != null && !loaded.lines.isEmpty()) {
@@ -12960,18 +13067,80 @@ public class BaseLyricsActivity extends Activity implements
                 if (!isCurrentManualLrclibTrack(trackKey)) {
                     return;
                 }
-                if (loaded == null || loaded.lines.isEmpty()) {
-                    // The search did find recordings; this one simply carries no lyrics upstream. Saying
-                    // "no results" here was wrong — the results are still listed right above.
-                    setManualLrclibStatus(failure.isEmpty()
-                            ? uiFormat("lyrics.lrclib_search.result_empty_format",
-                                    manualSourceBrand(source.id()))
-                            : uiFormat("lyrics.lrclib_search.failed_format", failure));
+                if (!failure.isEmpty()) {
+                    setManualLrclibStatus(uiFormat("lyrics.lrclib_search.failed_format", failure));
                     return;
                 }
-                onManualLrclibLyricsLoaded(trackKey, loaded);
+                if (loaded != null && !loaded.lines.isEmpty()) {
+                    onManualLrclibLyricsLoaded(trackKey, loaded);
+                    return;
+                }
+                // The catalogue answered, and the answer is "nothing to sing". Neither case is an error:
+                // an instrumental recording is a verdict, and a recording without lyrics means the next
+                // result on the list is worth a look instead of a dead end.
+                InstrumentalDetector.Verdict verdict = fetched == null
+                        ? InstrumentalDetector.Verdict.NO_LYRICS
+                        : fetched.verdict();
+                if (verdict == InstrumentalDetector.Verdict.INSTRUMENTAL) {
+                    showManualVerdict(trackKey, TrackLyricsVerdict.INSTRUMENTAL);
+                    return;
+                }
+                PlatformRecordingMatcher.Score next = nextUntriedManualPlatformScore();
+                if (next != null) {
+                    // Say which result was tried and how many are left: the list above already shows the
+                    // rows, so the status line only has to explain the jump.
+                    setManualLrclibStatus(uiFormat("lyrics.lrclib_search.empty_skipped_format",
+                            attempt, total));
+                    loadManualPlatformCandidate(source, trackKey, next.candidate);
+                    return;
+                }
+                showManualVerdict(trackKey, TrackLyricsVerdict.NO_LYRICS);
             });
         }, "lyrics-manual-load").start();
+    }
+
+    /** The best-ranked result this search has not fetched yet, or null when all of them were tried. */
+    private PlatformRecordingMatcher.Score nextUntriedManualPlatformScore() {
+        for (PlatformRecordingMatcher.Score score : manualPlatformScores) {
+            if (!manualPlatformTried.contains(score.candidate.id)) {
+                return score;
+            }
+        }
+        return null;
+    }
+
+    /** Marks a verdict as this track's answer: no lines, a stated reason, and the card that undoes it. */
+    private void showManualVerdict(String trackKey, String verdict) {
+        if (lyricsRepository == null || !isCurrentManualLrclibTrack(trackKey)) {
+            return;
+        }
+        lyricsRepository.applyManualVerdict(trackKey, verdict);
+        if (manualLyricsPicks != null) {
+            manualLyricsPicks.forget(trackKey);
+        }
+        LyricsResult result = lyricsRepository.verdictResultFor(verdict);
+        lyricsLookupInFlight = false;
+        lyricsLoadingProviderName = "";
+        aiLyricsGenerating = false;
+        currentBaseLyricsResult = result;
+        currentLyricsResult = result;
+        currentFuriganaResult = null;
+        currentFuriganaKey = "";
+        currentCulturalAnnotations = Collections.emptyList();
+        currentCulturalAnnotationRequestKey = "";
+        setLyricsResultOnViews(result);
+        setLyricsSupplementLoading(false, false);
+        updateLyricPreview(currentTrack == null ? 0L : currentLyricsPlaybackPosition(currentTrack));
+        sourceView.setText("");
+        statusView.setText(result.detail);
+        updateDetectedLyricsSourceLanguage(result);
+        updateLyricsLanguageSettingsUi();
+        updateLyricsTypeGateCard();
+        String notice = TrackLyricsVerdict.INSTRUMENTAL.equals(verdict)
+                ? ui("lyrics.verdict.instrumental_notice")
+                : uiFormat("lyrics.verdict.empty_notice_format", manualSourceBrand(manualSearchSource));
+        setManualLrclibStatus(notice);
+        showSavedToast(notice);
     }
 
     /** A platform document as plain timed lines, with each platform translation beside its line. */

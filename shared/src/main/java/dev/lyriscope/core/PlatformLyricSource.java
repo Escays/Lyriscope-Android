@@ -32,6 +32,8 @@ interface PlatformLyricSource {
         final List<PlatformLyricRow> originalRows;
         final List<PlatformLyricRow> translationRows;
         final boolean hasRomanisation;
+        /** The catalogue said outright that this recording has no words (NetEase's {@code nolyric}). */
+        final boolean noLyricSignal;
 
         PlatformLyricDocument(
                 String sourceId,
@@ -44,6 +46,23 @@ interface PlatformLyricSource {
                 List<PlatformLyricRow> originalRows,
                 List<PlatformLyricRow> translationRows,
                 boolean hasRomanisation
+        ) {
+            this(sourceId, sourceLabel, candidateId, title, artist, album, durationMs,
+                    originalRows, translationRows, hasRomanisation, false);
+        }
+
+        PlatformLyricDocument(
+                String sourceId,
+                String sourceLabel,
+                String candidateId,
+                String title,
+                String artist,
+                String album,
+                long durationMs,
+                List<PlatformLyricRow> originalRows,
+                List<PlatformLyricRow> translationRows,
+                boolean hasRomanisation,
+                boolean noLyricSignal
         ) {
             this.sourceId = sourceId == null ? "" : sourceId;
             this.sourceLabel = sourceLabel == null ? "" : sourceLabel;
@@ -59,6 +78,29 @@ interface PlatformLyricSource {
                     ? java.util.Collections.emptyList()
                     : java.util.Collections.unmodifiableList(new java.util.ArrayList<>(translationRows));
             this.hasRomanisation = hasRomanisation;
+            this.noLyricSignal = noLyricSignal;
+        }
+
+        /**
+         * What this document really is: real words, a "no words, enjoy the music" notice, or nothing
+         * at all. An empty body is not an error — it is the catalogue's answer, and the page must not
+         * fall back to a different recording's lyrics because of it.
+         */
+        InstrumentalDetector.Verdict verdict() {
+            if (noLyricSignal) {
+                return InstrumentalDetector.Verdict.INSTRUMENTAL;
+            }
+            java.util.List<String> texts = new java.util.ArrayList<>();
+            for (PlatformLyricRow row : originalRows) {
+                if (row.hasText()) {
+                    texts.add(row.text);
+                }
+            }
+            InstrumentalDetector.Verdict verdict = InstrumentalDetector.verdictOf(texts);
+            if (verdict != InstrumentalDetector.Verdict.NONE) {
+                return verdict;
+            }
+            return texts.isEmpty() ? InstrumentalDetector.Verdict.NO_LYRICS : InstrumentalDetector.Verdict.NONE;
         }
 
         boolean hasTranslation() {

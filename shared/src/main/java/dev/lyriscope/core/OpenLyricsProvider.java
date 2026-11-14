@@ -101,14 +101,6 @@ final class OpenLyricsProvider {
             "and", "de", "del", "der", "di", "du", "la", "le", "of", "the", "van", "von", "y"
     );
 
-    private static final Set<String> NO_LYRICS_PLACEHOLDERS = setOf(
-            "纯音乐请欣赏", "纯音乐请您欣赏", "纯音乐敬请欣赏",
-            "純音樂請欣賞", "純音樂請您欣賞",
-            "此歌曲为没有填词的纯音乐请您欣赏", "此歌曲為沒有填詞的純音樂請您欣賞",
-            "该歌曲为纯音乐请您欣赏", "該歌曲為純音樂請您欣賞",
-            "暂无歌词", "暫無歌詞", "没有歌词", "沒有歌詞"
-    );
-
     interface Logger {
         void write(String message);
     }
@@ -1185,10 +1177,10 @@ final class OpenLyricsProvider {
     }
 
     static boolean isNoLyricsPlaceholder(String text) {
-        String normalized = Normalizer.normalize(text == null ? "" : text, Normalizer.Form.NFKC)
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[\\p{P}\\p{S}\\s]+", "");
-        return NO_LYRICS_PLACEHOLDERS.contains(normalized);
+        // The one list lives in InstrumentalDetector: a notice that reaches the platform catalogues
+        // ("这首歌是纯音乐请欣赏") has to be recognised here as well, or the same sentence is a notice
+        // on one path and a lyric line on the other.
+        return InstrumentalDetector.isNotice(text);
     }
 
     private static boolean allPlaceholderLines(List<JSONObject> lines, Map<Long, String> references) {

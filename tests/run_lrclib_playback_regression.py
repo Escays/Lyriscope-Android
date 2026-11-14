@@ -33,10 +33,12 @@ if result.returncode:
     raise SystemExit(result.returncode)
 # A fresh, local fixture certificate: only the wire-test's explicit trust store trusts it.
 keystore = work / f"wire-{uuid.uuid4()}.p12"
+# keytool answers in the machine's own encoding (a Chinese JDK prints GBK), and its output is only
+# captured to keep the log tidy: decode it leniently so one locale cannot fail the whole regression.
 subprocess.run([java_tool("keytool"), "-genkeypair", "-alias", "fixture", "-keyalg", "RSA", "-keysize", "2048",
                 "-dname", "CN=localhost", "-ext", "SAN=dns:localhost", "-validity", "1", "-storetype", "PKCS12",
                 "-storepass", "fixture-only", "-keypass", "fixture-only", "-keystore", str(keystore)],
-               check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+               check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
 wire = subprocess.run([java_tool("java"), "-cp", cp, "dev.lyriscope.core.LrclibWireRegression", str(keystore)],
                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=45)
 (work / "wire-result.txt").write_text(wire.stdout)
