@@ -885,7 +885,9 @@ public final class LyricsView extends View {
                     location[0] + getWidth(),
                     location[1] + Math.min(getHeight(), Math.round(target.bottom))
             ));
-            if (seekListener != null) node.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+            if (seekListener != null && target.seekable) {
+                node.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLICK);
+            }
             if (accessibilityFocusedId == virtualViewId) {
                 node.setAccessibilityFocused(true);
                 node.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_CLEAR_ACCESSIBILITY_FOCUS);
@@ -896,7 +898,7 @@ public final class LyricsView extends View {
         @Override public boolean performAction(int virtualViewId, int action, Bundle arguments) {
             LineHitTarget target = hitTargetForVirtualId(virtualViewId);
             if (target == null) return false;
-            if (action == AccessibilityNodeInfo.ACTION_CLICK && seekListener != null) {
+            if (action == AccessibilityNodeInfo.ACTION_CLICK && seekListener != null && target.seekable) {
                 seekListener.onSeekRequested(target.seekTimeMs);
                 sendVirtualEvent(virtualViewId, AccessibilityEvent.TYPE_VIEW_CLICKED);
                 return true;
@@ -1267,7 +1269,8 @@ public final class LyricsView extends View {
                 LineHitTarget target = pressedTarget != null ? pressedTarget : findHitTarget(event.getY());
                 pressedTarget = null;
                 recycleVelocityTracker();
-                if (seekListener != null && target != null && findHitTarget(event.getY()) != null) {
+                if (seekListener != null && target != null && target.seekable
+                        && findHitTarget(event.getY()) != null) {
                     prepareSmoothSeekCenter();
                     seekListener.onSeekRequested(target.seekTimeMs);
                     performClick();
@@ -2551,9 +2554,12 @@ public final class LyricsView extends View {
     }
 
     private void addHitTarget(LineLayout layout, float baselineCenter, float blockGap) {
-        if (layout.displayLine == null || !layout.displayLine.isTimed()) {
+        if (layout.displayLine == null) {
             return;
         }
+        // Plain lyrics have no timestamps. They cannot seek, but they must still respond: skipping them
+        // here left the whole view with no hit targets, so a long press did nothing and the reader had
+        // no way back to the sheet.
         float padding = Math.min(blockGap * 0.22f, sp(18f));
         LineHitTarget target;
         if (hitTargetCount < hitTargets.size()) {
@@ -2572,6 +2578,7 @@ public final class LyricsView extends View {
                 layout.displayLine.displayIndex + 1
         );
         target.line = layout.displayLine.line;
+        target.seekable = layout.displayLine.isTimed();
         hitTargetCount++;
     }
 
@@ -5960,6 +5967,8 @@ public final class LyricsView extends View {
         float bottom;
         float centerY;
         long seekTimeMs;
+        /** False for plain lyrics: the row can be pressed, but there is no time to seek to. */
+        boolean seekable = true;
         /** The lyric line this row belongs to; null for an interlude row. */
         LyricsLine line;
         String label = "";
@@ -5969,6 +5978,7 @@ public final class LyricsView extends View {
         void set(LineHitTarget source) {
             set(source.top, source.bottom, source.centerY, source.seekTimeMs, source.label, source.active, source.virtualId);
             this.line = source.line;
+            this.seekable = source.seekable;
         }
 
         void set(float top, float bottom, float centerY, long seekTimeMs, String label, boolean active, int virtualId) {

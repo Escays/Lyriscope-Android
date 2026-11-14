@@ -1975,7 +1975,16 @@ public class BaseLyricsActivity extends Activity implements
         // Name the catalogue it actually came from: four of them can be asked, not just LRCLIB.
         String applied = uiFormat("lyrics.lrclib_search.loaded_format",
                 manualSourceBrand(manualSearchSource));
-        setManualLrclibStatus(applied);
+        boolean timed = false;
+        for (LyricsLine line : result.lines) {
+            if (line.isTimed()) {
+                timed = true;
+                break;
+            }
+        }
+        // Plain lyrics are a legitimate pick — they just cannot follow playback or seek. Say so here
+        // rather than letting the reader wonder why the card stopped responding.
+        setManualLrclibStatus(timed ? applied : applied + "\n" + ui("lyrics.lrclib_search.unsynced_warning"));
         showSavedToast(applied);
         requestMetadataTranslation(false);
         if (!maybeShowFirstLanguagePrompt()) {
