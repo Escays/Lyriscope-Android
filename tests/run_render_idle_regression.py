@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compare offset reads, idle rendering, loading geometry, the frame feed and the lyrics page's
 interrupted slides with frozen production code."""
+import os
 from pathlib import Path
 import subprocess
 
@@ -35,7 +36,6 @@ def offsets(baseline):
     declarations = "\n".join(declaration(value, signature) for signature in (
         "int trackSyncOffsetMs(String trackKey)",
         "int trackVideoSyncOffsetMs(String trackKey)",
-        "int bluetoothSyncOffsetMs(String deviceKey)",
         "private int trackOffsetMs(" if baseline else "private synchronized int trackOffsetMs(",
     ))
     if not baseline:
@@ -108,8 +108,9 @@ test.write_text(template.replace("// INSERT_PRODUCTION_DECLARATIONS", "\n".join(
 )))
 dependency = str(json_jar())
 subprocess.run([java_tool("javac"), "-cp", dependency, "-d", str(work), str(test)], check=True)
-result = subprocess.run([java_tool("java"), "-cp", str(work) + ":" + dependency,
-                         "RenderIdleRegression"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+result = subprocess.run([java_tool("java"), "-cp", os.pathsep.join([str(work), dependency]),
+                         "RenderIdleRegression"], text=True, encoding="utf-8", errors="replace",
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 report = (f"Frozen baseline: {BASELINE} (frame feed: {FEED_BASELINE})\n"
           "Production methods with synthetic Android collaborators; actual JSON parser.\n"
           + result.stdout)

@@ -197,11 +197,11 @@ public final class RenderIdleRegression {
         check(candidate.trackSyncOffsetMs("track250") == 10000, "Preference write immediately changes clamped result");
         candidate.prefs.values.put("video", "{\"track250\":-20000}");
         candidate.prefs.values.put("bluetooth", "{\"device\":75}");
-        check(candidate.trackVideoSyncOffsetMs("track250") == -10000 && candidate.bluetoothSyncOffsetMs("device") == 75, "Independent tables");
+        check(candidate.trackVideoSyncOffsetMs("track250") == -10000, "Track video offsets stay independent");
         int parses = JSONObject.parses;
         for (int i = 0; i < 30; i++) {
             check(candidate.trackSyncOffsetMs("track250") == 10000, "track table survives other categories");
-            candidate.trackVideoSyncOffsetMs("track250"); candidate.bluetoothSyncOffsetMs("device");
+            candidate.trackVideoSyncOffsetMs("track250");
         }
         check(JSONObject.parses == parses, "Each category retains its cache");
         candidate.prefs.values.put("track", "bad-json");

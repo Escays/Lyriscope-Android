@@ -2,7 +2,7 @@
 """Exercise production overlap activation and interlude display logic with synthetic rows."""
 from pathlib import Path
 import subprocess
-from regression_runtime import ROOT, SHARED, REPORTS, compiled_classes, classpath, java_tool
+from regression_runtime import ROOT, SHARED, REPORTS, android_jar, compiled_classes, classpath, java_tool
 
 source = (SHARED / "LyricsView.java").read_text()
 
@@ -17,6 +17,7 @@ def declaration(signature):
     return source[start:cursor]
 
 production = "\n".join(declaration(signature) for signature in (
+    "private String footerText",
     "private List<DisplayLine> buildDisplayLines()",
     "private LineVisualState lineVisualState(",
     "private long displayLineContentEndTime(",
@@ -41,7 +42,7 @@ work.mkdir(parents=True, exist_ok=True)
 test = work / "RendererOverlapRegression.java"
 test.write_text(Path(__file__).with_name("RendererOverlapRegression.java.in").read_text()
                 .replace("// INSERT_PRODUCTION_DECLARATIONS", production))
-dependencies = classpath(work, compiled_classes("shared"))
+dependencies = classpath(work, compiled_classes("shared"), android_jar())
 subprocess.run([java_tool("javac"), "-cp", dependencies, "-d", str(work),
                 str(SHARED / "LyricsLine.java"), str(test)], check=True)
 result = subprocess.run([java_tool("java"), "-cp", dependencies,
