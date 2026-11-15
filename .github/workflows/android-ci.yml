@@ -74,6 +74,7 @@ jobs:
           python3 tests/run_provider_type_gate_regression.py
           python3 tests/run_instrumental_verdict_regression.py
           python3 tests/run_traditional_match_mix_regression.py
+          python3 tests/run_translation_alignment_regression.py
           python3 tests/run_renderer_overlap_regression.py
           python3 tests/run_frame_layout_pool_regression.py
           python3 tests/run_render_idle_regression.py

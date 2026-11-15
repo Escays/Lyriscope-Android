@@ -96,8 +96,18 @@ final class PlatformTranslationAligner {
         for (int i = 1; i <= baseCount; i++) {
             String current = base.get(translatable.get(i - 1));
             for (int j = 1; j <= rowCount; j++) {
+                // Two ways to move forward without consuming a pair: drop a displayed line, or drop an
+                // external row. Both have to propagate through the table. Only the first one did, so a
+                // match found in the middle of the list was forgotten as soon as the next row failed
+                // to pair — and the walk back from the corner then found nothing at all. That is how a
+                // catalogue whose rows continue past the lyrics scored 0.12 while every single line
+                // compared as identical.
                 double best = dp[i - 1][j];
                 byte bestStep = STEP_BASE_ONLY;
+                if (dp[i][j - 1] > best) {
+                    best = dp[i][j - 1];
+                    bestStep = STEP_ROW_ONLY;
+                }
 
                 double pair = pairScore(current, originals.get(j - 1));
                 if (pair >= MIN_PAIR_SCORE && dp[i - 1][j - 1] + pair > best) {
