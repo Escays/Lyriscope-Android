@@ -33,6 +33,8 @@ public final class TraditionalMatchAndMixRegression {
         traditionalTitleMatches();
         emptyArtistDoesNotFlattenTheList();
         mixOffStopsAtThePlatform();
+        creditsInAnotherScriptStillMatch();
+        mixingOffStillTranslatesWhenTheCatalogueIsSilent();
         System.out.println("traditional match and mix regression: " + checks + " checks passed");
     }
 
@@ -104,6 +106,54 @@ public final class TraditionalMatchAndMixRegression {
         settings.setMixSources(true);
         settings.setPlatformOnly(true);
         check(service.stopsAtPlatform(), "'platform only' keeps working with mixing on");
+    }
+
+    /**
+     * The second report: Spotify credits "Sukima Switch", the catalogue writes スキマスイッチ, and the
+     * two share no character — so the artist contribution was zero, the "title and artist disagree" cap
+     * fired, and a perfect match sat at 30% among unrelated songs.
+     */
+    private static void creditsInAnotherScriptStillMatch() {
+        PlatformRecordingMatcher.Candidate catalogueHit = new PlatformRecordingMatcher.Candidate(
+                "1887", "ゴールデンタイムラバー", "スキマスイッチ", "ゴールデンタイムラバー", 343_000L);
+        PlatformRecordingMatcher.Score score = PlatformRecordingMatcher.score(
+                "ゴールデンタイムラバー - 2020 Remaster",
+                "Sukima Switch",
+                "スキマノハナタバ 〜Smile Song Selection〜",
+                343_120L,
+                catalogueHit);
+        check(PlatformRecordingMatcher.artistSimilarity("Sukima Switch", "スキマスイッチ") == 0d,
+                "the fixture must reproduce the zero that caused the cap");
+        check(score.total > 0.62d, "a same-title same-length hit must not stay at the 30% cap: " + score.total);
+        check(score.acceptable(), "the catalogue's own spelling of the act must still be accepted");
+
+        // The namesake is still rejected: a different title cannot borrow this evidence.
+        PlatformRecordingMatcher.Candidate namesake = new PlatformRecordingMatcher.Candidate(
+                "29542593", "Twilight Zone   Twilight Tone", "Manhattan Transfer", "1980", 235_000L);
+        PlatformRecordingMatcher.Score rejected = PlatformRecordingMatcher.score(
+                "Tone Twilight Zone", "Cornelius", "Point", 234_266L, namesake);
+        check(!rejected.acceptable(), "a namesake recording must stay unacceptable");
+
+        // A performance tag is not spelling: a live take of the same song is still another recording.
+        PlatformRecordingMatcher.Candidate live = new PlatformRecordingMatcher.Candidate(
+                "9", "ゴールデンタイムラバー (Live)", "スキマスイッチ", "LIVE", 343_000L);
+        check(!PlatformRecordingMatcher.score(
+                "ゴールデンタイムラバー - 2020 Remaster", "Sukima Switch", "", 343_120L, live).acceptable(),
+                "a live take cannot pass on the same-title evidence");
+    }
+
+    /** Mixing off means one source owns the set — not that a silent catalogue leaves the page blank. */
+    private static void mixingOffStillTranslatesWhenTheCatalogueIsSilent() {
+        check(!PlatformTranslationSettings.ownsTranslation(false, false, 0, true),
+                "with mixing off and nothing covered, the engine still has to translate");
+        check(PlatformTranslationSettings.ownsTranslation(false, false, 12, true),
+                "with mixing off, a catalogue that covered something owns the set, gaps included");
+        check(!PlatformTranslationSettings.ownsTranslation(false, true, 12, true),
+                "mixing on keeps the engine filling the gaps");
+        check(PlatformTranslationSettings.ownsTranslation(false, true, 47, false),
+                "mixing on with full coverage never calls the engine");
+        check(PlatformTranslationSettings.ownsTranslation(true, false, 0, true),
+                "'platform only' answers even when the answer is blank");
     }
 
     /** A SharedPreferences that lives in a map: enough to exercise the switches, nothing else. */

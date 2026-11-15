@@ -272,6 +272,18 @@ final class PlatformRecordingMatcher {
         }
         double durationScore = durationKnown ? durationScore(delta) : 0.5d;
 
+        if (durationKnown && delta <= STRICT_DURATION_TOLERANCE_MS
+                && sameSearchTitle(title, candidate.title)
+                && !hasStrictVersionTag(queryText(title, album), candidate.title + " " + candidate.album)) {
+            // The credit is the same act written in another script: Spotify says "Sukima Switch", the
+            // catalogue says スキマスイッチ, and the two share no character at all. An identical title
+            // once its version tail is gone plus an identical length is the evidence that survives;
+            // the spelling of the credit is exactly what cannot be compared here. A live or cover tag
+            // still rules the candidate out, so this evidence cannot rescue a different performance.
+            titleScore = Math.max(titleScore, 1d);
+            artistScore = Math.max(artistScore, 0.55d);
+        }
+
         double total = (0.46d * titleScore) + (0.30d * artistScore) + (0.19d * durationScore)
                 + (0.05d * albumScore);
         total -= tagPenalty(title + " " + album, candidate.title + " " + candidate.album);
@@ -380,6 +392,13 @@ final class PlatformRecordingMatcher {
 
     private static boolean isCjk(String token) {
         return ChineseLyricText.hanCount(token) > 0 || ChineseLyricText.hasKana(token);
+    }
+
+    /** Same words once the version tail is removed — the title a search engine would be given. */
+    private static boolean sameSearchTitle(String title, String candidateTitle) {
+        String left = squashed(searchTitle(title));
+        String right = squashed(searchTitle(candidateTitle));
+        return !left.isEmpty() && left.equals(right);
     }
 
     /** The title without its parenthesised or bracketed decorations. */

@@ -12539,7 +12539,9 @@ public class BaseLyricsActivity extends Activity implements
             setManualLrclibStatus(ui("spotify.error.repository_unavailable"));
             return;
         }
-        final String trackKey = currentTrack == null ? "" : currentTrack.stableKey();
+        // The key the page is showing, not the track's own key: a pick is only applied when the two
+        // agree, and a stale page would otherwise swallow the pick without a word.
+        final String trackKey = manualSearchTrackKey();
         final String query = artist.isEmpty() ? title : title + " " + artist;
         // A catalogue that indexes simplified only finds nothing for 臉: ask again with the folded title
         // before reporting "no results", since the reader typed a spelling the catalogue may not use.
@@ -12681,6 +12683,8 @@ public class BaseLyricsActivity extends Activity implements
         }
         manualLrclibSearchInFlight = true;
         manualPlatformTried.add(candidate.id);
+        appendLog("manual pick: " + manualSourceBrand(source.id()) + " id=" + candidate.id
+                + " / \"" + candidate.title + "\"");
         renderManualPlatformRows(source);
         setManualLrclibStatus(uiFormat("lyrics.lrclib_search.selecting_format",
                 manualSourceBrand(source.id())));
@@ -12711,7 +12715,14 @@ public class BaseLyricsActivity extends Activity implements
             }
             runOnUiThread(() -> {
                 manualLrclibSearchInFlight = false;
+                // The pick is the one action whose failure used to be silent: record what the catalogue
+                // answered so a refused pick can be told apart from one that never started.
+                appendLog("manual pick result: id=" + candidate.id
+                        + " / verdict=" + (fetched == null ? "none" : fetched.verdict().name().toLowerCase(java.util.Locale.ROOT))
+                        + " / lines=" + (loaded == null ? 0 : loaded.lines.size())
+                        + (failure.isEmpty() ? "" : " / error=" + failure));
                 if (!isCurrentManualLrclibTrack(trackKey)) {
+                    appendLog("manual pick dropped: the page moved to another track");
                     return;
                 }
                 if (!failure.isEmpty()) {
@@ -12957,6 +12968,16 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsManualSearchStatusView != null) {
             lyricsManualSearchStatusView.setText(message == null ? "" : message);
         }
+    }
+
+    /** The key the page is showing lyrics for; the track's own key only before the first lookup. */
+    private String manualSearchTrackKey() {
+        if (currentLyricsKey != null && !currentLyricsKey.trim().isEmpty()) {
+            return currentLyricsKey;
+        }
+        return currentTrack == null || !currentTrack.hasUsableMetadata()
+                ? ""
+                : currentTrack.stableKey();
     }
 
     private boolean isCurrentManualLrclibTrack(String trackKey) {

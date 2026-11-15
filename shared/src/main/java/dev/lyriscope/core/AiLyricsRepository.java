@@ -1850,8 +1850,11 @@ final class AiLyricsRepository {
                 if (seed.complete()) {
                     session.setProvider(false, seed.providerLabel);
                     reportSupplementProvider(trackKey, callback, false, seed.providerLabel);
-                    log.write("platform translation covered every line: " + seed.providerLabel
-                            + " / lines=" + requests.size());
+                    log.write(seed.coversEverything()
+                            ? "platform translation covered every line: " + seed.providerLabel
+                                    + " / lines=" + requests.size()
+                            : "platform translation owns the set, mixing is off: " + seed.providerLabel
+                                    + " / lines=" + seed.coveredLines + "/" + requests.size());
                     values = seed.values;
                 } else {
                     if (seed.hasPlatform()) {
@@ -2097,6 +2100,8 @@ final class AiLyricsRepository {
      */
     private static final class PlatformSeed {
         final boolean platformOnly;
+        /** False when the reader asked for one source to own the whole translation. */
+        final boolean mixesSources;
         final List<String> values;
         final List<SupplementRequest> pendingRequests;
         final List<String> pendingTexts;
@@ -2106,8 +2111,9 @@ final class AiLyricsRepository {
 
         PlatformSeed(List<String> values, List<SupplementRequest> pendingRequests, List<String> pendingTexts,
                 List<Integer> pendingSlots, String providerLabel, int coveredLines,
-                boolean platformOnly) {
+                boolean platformOnly, boolean mixesSources) {
             this.platformOnly = platformOnly;
+            this.mixesSources = mixesSources;
             this.values = values;
             this.pendingRequests = pendingRequests;
             this.pendingTexts = pendingTexts;
@@ -2121,8 +2127,12 @@ final class AiLyricsRepository {
         }
 
         boolean complete() {
-            // Platform-only never falls through to the AI stage, even when nothing was covered.
-            return platformOnly || (coveredLines > 0 && pendingRequests.isEmpty());
+            return PlatformTranslationSettings.ownsTranslation(
+                    platformOnly, mixesSources, coveredLines, !pendingRequests.isEmpty());
+        }
+
+        boolean coversEverything() {
+            return coveredLines > 0 && pendingRequests.isEmpty();
         }
 
         List<String> merge(List<String> aiValues) {
@@ -2162,7 +2172,7 @@ final class AiLyricsRepository {
         }
         if (track == null || requests.isEmpty() || !PlatformTranslationSettings.isChineseTarget(targetLang)) {
             return new PlatformSeed(values, pending, pendingTexts, pendingSlots, "", 0,
-                platformTranslations.stopsAtPlatform());
+                platformTranslations.platformOnly(), !platformTranslations.stopsAtPlatform());
         }
         List<String> baseLines = new ArrayList<>(session.baseResult.lines.size());
         for (LyricsLine line : session.baseResult.lines) {
@@ -2183,7 +2193,7 @@ final class AiLyricsRepository {
         }
         if (!snapshot.hasAny()) {
             return new PlatformSeed(values, pending, pendingTexts, pendingSlots, "", 0,
-                platformTranslations.stopsAtPlatform());
+                platformTranslations.platformOnly(), !platformTranslations.stopsAtPlatform());
         }
 
         List<SupplementRequest> remainingRequests = new ArrayList<>();
@@ -2207,7 +2217,8 @@ final class AiLyricsRepository {
             }
         }
         return new PlatformSeed(values, remainingRequests, remainingTexts, remainingSlots,
-                snapshot.providerLabel, covered, platformTranslations.stopsAtPlatform());
+                snapshot.providerLabel, covered, platformTranslations.platformOnly(),
+                !platformTranslations.stopsAtPlatform());
     }
 
     private static String combineProviderLabels(String platformLabel, String aiLabel) {

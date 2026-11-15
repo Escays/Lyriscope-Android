@@ -52,6 +52,25 @@ final class PlatformTranslationSettings {
         this.prefs = prefs;
     }
 
+    /**
+     * Whether the platform stage already owns the translation, so no engine call follows.
+     *
+     * <p>Three policies meet here. "Platform only" means exactly that, blanks included. "Mixing off"
+     * means one source owns the whole set — but only when it produced something: a catalogue that
+     * answered nothing owns nothing, and the reader still asked for a translation. Otherwise the
+     * catalogues seed what they can and the engine fills the rest.
+     */
+    static boolean ownsTranslation(boolean platformOnly, boolean mixesSources,
+            int coveredLines, boolean hasPending) {
+        if (platformOnly) {
+            return true;
+        }
+        if (!mixesSources) {
+            return coveredLines > 0;
+        }
+        return coveredLines > 0 && !hasPending;
+    }
+
     static boolean isChineseTarget(String targetLanguage) {
         String value = targetLanguage == null ? "" : targetLanguage.trim().toLowerCase(Locale.ROOT);
         return value.startsWith("zh");
