@@ -1046,6 +1046,10 @@ final class LyricsRepository {
                 config -> fetchConcurrentCandidate(config, track, isrc, spotifyTrackId, trackKey, log)
         );
         boolean wordSyncFallbackChecked = !settings.automaticWordSyncFallback();
+        // lrc.red's own text, kept aside while the timed sources are still being asked. Handing it back
+        // the moment it arrived is what starved a page of a catalogue's real timeline: the fallback runs
+        // at the first non-karaoke attempt, which is before the synced round has even started.
+        LyricsResult deferredPlainFallback = null;
         try {
             lookups.fill();
             for (LyricsProviderSelectionPlan.Attempt attempt : plan.attempts) {
@@ -1060,12 +1064,19 @@ final class LyricsRepository {
                             : lrcRed.synced && lrcRedCandidate.synced != null ? lrcRedCandidate.synced
                             : lrcRed.plain ? lrcRedCandidate.plain : null;
                     if (fallback != null) {
-                        log.write("provider selected: lrcred / type=" + (fallback == lrcRedCandidate.synced ? "synced" : "plain")
-                                + " / word timing will be generated");
-                        return fallback.withSelection(
+                        boolean ownTimeline = fallback == lrcRedCandidate.synced;
+                        log.write("provider selected: lrcred / type="
+                                + (ownTimeline ? "synced" : "plain")
+                                + (ownTimeline ? " / word timing will be generated"
+                                : " / kept aside until the timed sources have answered"));
+                        LyricsResult picked = fallback.withSelection(
                                 LyricsProviderSettings.PROVIDER_LRC_RED,
                                 settings.cacheKeyForProvider(LyricsProviderSettings.PROVIDER_LRC_RED)
                         );
+                        if (ownTimeline) {
+                            return picked;
+                        }
+                        deferredPlainFallback = picked;
                     }
                 }
                 LyricsProviderSettings.ProviderConfig config = attempt.config;
@@ -1102,6 +1113,15 @@ final class LyricsRepository {
             }
         } finally {
             lookups.cancel();
+        }
+        if (deferredPlainFallback != null) {
+            // Nothing timed came back after all: a catalogue may still have one, and only then is text
+            // the last word.
+            LyricsResult timed = probeTimedLyrics(track, log);
+            if (timed != null) {
+                return timed;
+            }
+            return deferredPlainFallback;
         }
         return probeInstrumental(track, log);
     }
