@@ -24,6 +24,12 @@ final class QqLyricSource implements PlatformLyricSource {
 
     private static final String SEARCH_ENDPOINT = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp";
     private static final String LYRIC_ENDPOINT = "https://u.y.qq.com/cgi-bin/musicu.fcg";
+    /**
+     * The older lyric endpoint, kept as a fallback. It answers plain LRC for one songmid and needs no
+     * JSON module envelope, so it keeps working when the musicu route is rate limited or reshaped.
+     */
+    private static final String LEGACY_LYRIC_ENDPOINT =
+            "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
     private static final Map<String, String> SEARCH_HEADERS = PlatformHttpTransport.headers(
             "Referer", "https://y.qq.com/",
             "Accept", "application/json"
@@ -88,6 +94,67 @@ final class QqLyricSource implements PlatformLyricSource {
 
     @Override
     public PlatformLyricDocument fetch(String candidateId) throws Exception {
+        Exception primaryFailure = null;
+        try {
+            PlatformLyricDocument document = fetchPlayLyricInfo(candidateId);
+            if (document != null && !document.originalRows.isEmpty()) {
+                return document;
+            }
+        } catch (Exception error) {
+            primaryFailure = error;
+        }
+        return fetchLegacyLyric(candidateId, primaryFailure);
+    }
+
+    /** One songmid straight to the legacy fcgi endpoint: plain LRC and its translation. */
+    private PlatformLyricDocument fetchLegacyLyric(String songMid, Exception primaryFailure) throws Exception {
+        String url = LEGACY_LYRIC_ENDPOINT
+                + "?songmid=" + encode(songMid)
+                + "&format=json&nobase64=1&g_tk=5381&loginUin=0&hostUin=0&platform=yqq&needNewCode=0";
+        PlatformHttpTransport.Response response;
+        try {
+            response = transport.get(url, LYRIC_HEADERS);
+        } catch (Exception error) {
+            throw primaryFailure != null ? primaryFailure : error;
+        }
+        if (!response.ok()) {
+            throw primaryFailure != null
+                    ? primaryFailure
+                    : new IOException(LABEL + " lyric failed (" + response.status + ")");
+        }
+        JSONObject root = new JSONObject(PlatformHttpTransport.stripJsonp(response.body));
+        String original = plainOrBase64(root.optString("lyric", ""));
+        String translated = plainOrBase64(root.optString("trans", ""));
+        String romanised = plainOrBase64(root.optString("roma", ""));
+        if (original.trim().isEmpty() && translated.trim().isEmpty()) {
+            throw primaryFailure != null
+                    ? primaryFailure
+                    : new IOException(LABEL + " lyric response is empty");
+        }
+        return new PlatformLyricDocument(
+                ID,
+                LABEL,
+                songMid,
+                "",
+                "",
+                "",
+                0L,
+                PlatformLyricRow.parseLrc(original),
+                PlatformLyricRow.parseLrc(translated),
+                !romanised.trim().isEmpty()
+        );
+    }
+
+    /** "nobase64=1" is asked for, but a proxy may still base64 the payload. LRC always has brackets. */
+    private static String plainOrBase64(String value) {
+        String text = value == null ? "" : value.trim();
+        if (text.isEmpty() || text.contains("[")) {
+            return text;
+        }
+        return decode(text);
+    }
+
+    private PlatformLyricDocument fetchPlayLyricInfo(String candidateId) throws Exception {
         JSONObject parameters = new JSONObject()
                 .put("songMID", candidateId)
                 .put("songID", 0)
