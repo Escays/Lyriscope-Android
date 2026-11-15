@@ -1086,6 +1086,14 @@ final class LyricsRepository {
                 LyricsResult selected = resultForType(candidate, attempt.type);
                 if (selected != null) {
                     log.write("provider selected: " + config.provider.id + " / type=" + attempt.type);
+                    if (LyricsProviderSettings.TYPE_PLAIN.equals(attempt.type)) {
+                        // Nothing offered a timeline. The catalogues carry the same recording with one,
+                        // and a page that cannot follow playback is worse than another catalogue's rows.
+                        LyricsResult timed = probeTimedLyrics(track, log);
+                        if (timed != null) {
+                            return timed;
+                        }
+                    }
                     return selected.withSelection(
                             config.provider.id,
                             settings.cacheKeyForProvider(config.provider.id)
@@ -1113,9 +1121,7 @@ final class LyricsRepository {
             return notFound;
         }
         PlatformHttpTransport.Transport transport = PlatformHttpTransport.http();
-        for (PlatformLyricSource source : new PlatformLyricSource[]{
-                new NeteaseLyricSource(transport),
-                new QqLyricSource(transport)}) {
+        for (PlatformLyricSource source : platformSources(transport)) {
             try {
                 String query = track.artist.trim().isEmpty()
                         ? track.title.trim()
@@ -1158,6 +1164,145 @@ final class LyricsRepository {
      * Applied where a result reaches the page rather than where it is looked up, so a cached result
      * is described by today's switches and the stored detail stays the catalogue's own answer.
      */
+    private static PlatformLyricSource[] platformSources(PlatformHttpTransport.Transport transport) {
+        return new PlatformLyricSource[]{
+                new NeteaseLyricSource(transport),
+                new QqLyricSource(transport),
+                new KugouLyricSource(transport)
+        };
+    }
+
+    /** Within ten seconds of the playing track: close enough that its timeline means something. */
+    private static boolean closeInLength(long trackMs, long candidateMs) {
+        return trackMs <= 0L || candidateMs <= 0L || Math.abs(trackMs - candidateMs) <= 10_000L;
+    }
+
+    /**
+     * A timestamped copy from a catalogue, for when every configured provider can only offer text.
+     *
+     * <p>Plain lyrics are honest but useless on a page that follows playback: nothing scrolls, and the
+     * silence after the last row reads as an interlude. The catalogues usually hold the same recording
+     * timed, and their translation is written for exactly those rows, so it is taken here — once, and
+     * only after the providers have already answered.
+     */
+    private LyricsResult probeTimedLyrics(TrackSnapshot track, LogSink log) {
+        if (!instrumentalProbeEnabled || track == null || track.title.trim().isEmpty()) {
+            return null;
+        }
+        PlatformHttpTransport.Transport transport = PlatformHttpTransport.http();
+        for (PlatformLyricSource source : platformSources(transport)) {
+            try {
+                String query = track.artist.trim().isEmpty()
+                        ? track.title.trim()
+                        : track.title.trim() + " " + track.artist.trim();
+                PlatformRecordingMatcher.Score best = null;
+                for (PlatformRecordingMatcher.Score score : PlatformRecordingMatcher.rank(
+                        track.title,
+                        track.artist,
+                        track.album,
+                        track.durationMs,
+                        source.search(query, 6)
+                )) {
+                    if (score.acceptable() && closeInLength(track.durationMs, score.candidate.durationMs)) {
+                        best = score;
+                        break;
+                    }
+                }
+                if (best == null) {
+                    log.write("timed fallback: " + source.label() + " has no recording that matches");
+                    continue;
+                }
+                PlatformLyricSource.PlatformLyricDocument document = source.fetch(best.candidate.id);
+                LyricsResult result = timedLyricsFromDocument(source, document, track);
+                if (result == null) {
+                    log.write("timed fallback: " + source.label() + " has no timeline for \""
+                            + best.candidate.title + "\"");
+                    continue;
+                }
+                log.write("timed fallback: " + source.label() + " supplied the timeline ("
+                        + best.candidate.title + " / " + best.candidate.artist + ")");
+                return result.withSelection(source.id(), source.id());
+            } catch (Exception error) {
+                String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                log.write("timed fallback: " + source.label() + " unavailable (" + message + ")");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A timeline needs two different instants. A sheet of rows all pinned to zero has one, and a single
+     * timestamped row describes nothing.
+     */
+    static boolean hasDistinctTimeline(java.util.List<PlatformLyricRow> rows) {
+        if (rows == null) {
+            return false;
+        }
+        int distinctStarts = 0;
+        long previousStart = -1L;
+        for (PlatformLyricRow row : rows) {
+            if (row == null || !row.hasText() || row.startTimeMs == previousStart) {
+                continue;
+            }
+            previousStart = row.startTimeMs;
+            distinctStarts++;
+        }
+        return distinctStarts >= 2;
+    }
+
+    /** The catalogue's own rows as timed lines, with its translation beside each line it covers. */
+    private LyricsResult timedLyricsFromDocument(PlatformLyricSource source,
+            PlatformLyricSource.PlatformLyricDocument document, TrackSnapshot track) {
+        if (document == null || document.verdict() != InstrumentalDetector.Verdict.NONE) {
+            return null;
+        }
+        java.util.List<PlatformLyricRow> rows = document.originalRows;
+        if (rows == null || rows.size() < 2) {
+            return null;
+        }
+        if (!hasDistinctTimeline(rows)) {
+            return null;
+        }
+        String[] translations = PlatformTranslationAligner.pairTranslations(
+                rows, document.translationRows);
+        java.util.List<LyricsLine> lines = new java.util.ArrayList<>();
+        for (int index = 0; index < rows.size(); index++) {
+            PlatformLyricRow row = rows.get(index);
+            if (!row.hasText() || PlatformLyricRow.isCreditRow(row.text)) {
+                continue;
+            }
+            long start = row.startTimeMs;
+            long end = 0L;
+            for (int next = index + 1; next < rows.size(); next++) {
+                if (rows.get(next).hasText() && rows.get(next).startTimeMs > start) {
+                    end = rows.get(next).startTimeMs;
+                    break;
+                }
+            }
+            if (end <= start) {
+                end = track.durationMs > start ? track.durationMs : start + 2500L;
+            }
+            LyricsLine line = new LyricsLine(start, end, row.text, java.util.Collections.emptyList());
+            String translation = translations[index];
+            if (translation != null && !translation.trim().isEmpty()) {
+                line = line.withSupplements("", translation.trim());
+            }
+            lines.add(line);
+        }
+        if (lines.size() < 2) {
+            return null;
+        }
+        return new LyricsResult(
+                lines,
+                source.label(),
+                uiFormat("repo.platform_timed_format", source.label()),
+                false,
+                firstNonEmpty(track.isrc, ""),
+                track.trackId,
+                java.util.Collections.emptyList()
+        );
+    }
+
     private LyricsResult withBlockedTypeHint(LyricsResult result, String trackKey, LogSink log) {
         if (result == null || lyricsProviderSettings == null) {
             return result;

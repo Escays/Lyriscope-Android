@@ -139,6 +139,8 @@ final class PlatformTranslationService {
         }
     };
     private final Map<String, Object> inFlight = new LinkedHashMap<>();
+    /** Which catalogue the reader picked the lyrics from, when they picked one by hand. */
+    private final ManualLyricsPicks lyricPicks;
 
     PlatformTranslationService(
             Context context,
@@ -155,6 +157,7 @@ final class PlatformTranslationService {
         this.sources.add(new NeteaseLyricSource(transport));
         this.sources.add(new QqLyricSource(transport));
         this.sources.add(new KugouLyricSource(transport));
+        this.lyricPicks = appContext == null ? null : new ManualLyricsPicks(appContext);
         this.currentTrackKey = currentTrackKey;
     }
 
@@ -168,6 +171,7 @@ final class PlatformTranslationService {
         this.settings = new PlatformTranslationSettings((SharedPreferences) null);
         this.cachePrefs = null;
         this.sources = new ArrayList<>(sources);
+        this.lyricPicks = null;
         this.currentTrackKey = currentTrackKey == null ? () -> "" : currentTrackKey;
     }
 
@@ -177,6 +181,7 @@ final class PlatformTranslationService {
                 ? new PlatformTranslationSettings((SharedPreferences) null) : settings;
         this.cachePrefs = null;
         this.sources = new ArrayList<>(sources);
+        this.lyricPicks = null;
         this.currentTrackKey = () -> "";
     }
 
@@ -197,7 +202,7 @@ final class PlatformTranslationService {
         if (!PlatformTranslationSettings.isChineseTarget(targetLanguage)) {
             return Snapshot.empty();
         }
-        List<String> order = settings.orderForTrack(trackKey);
+        List<String> order = preferPickedLyricsSource(trackKey, settings.orderForTrack(trackKey));
         if (order.isEmpty() || baseTexts == null || baseTexts.isEmpty()) {
             return Snapshot.empty();
         }
@@ -304,6 +309,36 @@ final class PlatformTranslationService {
         String label = providerLabel(lineCountBySource.keySet());
         return new Snapshot(translations, lineSources, diagnostics, statuses, primary, label,
                 translated, translatable, isStale(trackKey));
+    }
+
+    /**
+     * A lyric picked by hand names the catalogue whose rows the page is showing, and a translation is
+     * only written for those rows. Asking the configured order first put a different catalogue's
+     * translation on the page — and named it in the footnote — right after the reader had chosen
+     * another one.
+     */
+    private List<String> preferPickedLyricsSource(String trackKey, List<String> order) {
+        if (lyricPicks == null || order == null || order.isEmpty()
+                || trackKey == null || trackKey.trim().isEmpty()) {
+            return order;
+        }
+        return preferPickedSource(order, lyricPicks.find(trackKey));
+    }
+
+    /** A picked source leads the order; everything else keeps its configured place behind it. */
+    static List<String> preferPickedSource(List<String> order, String[] pick) {
+        if (order == null || order.isEmpty() || pick == null
+                || pick[0] == null || pick[0].isEmpty() || !order.contains(pick[0])) {
+            return order;
+        }
+        List<String> preferred = new ArrayList<>(order.size());
+        preferred.add(pick[0]);
+        for (String id : order) {
+            if (!pick[0].equals(id)) {
+                preferred.add(id);
+            }
+        }
+        return preferred;
     }
 
     /** One source: search variants, recording filter, alignment, and the status that describes it. */

@@ -35,6 +35,8 @@ public final class TraditionalMatchAndMixRegression {
         mixOffStopsAtThePlatform();
         creditsInAnotherScriptStillMatch();
         mixingOffStillTranslatesWhenTheCatalogueIsSilent();
+        pickedLyricsSourceLeadsTheTranslation();
+        aSheetWithoutTimingIsNotATimeline();
         System.out.println("traditional match and mix regression: " + checks + " checks passed");
     }
 
@@ -154,6 +156,44 @@ public final class TraditionalMatchAndMixRegression {
                 "mixing on with full coverage never calls the engine");
         check(PlatformTranslationSettings.ownsTranslation(true, false, 0, true),
                 "'platform only' answers even when the answer is blank");
+    }
+
+    /**
+     * A pick names the catalogue whose rows the page is showing. Asking the configured order first put
+     * another catalogue's translation — and its name in the footnote — right after the reader had
+     * chosen one by hand.
+     */
+    private static void pickedLyricsSourceLeadsTheTranslation() {
+        List<String> order = List.of("netease", "qq", "kugou");
+        check(PlatformTranslationService.preferPickedSource(order, new String[]{"qq", "123"})
+                        .equals(List.of("qq", "netease", "kugou")),
+                "the picked catalogue leads the order");
+        check(PlatformTranslationService.preferPickedSource(order, new String[]{"kugou", "1"})
+                        .equals(List.of("kugou", "netease", "qq")),
+                "the rest keep their configured places");
+        check(PlatformTranslationService.preferPickedSource(order, null).equals(order),
+                "no pick leaves the order untouched");
+        check(PlatformTranslationService.preferPickedSource(order, new String[]{"lrclib", "1"}).equals(order),
+                "a pick outside the translation sources changes nothing");
+        check(PlatformTranslationService.preferPickedSource(order, new String[]{"", ""}).equals(order),
+                "an empty pick changes nothing");
+    }
+
+    /** A catalogue sheet pinned to zero is not a timeline, and must not replace a page that has one. */
+    private static void aSheetWithoutTimingIsNotATimeline() {
+        check(!LyricsRepository.hasDistinctTimeline(PlatformLyricRow.parseLrc(
+                        "first line\nsecond line\nthird line")),
+                "rows without timestamps have no timeline");
+        check(!LyricsRepository.hasDistinctTimeline(PlatformLyricRow.parseLrc(
+                        "[00:00.00]first\n[00:00.00]second")),
+                "rows sharing one instant have no timeline");
+        check(!LyricsRepository.hasDistinctTimeline(PlatformLyricRow.parseLrc(
+                        "[00:10.00]only line")),
+                "a single timestamped row describes nothing");
+        check(LyricsRepository.hasDistinctTimeline(PlatformLyricRow.parseLrc(
+                        "[00:10.00]first\n[00:20.00]second")),
+                "two instants are a timeline");
+        check(!LyricsRepository.hasDistinctTimeline(null), "no rows, no timeline");
     }
 
     /** A SharedPreferences that lives in a map: enough to exercise the switches, nothing else. */
