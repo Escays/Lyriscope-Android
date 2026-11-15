@@ -1164,9 +1164,18 @@ final class LyricsRepository {
         if (!instrumentalProbeEnabled || track == null || track.title.trim().isEmpty()) {
             return null;
         }
+        LyricsProviderSettings.Snapshot providerSnapshot =
+                lyricsProviderSettings == null ? null : lyricsProviderSettings.snapshot();
         PlatformHttpTransport.Transport transport = PlatformHttpTransport.http();
         for (PlatformLyricSource source : platformSources(transport)) {
             try {
+                if (providerSnapshot != null) {
+                    LyricsProviderSettings.ProviderConfig config = providerSnapshot.config(source.id());
+                    if (config != null && !config.enabled) {
+                        log.write("platform fallback: " + source.label() + " is switched off");
+                        continue;
+                    }
+                }
                 String query = track.artist.trim().isEmpty()
                         ? track.title.trim()
                         : track.title.trim() + " " + track.artist.trim();
@@ -1353,6 +1362,10 @@ final class LyricsRepository {
                         ? fetchSyncData(isrc, config.provider.id, track, spotifyMatch, log)
                         : null;
                 result = loadLrclibProvider(track, isrc, spotifyTrackId, spotifyMatch, syncData, log);
+            } else if (isPlatformProvider(config.provider.id)) {
+                // On demand, not in the parallel window: the open libraries answer first, and asking
+                // three catalogues on every play would cost three searches for nothing.
+                result = fetchPlatformLyrics(config.provider.id, track, log);
             }
         } catch (Exception error) {
             String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
@@ -1419,6 +1432,77 @@ final class LyricsRepository {
         return new ProviderCandidate(karaoke, synced, plain);
     }
 
+    static boolean isPlatformProvider(String providerId) {
+        return LyricsProviderSettings.PROVIDER_NETEASE.equals(providerId)
+                || LyricsProviderSettings.PROVIDER_QQ.equals(providerId)
+                || LyricsProviderSettings.PROVIDER_KUGOU.equals(providerId);
+    }
+
+    private static PlatformLyricSource platformSourceFor(String providerId,
+            PlatformHttpTransport.Transport transport) {
+        if (LyricsProviderSettings.PROVIDER_NETEASE.equals(providerId)) {
+            return new NeteaseLyricSource(transport);
+        }
+        if (LyricsProviderSettings.PROVIDER_QQ.equals(providerId)) {
+            return new QqLyricSource(transport);
+        }
+        if (LyricsProviderSettings.PROVIDER_KUGOU.equals(providerId)) {
+            return new KugouLyricSource(transport);
+        }
+        return null;
+    }
+
+    /**
+     * One Chinese catalogue as a lyric source. The rows arrive with their own translation, so the page
+     * keeps both the timeline and the Chinese text the catalogue wrote for it.
+     */
+    private LyricsResult fetchPlatformLyrics(String providerId, TrackSnapshot track, LogSink log) {
+        PlatformLyricSource source = platformSourceFor(providerId, PlatformHttpTransport.http());
+        if (source == null || track == null || track.title.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            PlatformRecordingMatcher.Score best = bestPlatformCandidate(source, track);
+            if (best == null) {
+                log.write(providerId + ": no recording that matches");
+                return null;
+            }
+            PlatformLyricSource.PlatformLyricDocument document = source.fetch(best.candidate.id);
+            LyricsResult result = timedLyricsFromDocument(source, document, track);
+            if (result == null) {
+                log.write(providerId + ": no timed lyrics for \"" + best.candidate.title + "\"");
+                return null;
+            }
+            log.write(providerId + " selected: \"" + best.candidate.title + "\" / "
+                    + best.candidate.artist + " / lines=" + result.lines.size());
+            return result;
+        } catch (Exception error) {
+            String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+            log.write(providerId + " unavailable (" + message + ")");
+            return null;
+        }
+    }
+
+    /** The best result that is the same recording, or null when the catalogue has nothing close. */
+    private static PlatformRecordingMatcher.Score bestPlatformCandidate(
+            PlatformLyricSource source, TrackSnapshot track) throws Exception {
+        String query = track.artist.trim().isEmpty()
+                ? track.title.trim()
+                : track.title.trim() + " " + track.artist.trim();
+        for (PlatformRecordingMatcher.Score score : PlatformRecordingMatcher.rank(
+                track.title,
+                track.artist,
+                track.album,
+                track.durationMs,
+                source.search(query, 6)
+        )) {
+            if (score.acceptable() && closeInLength(track.durationMs, score.candidate.durationMs)) {
+                return score;
+            }
+        }
+        return null;
+    }
+
     /** Sources whose lookup depends only on the track; these may run beside each other. */
     private static boolean isConcurrentProvider(String providerId) {
         return LyricsProviderSettings.PROVIDER_OPEN_LYRICS.equals(providerId)
@@ -1462,6 +1546,8 @@ final class LyricsRepository {
                     wordSync.rememberRecording(trackKey, fetched.recordIsrc);
                     result = fetched.result;
                 }
+            } else if (isPlatformProvider(providerId)) {
+                result = fetchPlatformLyrics(providerId, track, log);
             }
             return result == null || result.lines.isEmpty() ? null : candidateFromResult(result);
         } catch (Exception error) {
@@ -1529,7 +1615,7 @@ final class LyricsRepository {
                     line.speakerFallback,
                     line.kind,
                     Collections.emptyList()
-            ));
+            ).withSupplements(line.pronunciationText, line.translationText, line.furiganaText));
         }
         if (lines.isEmpty()) return null;
         return new LyricsResult(lines, providerBaseLabel(source.providerLabel) + " synced", source.detail,
@@ -1541,7 +1627,8 @@ final class LyricsRepository {
         for (LyricsLine line : source.lines) {
             if (line.text == null || line.text.trim().isEmpty()) continue;
             lines.add(new LyricsLine(0L, 0L, line.text, Collections.emptyList(), line.speaker,
-                    line.speakerColor, line.speakerFallback, line.kind, Collections.emptyList()));
+                    line.speakerColor, line.speakerFallback, line.kind, Collections.emptyList())
+                    .withSupplements(line.pronunciationText, line.translationText, line.furiganaText));
         }
         if (lines.isEmpty()) return null;
         return new LyricsResult(lines, providerBaseLabel(source.providerLabel) + " plain", source.detail,

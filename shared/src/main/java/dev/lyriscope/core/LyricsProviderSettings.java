@@ -23,6 +23,10 @@ final class LyricsProviderSettings {
     static final String PROVIDER_LRC_RED = "lrcred";
     static final String PROVIDER_UNISON = "unison";
     static final String PROVIDER_LRCLIB = "lrclib";
+    /** Chinese catalogues: their rows come with the translation written for them. */
+    static final String PROVIDER_NETEASE = "netease";
+    static final String PROVIDER_QQ = "qq";
+    static final String PROVIDER_KUGOU = "kugou";
 
     static final String TYPE_KARAOKE = "karaoke";
     static final String TYPE_SYNCED = "synced";
@@ -33,7 +37,12 @@ final class LyricsProviderSettings {
             new Provider(PROVIDER_LRC_RED, "lrc.red", "default", LrcRedLyricsProvider.PROJECT_URL, true, true, true, true),
             new Provider(PROVIDER_LYRICS_PLUS, "LyricsPlus", "default", LyricsPlusLyricsProvider.PROJECT_URL, true, true, true, true),
             new Provider(PROVIDER_LRCLIB, "LRCLIB", "default", "https://lrclib.net", true, false, true, true),
-            new Provider(PROVIDER_UNISON, "Unison", "default", "https://github.com/better-lyrics/unison", false, true, true, true)
+            new Provider(PROVIDER_UNISON, "Unison", "default", "https://github.com/better-lyrics/unison", false, true, true, true),
+            // Last, and on by default: they were already the silent fallback, and only the open
+            // libraries should answer first. Listed so the reader can see, order and switch them off.
+            new Provider(PROVIDER_NETEASE, "网易云音乐", "music.163.com", "https://music.163.com", true, false, true, true),
+            new Provider(PROVIDER_QQ, "QQ音乐", "y.qq.com", "https://y.qq.com", true, false, true, true),
+            new Provider(PROVIDER_KUGOU, "酷狗音乐", "kugou.com", "https://www.kugou.com", true, false, true, true)
     ));
 
     private static final String PREFS_NAME = "lyrics_provider_settings";

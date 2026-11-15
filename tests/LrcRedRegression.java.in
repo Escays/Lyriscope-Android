@@ -128,13 +128,24 @@ public final class LrcRedRegression {
         // A new install searches lrc.red second and enables it; saved orders gain it after Open Lyrics.
         Map<String, Object> fresh = new HashMap<>();
         LyricsProviderSettings.Snapshot defaults = settings(fresh).snapshot();
-        check(defaults.order.equals(List.of("open-lyrics", "lrcred", "lyricsplus", "lrclib", "unison")), "default order " + defaults.order);
-        check(ids(defaults.enabledProviders()).equals(List.of("open-lyrics", "lrcred", "lyricsplus", "lrclib")), "lrc.red enabled by default");
+        check(defaults.order.equals(List.of("open-lyrics", "lrcred", "lyricsplus", "lrclib", "unison",
+                        "netease", "qq", "kugou")), "default order " + defaults.order);
+        check(ids(defaults.enabledProviders()).equals(List.of("open-lyrics", "lrcred", "lyricsplus", "lrclib",
+                        "netease", "qq", "kugou")), "lrc.red enabled by default, the catalogues after it");
+        // The Chinese catalogues are the last word, never the first: the open libraries answer first.
+        check(defaults.order.indexOf("netease") > defaults.order.indexOf("lrclib")
+                        && defaults.order.indexOf("qq") > defaults.order.indexOf("netease")
+                        && defaults.order.indexOf("kugou") > defaults.order.indexOf("qq"),
+                "the catalogues sit at the end, in a stable order");
+        LyricsProviderSettings.Provider netease = LyricsProviderSettings.provider("netease");
+        check(netease != null && netease.synced && netease.plain && !netease.nativeKaraoke,
+                "a catalogue supplies timed and plain rows, never karaoke");
         check(defaults.automaticWordSyncFallback(), "fallback enabled by default");
         Map<String, Object> saved = new HashMap<>();
         saved.put("provider_order", "[\"lyricsplus\",\"open-lyrics\",\"lrclib\",\"unison\"]");
-        check(settings(saved).snapshot().order.equals(List.of("lyricsplus", "open-lyrics", "lrcred", "lrclib", "unison")),
-                "saved order keeps its choices and places lrc.red after Open Lyrics");
+        check(settings(saved).snapshot().order.equals(List.of("lyricsplus", "open-lyrics", "lrcred", "lrclib",
+                        "unison", "netease", "qq", "kugou")),
+                "saved order keeps its choices, places lrc.red after Open Lyrics and the catalogues last");
         saved.put("enabled_lrcred", false);
         check(!settings(saved).snapshot().automaticWordSyncFallback(), "explicit opt-out kept");
         check(!defaults.withSelectedProvider("lrcred").automaticWordSyncFallback(), "a per-track source choice never generates");
