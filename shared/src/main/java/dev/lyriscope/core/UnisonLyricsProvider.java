@@ -253,13 +253,20 @@ final class UnisonLyricsProvider {
         }
 
         List<ParsedLine> parsedLines = new ArrayList<>();
+        // A TTML may carry words and no timing at all (lrc.red answers "lrc:timing=None" with plain
+        // <p> rows). Those rows are a lyric sheet in an XML wrapper, not a timeline: calling them
+        // synced pins every line to the same instant, so the page stops following playback and the
+        // silent stretch after 2.5s reads as an interlude for the rest of the song.
+        boolean anyTiming = false;
         List<Element> paragraphs = elementsByLocalName(document, "p");
         for (int lineIndex = 0; lineIndex < paragraphs.size(); lineIndex++) {
             Element paragraph = paragraphs.get(lineIndex);
             Long parsedStart = parseTimeMs(attribute(paragraph, "begin"));
+            anyTiming = anyTiming || parsedStart != null;
             long startTime = parsedStart == null ? 0L : parsedStart;
             Long explicitEnd = parseTimeMs(attribute(paragraph, "end"));
             Long paragraphDuration = parseTimeMs(attribute(paragraph, "dur"));
+            anyTiming = anyTiming || explicitEnd != null || paragraphDuration != null;
             long endTime = explicitEnd != null
                     ? explicitEnd
                     : (paragraphDuration != null ? startTime + paragraphDuration : startTime + 2500L);
@@ -272,6 +279,7 @@ final class UnisonLyricsProvider {
             SpeakerPresentation lineSpeaker = speakerPresentation(lineAgent, agentOrder);
 
             TimedPart lead = parseTimedNodes(paragraph.getChildNodes(), startTime, endTime, true);
+            anyTiming = anyTiming || lead.hasTimedText;
             List<LyricsLine.VocalPart> backgrounds = new ArrayList<>();
             for (Element child : childElements(paragraph.getChildNodes())) {
                 if (!"x-bg".equalsIgnoreCase(attribute(child, "role"))) {
@@ -413,8 +421,17 @@ final class UnisonLyricsProvider {
             );
             lines.add(outputLine);
         }
+        boolean synced = !lines.isEmpty() && anyTiming;
+        if (!synced) {
+            List<LyricsLine> plain = new ArrayList<>(lines.size());
+            for (LyricsLine line : lines) {
+                plain.add(new LyricsLine(0L, 0L, line.text, Collections.emptyList()));
+            }
+            lines = plain;
+            karaoke = false;
+        }
         // Each TTML paragraph remains a source row; only its explicit x-bg parts are grouped.
-        return new ParsedLyrics(lines, karaoke, !lines.isEmpty());
+        return new ParsedLyrics(lines, karaoke, synced);
     }
 
     private static TimedPart parseTimedNodes(

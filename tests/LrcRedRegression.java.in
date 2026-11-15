@@ -89,6 +89,29 @@ public final class LrcRedRegression {
         check(LrcRedLyricsProvider.stripEnhancedLrcTags("[00:01.00]<00:01.00>Hello <00:01.50>world").equals("[00:01.00]Hello world"), "enhanced LRC tags");
         check(LrcRedLyricsProvider.parseRetryAfterMs("60") == 60_000L, "Retry-After seconds");
 
+        // A TTML can carry words and no timing at all: lrc.red answers lrc:timing="None" with plain
+        // <p> rows. Reporting that as synced pinned every line to the same instant, so the page stopped
+        // following playback and the silence after 2.5s was labelled an interlude for the whole song.
+        String untimed = "<tt xmlns=\"http://www.w3.org/ns/ttml\" "
+                + "xmlns:lrc=\"http://lrc.red/lyric-ttml-internal\" lrc:timing=\"None\"><body><div>"
+                + "<p>たって見ぬ窓に カルカドル</p><p>かつて見ぬ部屋に カルカドル</p>"
+                + "</div></body></tt>";
+        UnisonLyricsProvider.ParsedLyrics plain = UnisonLyricsProvider.parseTtmlLyrics(untimed, 177_573L);
+        check(!plain.synced, "a TTML without begin/end is a lyric sheet, not a timeline");
+        check(plain.lines.size() == 2, "the words still arrive: " + plain.lines.size());
+        check(!plain.karaoke, "and there is no word timing to highlight");
+        for (LyricsLine line : plain.lines) {
+            check(line.startTimeMs == 0L && line.endTimeMs == 0L,
+                    "no invented timestamps: " + line.startTimeMs + "-" + line.endTimeMs);
+        }
+
+        String timed = "<tt xmlns=\"http://www.w3.org/ns/ttml\" xmlns:lrc=\"http://lrc.red/lyric-ttml-internal\">"
+                + "<body><div><p begin=\"00:00:10.000\" end=\"00:00:12.000\">first</p>"
+                + "<p begin=\"00:00:12.000\" end=\"00:00:14.000\">second</p></div></body></tt>";
+        UnisonLyricsProvider.ParsedLyrics synced = UnisonLyricsProvider.parseTtmlLyrics(timed, 60_000L);
+        check(synced.synced, "a TTML with begin/end stays synced");
+        check(synced.lines.get(0).startTimeMs == 10_000L, "and keeps its real timestamps");
+
         // Matching accepts only the same song.
         check(LrcRedLyricsProvider.titleMatchScore("Song (Remastered 2011)", "Song") == 0.9, "version label ignored");
         check(LrcRedLyricsProvider.titleMatchScore("Song (Part II)", "Song") == 0, "different part rejected");
