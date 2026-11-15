@@ -21,7 +21,7 @@ final class LyricsDiskCache {
      * old rules, and a cache hit skips selection entirely — which is how a wrong match survived a fix
      * until the reader cleared it by hand.
      */
-    private static final int BASE_CONTRIBUTOR_SCHEMA_VERSION = 15;
+    private static final int BASE_CONTRIBUTOR_SCHEMA_VERSION = 16;
     private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
 
     private final File directory;

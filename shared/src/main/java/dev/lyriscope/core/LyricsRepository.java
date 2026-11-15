@@ -81,7 +81,7 @@ final class LyricsRepository {
     /** Score given to a candidate that cannot be the same recording; below every real score. */
     private static final double REJECTED_CANDIDATE_SCORE = -1.0;
     /**
-     * Whether an empty lookup may ask NetEase and QQ one last time (see {@link #probeInstrumental}).
+     * Whether an empty lookup may ask NetEase and QQ one last time (see {@link #probePlatformFallback}).
      * Regressions that answer every host with a strict mock switch it off, so a test can never reach
      * the real internet by accident.
      */
@@ -491,7 +491,10 @@ final class LyricsRepository {
                 }
                 if (!UnisonLyricsProvider.isUnisonResult(result)) {
                     putMemoryCachedLyrics(key, result);
-                    if (diskCache != null) {
+                    // "Not found" is the one answer not worth keeping on disk: the catalogues are asked
+                    // once per launch, and a stored miss would hide a lyric that appeared since — or one
+                    // this build now knows how to fetch.
+                    if (diskCache != null && !result.lines.isEmpty()) {
                         diskCache.put(key, result);
                     }
                 } else {
@@ -1100,7 +1103,7 @@ final class LyricsRepository {
                     if (LyricsProviderSettings.TYPE_PLAIN.equals(attempt.type)) {
                         // Nothing offered a timeline. The catalogues carry the same recording with one,
                         // and a page that cannot follow playback is worse than another catalogue's rows.
-                        LyricsResult timed = probeTimedLyrics(track, log);
+                        LyricsResult timed = probePlatformFallback(track, log);
                         if (timed != null) {
                             return timed;
                         }
@@ -1117,65 +1120,14 @@ final class LyricsRepository {
         if (deferredPlainFallback != null) {
             // Nothing timed came back after all: a catalogue may still have one, and only then is text
             // the last word.
-            LyricsResult timed = probeTimedLyrics(track, log);
+            LyricsResult timed = probePlatformFallback(track, log);
             if (timed != null) {
                 return timed;
             }
             return deferredPlainFallback;
         }
-        return probeInstrumental(track, log);
-    }
-
-    /**
-     * Last question before giving up: does a catalogue that knows this recording say it has no words?
-     *
-     * <p>An instrumental is not a lookup failure, but the lyric providers cannot tell one apart from a
-     * track nobody has written up — only NetEase's {@code nolyric} flag and QQ's "这首歌是纯音乐请欣赏"
-     * notice say so. Both are asked here, once, and only when every provider has already come back
-     * empty, so the cost is a request that would otherwise have been spent showing "no lyrics found".
-     * An instrumental answer is remembered, which is what stops the next visit from asking at all.
-     */
-    private LyricsResult probeInstrumental(TrackSnapshot track, LogSink log) {
-        LyricsResult notFound = LyricsResult.empty(ui("repo.lyrics_not_found"));
-        if (!instrumentalProbeEnabled || track == null || track.title.trim().isEmpty()) {
-            return notFound;
-        }
-        PlatformHttpTransport.Transport transport = PlatformHttpTransport.http();
-        for (PlatformLyricSource source : platformSources(transport)) {
-            try {
-                String query = track.artist.trim().isEmpty()
-                        ? track.title.trim()
-                        : track.title.trim() + " " + track.artist.trim();
-                PlatformRecordingMatcher.Score best = null;
-                for (PlatformRecordingMatcher.Score score : PlatformRecordingMatcher.rank(
-                        track.title,
-                        track.artist,
-                        track.album,
-                        track.durationMs,
-                        source.search(query, 6)
-                )) {
-                    if (score.acceptable()) {
-                        best = score;
-                        break;
-                    }
-                }
-                if (best == null) {
-                    log.write("instrumental probe: " + source.label() + " has no recording that matches");
-                    continue;
-                }
-                PlatformLyricSource.PlatformLyricDocument document = source.fetch(best.candidate.id);
-                InstrumentalDetector.Verdict verdict = document.verdict();
-                log.write("instrumental probe: " + source.label() + " answered " + verdict
-                        + " for \"" + best.candidate.title + "\" / \"" + best.candidate.artist + "\"");
-                if (verdict == InstrumentalDetector.Verdict.INSTRUMENTAL) {
-                    return instrumentalResult(track);
-                }
-            } catch (Exception error) {
-                String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-                log.write("instrumental probe: " + source.label() + " unavailable (" + message + ")");
-            }
-        }
-        return notFound;
+        LyricsResult platform = probePlatformFallback(track, log);
+        return platform != null ? platform : LyricsResult.empty(ui("repo.lyrics_not_found"));
     }
 
     /**
@@ -1198,14 +1150,17 @@ final class LyricsRepository {
     }
 
     /**
-     * A timestamped copy from a catalogue, for when every configured provider can only offer text.
+     * The last question before giving up: does a catalogue that knows this recording have anything?
      *
-     * <p>Plain lyrics are honest but useless on a page that follows playback: nothing scrolls, and the
-     * silence after the last row reads as an interlude. The catalogues usually hold the same recording
-     * timed, and their translation is written for exactly those rows, so it is taken here — once, and
-     * only after the providers have already answered.
+     * <p>Two answers are worth taking. A "no words" notice — NetEase's {@code nolyric}, QQ's 纯音乐
+     * sentence — is a verdict, remembered so the next visit does not ask again. A timestamped copy is
+     * the answer for a track no lyric provider covers: the catalogues hold far more than the open
+     * databases do, and their rows come with the Chinese translation written for them.
+     *
+     * <p>Asked once, and only after every configured provider has already answered, so the cost is a
+     * request that would otherwise have been spent showing "no lyrics found".
      */
-    private LyricsResult probeTimedLyrics(TrackSnapshot track, LogSink log) {
+    private LyricsResult probePlatformFallback(TrackSnapshot track, LogSink log) {
         if (!instrumentalProbeEnabled || track == null || track.title.trim().isEmpty()) {
             return null;
         }
@@ -1229,22 +1184,28 @@ final class LyricsRepository {
                     }
                 }
                 if (best == null) {
-                    log.write("timed fallback: " + source.label() + " has no recording that matches");
+                    log.write("platform fallback: " + source.label() + " has no recording that matches");
                     continue;
                 }
                 PlatformLyricSource.PlatformLyricDocument document = source.fetch(best.candidate.id);
+                InstrumentalDetector.Verdict verdict = document.verdict();
+                if (verdict == InstrumentalDetector.Verdict.INSTRUMENTAL) {
+                    log.write("platform fallback: " + source.label() + " answered INSTRUMENTAL for \""
+                            + best.candidate.title + "\" / \"" + best.candidate.artist + "\"");
+                    return instrumentalResult(track);
+                }
                 LyricsResult result = timedLyricsFromDocument(source, document, track);
                 if (result == null) {
-                    log.write("timed fallback: " + source.label() + " has no timeline for \""
-                            + best.candidate.title + "\"");
+                    log.write("platform fallback: " + source.label() + " has no timeline for \""
+                            + best.candidate.title + "\" (" + verdict + ")");
                     continue;
                 }
-                log.write("timed fallback: " + source.label() + " supplied the timeline ("
+                log.write("platform fallback: " + source.label() + " supplied the timeline ("
                         + best.candidate.title + " / " + best.candidate.artist + ")");
                 return result.withSelection(source.id(), source.id());
             } catch (Exception error) {
                 String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-                log.write("timed fallback: " + source.label() + " unavailable (" + message + ")");
+                log.write("platform fallback: " + source.label() + " unavailable (" + message + ")");
             }
         }
         return null;
