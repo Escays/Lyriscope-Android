@@ -144,6 +144,8 @@ public class BaseLyricsActivity extends Activity implements
     private static final String SETTINGS_ROUTE_HOME = "home";
     private static final String SETTINGS_UI_PREFS = "settings_ui";
     private static final String KEY_SETTINGS_THEME = "theme";
+    /** Standalone only: the reader chose to use the app before Spotify Web API credentials exist. */
+    private static final String KEY_SETUP_SKIPPED = "spotify_setup_skipped";
     private static final String KEY_SETTINGS_PREVIEW_PREFIX = "preview_open_";
     /** Typography follows its main-screen / lyrics-page switch in the preview. */
     private static final int SETTINGS_PREVIEW_TYPOGRAPHY = 100;
@@ -482,6 +484,7 @@ public class BaseLyricsActivity extends Activity implements
     private TextView onboardingStepLabel;
     private TextView onboardingBackButton;
     private TextView onboardingNextButton;
+    private TextView onboardingSkipButton;
     private TextView onboardingUiLanguageSelectButton;
     private TextView onboardingPermissionStatusView;
     private LinearLayout onboardingBody;
@@ -1792,6 +1795,8 @@ public class BaseLyricsActivity extends Activity implements
         titleView.setText(ui("status.spotify_required_title"));
         artistView.setText(ui("status.spotify_required_subtitle"));
         applyNowPlayingTextColors();
+        // The subtitle is the way out of this state: it opens the page that holds the two fields.
+        applySpotifySetupEntry();
         lyricsTitleView.setText(ui("status.spotify_required_title"));
         lyricsArtistView.setText(ui("status.spotify_required_subtitle"));
         updatePictureInPictureMetadataText(ui("status.spotify_required_title"), ui("status.spotify_required_subtitle"));
@@ -8760,6 +8765,19 @@ public class BaseLyricsActivity extends Activity implements
         onboardingBackButton.setOnClickListener(view -> showOnboardingStep(onboardingStep - 1));
         actionRow.addView(onboardingBackButton, topMargin(matchWrap(), dp(8)));
 
+        // The module never needs Spotify Web API credentials, and the standalone app can be looked at
+        // without them: this leaves the gate without hiding where the fields live (App settings).
+        onboardingSkipButton = kit.text(ui("onboarding.skip"), 14f, kit.p.text3, kit.regular);
+        onboardingSkipButton.setGravity(Gravity.CENTER);
+        onboardingSkipButton.setPaddingRelative(dp(12), dp(12), dp(12), dp(12));
+        onboardingSkipButton.setMinHeight(dp(48));
+        onboardingSkipButton.setMinimumHeight(dp(48));
+        onboardingSkipButton.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        onboardingSkipButton.setBackground(kit.pressable(kit.rect(0x00000000, 0f), 12f));
+        makeRemoteFocusable(onboardingSkipButton);
+        onboardingSkipButton.setOnClickListener(view -> skipSpotifySetup());
+        actionRow.addView(onboardingSkipButton, topMargin(matchWrap(), dp(2)));
+
         showOnboardingStep(initialOnboardingStep());
         return panel;
     }
@@ -14501,6 +14519,7 @@ public class BaseLyricsActivity extends Activity implements
         if (titleView != null) titleView.setText(title);
         if (artistView != null) artistView.setText(artist);
         applyNowPlayingTextColors();
+        clearSpotifySetupEntry();
         lyricsTitleView.setText(title);
         lyricsArtistView.setText(artist);
         updatePictureInPictureMetadataText(title, artist);
@@ -14529,6 +14548,32 @@ public class BaseLyricsActivity extends Activity implements
         if (artistView != null) {
             artistView.setTextColor(Color.argb(220, 255, 255, 255));
         }
+    }
+
+    /**
+     * While the Web API credentials are missing there is no track to read, so the subtitle becomes
+     * the entry to the page that holds them: accent colour, underline, one tap.
+     */
+    private void applySpotifySetupEntry() {
+        if (artistView == null) return;
+        artistView.setTextColor(themePalette().accentText);
+        artistView.setPaintFlags(artistView.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        artistView.setClickable(true);
+        artistView.setOnClickListener(view -> openSpotifyApiSettings());
+    }
+
+    /** Any real track clears the entry so the subtitle goes back to being plain text. */
+    private void clearSpotifySetupEntry() {
+        if (artistView == null) return;
+        artistView.setPaintFlags(artistView.getPaintFlags() & ~android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        artistView.setOnClickListener(null);
+        artistView.setClickable(false);
+    }
+
+    private void openSpotifyApiSettings() {
+        hideSettingsKeyboard();
+        showSettingsPanel(true);
+        switchSettingsTab(SETTINGS_TAB_SYSTEM);
     }
 
     private void populateAiSettingsUi() {
@@ -16386,7 +16431,25 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     protected boolean isInitialSetupComplete() {
-        return isSpotifyApiConfigured() && NowPlayingService.isNotificationAccessEnabled(this);
+        return setupSkipped() || (isSpotifyApiConfigured() && NowPlayingService.isNotificationAccessEnabled(this));
+    }
+
+    /**
+     * True once the reader left the standalone setup on purpose. It is stored in this app's own
+     * preferences, which the module does not share (the module writes into Spotify's), so skipping
+     * here never changes what the Spotify module shows.
+     */
+    private boolean setupSkipped() {
+        return getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE).getBoolean(KEY_SETUP_SKIPPED, false);
+    }
+
+    /** Leaves the setup gate without credentials; the Spotify API fields stay in App settings. */
+    private void skipSpotifySetup() {
+        hideSettingsKeyboard();
+        getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_SETUP_SKIPPED, true)
+                .apply();
+        updateSpotifySetupGate(true);
     }
 
     /** Debug-only offline UI fixtures override this; normal app/host playback is unchanged. */
