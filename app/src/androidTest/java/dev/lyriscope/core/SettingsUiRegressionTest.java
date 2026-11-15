@@ -367,18 +367,12 @@ public final class SettingsUiRegressionTest {
             assertFalse("real click disables duplicate regeneration", activity.view("lyricsRegenerateButton").isEnabled());
         });
         screenshot(prefix + "-window-regenerate-tapped-loading");
+        // The video sync tab no longer exists; the popup offers language, sync, background and LRCLIB.
         onMain(() -> {
             activity.call("setLyricsSupplementLoading", new Class<?>[]{boolean.class, boolean.class}, false, false);
             activity.dismissPopup();
-            activity.popup("video");
+            activity.popup("lrclib");
         });
-        View video = findButton(activity.view("videoSyncSettingsContent"), AppI18n.t(language, "video.choose"));
-        assertNotNull("production video selector", video);
-        int videoBefore = activity.videoActions;
-        tap(video);
-        assertEquals("video click reaches offline selector boundary", videoBefore + 1, activity.videoActions);
-        screenshot(prefix + "-window-video-tapped");
-        onMain(() -> { activity.dismissPopup(); activity.popup("lrclib"); });
         View search = findButton(activity.view("lyricsManualSearchContent"), AppI18n.t(language, "lyrics.lrclib_search.button"));
         assertNotNull("production LRCLIB search action", search);
         int searchBefore = activity.searchActions;
@@ -598,7 +592,7 @@ public final class SettingsUiRegressionTest {
 
     private void assertBrandHeading(String language) {
         TextView title = (TextView) ((ViewGroup) activity.view("settingsHomePage")).getChildAt(0);
-        assertEquals("one adjacent brand label", "ivLyrics", title.getText().toString());
+        assertEquals("one adjacent brand label", "Lyriscope", title.getText().toString());
         assertEquals("existing title size", android.util.TypedValue.applyDimension(
                         android.util.TypedValue.COMPLEX_UNIT_SP, 28f, activity.getResources().getDisplayMetrics()),
                 title.getTextSize(), .01f);
@@ -607,7 +601,7 @@ public final class SettingsUiRegressionTest {
         assertEquals("Latin brand direction in every locale", View.TEXT_DIRECTION_LTR, title.getTextDirection());
         assertTrue("brand remains an accessibility heading", title.isAccessibilityHeading());
         AccessibilityNodeInfo node = title.createAccessibilityNodeInfo();
-        assertEquals("single readable accessibility label", "ivLyrics", node.getText().toString());
+        assertEquals("single readable accessibility label", "Lyriscope", node.getText().toString());
         assertTrue(node.isHeading());
         node.recycle();
         Layout layout = title.getLayout();
@@ -616,20 +610,20 @@ public final class SettingsUiRegressionTest {
         assertEquals(0, layout.getEllipsisCount(0));
         assertTrue("native title height fits", layout.getHeight() <= title.getHeight()
                 - title.getCompoundPaddingTop() - title.getCompoundPaddingBottom());
-        assertTrue("adjacent LTR runs", layout.getPrimaryHorizontal(0) < layout.getPrimaryHorizontal(2)
-                && layout.getPrimaryHorizontal(2) < layout.getPrimaryHorizontal(8));
+        assertTrue("adjacent LTR runs", layout.getPrimaryHorizontal(0) < layout.getPrimaryHorizontal(5)
+                && layout.getPrimaryHorizontal(5) < layout.getPrimaryHorizontal(9));
         Spanned label = (Spanned) title.getText();
         SettingsKit.FontSpan[] spans = label.getSpans(0, label.length(), SettingsKit.FontSpan.class);
         assertEquals("only the two brand runs", 2, spans.length);
         for (SettingsKit.FontSpan span : spans) {
             int start = label.getSpanStart(span);
-            assertTrue("brand run starts at iv or Lyrics", start == 0 || start == 2);
-            assertEquals(start == 0 ? 2 : 8, label.getSpanEnd(span));
+            assertTrue("brand run starts at Lyris or cope", start == 0 || start == 5);
+            assertEquals(start == 0 ? 5 : 9, label.getSpanEnd(span));
             TextPaint paint = new TextPaint(title.getPaint());
             span.updateDrawState(paint);
             assertEquals("actual native typeface weight", start == 0 ? 800 : 250, paint.getTypeface().getWeight());
             assertFalse("uses real outlines without synthetic bold", paint.isFakeBoldText());
-            if (start == 2) {
+            if (start == 5) {
                 long actual = brandInk(paint);
                 TextPaint reference = new TextPaint(paint);
                 reference.setTypeface(AppFonts.brand(activity, 200));
