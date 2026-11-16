@@ -168,6 +168,7 @@ public final class AlbumArtLpRegression {
             return group;
         }
         Object matchWrap() { return new Object(); }
+        Object topMargin(Object params, int top) { return params; }
         Object lyricsLanguageSettingsPanelBackground(boolean popup) { return new Object(); }
         void detachFromParent(View view) {}
         void showSettingsPanel(boolean visible) { settingsVisible = visible; }
