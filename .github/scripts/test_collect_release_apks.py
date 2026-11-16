@@ -42,19 +42,19 @@ class ReleaseCollectionTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "preserve its published APK versions"):
                 collector.release_version("v1.3.20", root, previous)
 
-    def test_legacy_updater_can_only_recognize_android_as_release(self):
+    def test_module_asset_never_looks_like_the_app_updater_target(self):
         for tag in ("v1.3.6", "v1.3.6-release-candidate", "v1.3.6-RELEASE.1"):
-            android, module = collector.asset_names(tag)
-            self.assertIn("-release", android.lower())
-            self.assertNotIn("-release", module.lower())
-            self.assertTrue(module.startswith("Lyriscope-Spotify-"))
+            names = collector.asset_names(tag)
+            self.assertEqual(len(names), 1)
+            self.assertIn("Lyriscope-Module", names[0])
+            self.assertFalse(any("-release" in name.lower() for name in names))
 
     def test_reject_unsafe_tags_before_writing_output(self):
         for tag in ("../v1", "v1/../v2", "v1\nother", "v1$(pwd)", "v1.0-unsigned"):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 collector.asset_names(tag)
 
-    def test_module_only_build_cannot_create_partial_asset_set(self):
+    def test_missing_module_apk_creates_no_output(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             self.write_version(root)
@@ -63,13 +63,13 @@ class ReleaseCollectionTest(unittest.TestCase):
                 collector.collect("v1.3.6", destination, root, "unused-aapt", "unused-apksigner")
             self.assertFalse(destination.exists())
 
-    def test_different_signers_rejected_before_any_copy(self):
+    def test_module_without_a_verified_signer_is_never_published(self):
         with tempfile.TemporaryDirectory() as temp:
-            destination = Path(temp) / "release-apks"
-            with patch.object(collector, "inspect_apk", side_effect=[{"signers": ["a"]}, {"signers": ["b"]}]):
-                with self.assertRaisesRegex(RuntimeError, "stable release signing key"):
-                    collector.collect("v1.3.6", destination, Path(temp), "aapt", "apksigner")
-            self.assertFalse(destination.exists())
+            apk = Path(temp) / "module.apk"
+            apk.write_bytes(b"fixture")
+            with patch.object(collector, "output", return_value="no signer lines here"):
+                with self.assertRaisesRegex(RuntimeError, "No verified signing certificate"):
+                    collector.inspect_apk(apk, "dev.lyriscope.spotify", set(), "aapt", "apksigner")
 
     def test_actual_apk_inspection_rejects_wrong_package_permissions_and_debuggable(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -85,31 +85,31 @@ class ReleaseCollectionTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         collector.inspect_apk(apk, "expected.package", set(), "aapt", "apksigner")
 
-    def test_two_verified_apks_are_both_collected_with_checksums(self):
+    def test_module_is_collected_with_checksums(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             self.write_version(root)
-            for _, project, filename, _, _ in collector.PRODUCTS:
-                path = root / project / "build/outputs/apk/release" / filename
-                path.parent.mkdir(parents=True)
-                path.write_bytes(project.encode())
+            # The standalone build is not required to exist: it is no longer published.
+            path = root / "spotify-module/build/outputs/apk/release/spotify-module-release.apk"
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"module")
             def inspected(path, package, permissions, *tools):
                 return {"packageName": package, "versionName": "1.3.6", "versionCode": 66, "signers": ["aabb"]}
             with patch.object(collector, "inspect_apk", side_effect=inspected):
                 reports = collector.collect("v1.3.6", root / "out", root, "aapt", "apksigner")
-            self.assertEqual([row["product"] for row in reports], ["standalone", "spotify-module"])
-            self.assertEqual(len(list((root / "out").glob("*.apk"))), 2)
+            self.assertEqual([row["product"] for row in reports], ["spotify-module"])
+            self.assertEqual([p.name for p in (root / "out").glob("*.apk")], ["Lyriscope-Module-v1.3.6.apk"])
             self.assertTrue(all(len(row["sha256"]) == 64 for row in reports))
             self.assertFalse(list((root / "out").glob("*version.json")))
 
-    def test_stale_module_name_or_code_prevents_both_apks_from_being_published(self):
+    def test_stale_module_version_publishes_nothing(self):
         for stale in ({"versionName": "1.3.18", "versionCode": 80},
                       {"versionName": "1.3.20", "versionCode": 78}):
             with self.subTest(stale=stale), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 self.write_version(root, "1.3.20", 80)
                 valid = {"versionName": "1.3.20", "versionCode": 80, "signers": ["aabb"]}
-                with patch.object(collector, "inspect_apk", side_effect=[valid, {**valid, **stale}]):
+                with patch.object(collector, "inspect_apk", side_effect=[{**valid, **stale}]):
                     with self.assertRaisesRegex(RuntimeError, "spotify-module APK version"):
                         collector.collect("v1.3.20", root / "out", root, "aapt", "apksigner")
                 self.assertFalse((root / "out").exists())

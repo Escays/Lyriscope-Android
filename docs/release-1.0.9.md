@@ -41,7 +41,7 @@
 
 ### 安装
 
-- 模块：`Lyriscope-Spotify-v1.0.9.apk`，装好后在 LSPosed 里勾选 Spotify 作用域，**强制停止 Spotify 再打开**
-- 独立应用：`Lyriscope-Android-v1.0.9-release.apk`，可以独立用，凭据只用于封面与曲目 ID，不填也能看歌词（需要通知使用权）
+- `Lyriscope-Module-v1.0.9.apk`：装好后在 LSPosed 里勾选 Spotify 作用域，**强制停止 Spotify 再打开**
+- 这一版只发布模块。独立应用仍在仓库里构建，但不再随 release 提供，免得下载时选错
 
 签名与 1.0.8 相同，可以直接覆盖升级。

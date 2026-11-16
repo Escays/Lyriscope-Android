@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The LSPosed module list shows this next to the standalone app's own name, so the
+         module says what it is instead of repeating the brand twice. -->
+    <string name="app_name">Lyriscope Module</string>
+    <string name="xposed_description">Lyriscope module: lyrics, Genius notes, translation and karaoke inside Spotify.</string>
+</resources>

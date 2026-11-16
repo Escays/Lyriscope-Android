@@ -73,7 +73,7 @@ class ReleaseMetadataTest(unittest.TestCase):
         self.assertEqual(("1.3.6", 66), (standalone["versionName"], standalone["versionCode"]))
         self.assertEqual("dev.lyriscope.spotify", module["packageName"])
         self.assertEqual(("1.0.5", 6), (module["versionName"], module["versionCode"]))
-        self.assertEqual("Lyriscope for Spotify (LSPosed)", module["label"])
+        self.assertEqual("Lyriscope Module (LSPosed)", module["label"])
         self.assertNotIn("-release", module["name"].lower())
 
     def test_existing_asset_fields_and_checksums_are_preserved(self):

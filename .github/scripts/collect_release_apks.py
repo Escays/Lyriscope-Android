@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify and collect the two signed release APKs as one release asset set."""
+"""Verify the signed Spotify module and collect it as the release asset set."""
 import argparse
 import hashlib
 import json
@@ -16,20 +16,26 @@ PRODUCTS = (
       "android.permission.SYSTEM_ALERT_WINDOW"}),
     ("spotify-module", "spotify-module", "spotify-module-release.apk", "dev.lyriscope.spotify", set()),
 )
+# Only the module is published. The standalone build stays in the repository and in the
+# CI artifacts, but a download page that offers both made readers pick the app when they
+# wanted the module, so the release ships one file whose name says which one it is.
+PUBLISHED_PRODUCTS = ("spotify-module",)
 
 
 def asset_names(tag):
     if not re.fullmatch(r"v?[0-9][A-Za-z0-9._+-]*", tag):
         raise ValueError("Release tag must be a filename-safe version tag")
-    # Installed apps choose the first APK containing '-release'. Only the standalone
-    # file may contain it, including when the tag is a prerelease, so the module name
-    # spells the tag with '_' — otherwise a tag like v1.2.3-release-candidate would
-    # turn the module into a release-priority asset.
-    names = (f"Lyriscope-Android-{tag}-release.apk",
-             f"Lyriscope-Spotify-{tag.replace('-', '_')}.apk")
-    if "unsigned" in names[0].lower():
+    # The standalone app's updater picks the first asset whose name contains '-release',
+    # so the module must never look like that. "Module" in the name is what tells it apart
+    # from the standalone APK in a download list.
+    # A tag that itself spells '-release' would drag that word into the module's name and
+    # the standalone updater would then offer it, so the tag is written with '_' there.
+    name = f"Lyriscope-Module-{tag.replace('-', '_')}.apk"
+    if "-release" in name.lower():
+        raise ValueError("Release tag would make the module look like the standalone updater target")
+    if "unsigned" in name.lower():
         raise ValueError("Release tag would be rejected by the existing Android updater")
-    return names
+    return (name,)
 
 
 def release_version(tag, root=ROOT, previous=None):
@@ -111,11 +117,13 @@ def collect(tag, destination, root=ROOT, aapt=None, apksigner=None):
     aapt, apksigner = aapt or sdk_tool("aapt"), apksigner or sdk_tool("apksigner")
     verified = []
     for product, project, filename, package, permissions in PRODUCTS:
+        if product not in PUBLISHED_PRODUCTS:
+            continue
         source = root / project / "build/outputs/apk/release" / filename
         info = inspect_apk(source, package, permissions, aapt, apksigner)
         verified.append((product, source, info))
-    if verified[0][2]["signers"] != verified[1][2]["signers"]:
-        raise RuntimeError("Both release APKs must use the configured stable release signing key")
+    if len(verified) > 1 and verified[0][2]["signers"] != verified[1][2]["signers"]:
+        raise RuntimeError("Every published APK must use the configured stable release signing key")
     expected = release_version(tag, root)
     for product, source, info in verified:
         if any(info.get(key) != value for key, value in expected.items()):
@@ -123,7 +131,7 @@ def collect(tag, destination, root=ROOT, aapt=None, apksigner=None):
                 f"{product} APK version {info.get('versionName')} ({info.get('versionCode')}) "
                 f"does not match release {expected['versionName']} ({expected['versionCode']})"
             )
-    # Verify both before creating any output; never publish a module-only set.
+    # Verify everything before creating any output.
     destination.mkdir(parents=True, exist_ok=True)
     if list(destination.glob("*.apk")):
         raise RuntimeError(f"Release output already contains APKs: {destination}")

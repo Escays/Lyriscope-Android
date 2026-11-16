@@ -210,8 +210,8 @@ def read_gradle_version(gradle_path="app/build.gradle"):
 
 def apk_product(name):
     normalized = name.lower()
-    if normalized.startswith("lyriscope-spotify-"):
-        return "spotify-module", "Lyriscope for Spotify (LSPosed)", "spotify-module/build.gradle"
+    if normalized.startswith("lyriscope-module-") or normalized.startswith("lyriscope-spotify-"):
+        return "spotify-module", "Lyriscope Module (LSPosed)", "spotify-module/build.gradle"
     if normalized.startswith("lyriscope-android-"):
         return "standalone", "Lyriscope", "app/build.gradle"
     return "unknown", "Android APK", None
