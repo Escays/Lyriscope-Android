@@ -141,7 +141,8 @@ final class SettingsAppearance {
         if (root == null) return;
         Context context = root.getContext();
         if (root instanceof Switch) {
-            styleSwitch((Switch) root);
+            // Our own capsule switch paints itself; only platform switches are tinted here.
+            if (!(root instanceof SettingsKit.MiuixSwitch)) styleSwitch((Switch) root);
         } else if (root instanceof CheckBox) {
             CheckBox check = (CheckBox) root;
             check.setSingleLine(false);

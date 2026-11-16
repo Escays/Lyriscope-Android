@@ -6257,6 +6257,7 @@ final class AppI18n {
     private static Map<String, String> koStrings() {
         return strings(
                 "button.close", "닫기",
+                "button.cancel", "취소",
                 "button.previous", "이전",
                 "button.save_start", "저장하고 시작",
                 "button.spotify_setup", "Spotify API 등록",
@@ -6279,6 +6280,7 @@ final class AppI18n {
                 "section.language", "언어",
                 "section.language_desc", "발음 표기 언어와 곡별 번역 설정을 분리해서 관리합니다.",
                 "setting.ui_language", "앱 표시 언어",
+                "setting.ui_language_auto", "시스템 언어 따르기",
                 "setting.ui_language_desc", "앱 화면에 사용할 언어입니다. 실제 번역 데이터가 있는 언어만 표시합니다.",
                 "setting.pronunciation_language", "발음 표기 언어",
                 "setting.pronunciation_language_desc", "발음을 어떤 문자/언어 기준으로 표기할지 정합니다. 이 값을 바꾸면 발음만 새 기준으로 다시 생성됩니다.",
@@ -6501,6 +6503,7 @@ final class AppI18n {
     private static Map<String, String> enStrings() {
         return strings(
                 "button.close", "Close",
+                "button.cancel", "Cancel",
                 "button.previous", "Back",
                 "button.save_start", "Save and Start",
                 "button.spotify_setup", "Set Up Spotify API",
@@ -6523,6 +6526,7 @@ final class AppI18n {
                 "section.language", "Language",
                 "section.language_desc", "Manage app language, pronunciation, and per-song translation rules separately.",
                 "setting.ui_language", "App Language",
+                "setting.ui_language_auto", "Follow system language",
                 "setting.ui_language_desc", "Language used for the app UI. Only languages with real UI translations are shown.",
                 "setting.pronunciation_language", "Pronunciation Language",
                 "setting.pronunciation_language_desc", "Choose which script/language pronunciation should be generated in.",
@@ -6745,6 +6749,7 @@ final class AppI18n {
     private static Map<String, String> zhCnStrings() {
         return strings(
                 "button.close", "关闭",
+                "button.cancel", "取消",
                 "button.previous", "上一步",
                 "button.save_start", "保存并开始",
                 "button.spotify_setup", "设置 Spotify API",
@@ -6767,6 +6772,7 @@ final class AppI18n {
                 "section.language", "语言",
                 "section.language_desc", "分别管理应用语言、发音标注和按歌曲语言的翻译设置。",
                 "setting.ui_language", "应用语言",
+                "setting.ui_language_auto", "跟随系统语言",
                 "setting.ui_language_desc", "应用界面使用的语言。只显示已有实际翻译数据的语言。",
                 "setting.pronunciation_language", "发音标注语言",
                 "setting.pronunciation_language_desc", "选择发音应使用哪种文字/语言标注。",
@@ -6989,6 +6995,7 @@ final class AppI18n {
     private static Map<String, String> zhTwStrings() {
         return strings(
                 "button.close", "關閉",
+                "button.cancel", "取消",
                 "button.previous", "上一步",
                 "button.save_start", "Save 並開始",
                 "button.spotify_setup", "設定 Spotify API",
@@ -7011,6 +7018,7 @@ final class AppI18n {
                 "section.language", "語言",
                 "section.language_desc", "單獨管理應用程式語言、發音和每首歌曲的翻譯規則。",
                 "setting.ui_language", "應用程式語言",
+                "setting.ui_language_auto", "跟隨系統語言",
                 "setting.ui_language_desc", "應用程式 UI 使用的語言。僅顯示具有真實 UI 翻譯的語言。",
                 "setting.pronunciation_language", "發音語言",
                 "setting.pronunciation_language_desc", "選擇應產生哪種腳本/語言發音。",
@@ -7233,6 +7241,7 @@ final class AppI18n {
     private static Map<String, String> jaStrings() {
         return strings(
                 "button.close", "閉じる",
+                "button.cancel", "キャンセル",
                 "button.previous", "戻る",
                 "button.save_start", "保存して開始",
                 "button.spotify_setup", "Spotify APIを設定",
@@ -7255,6 +7264,7 @@ final class AppI18n {
                 "section.language", "言語",
                 "section.language_desc", "表示言語、発音表記、曲別翻訳設定を分けて管理します。",
                 "setting.ui_language", "アプリ表示言語",
+                "setting.ui_language_auto", "システム言語に従う",
                 "setting.ui_language_desc", "アプリ画面で使う言語です。実際の翻訳データがある言語だけ表示します。",
                 "setting.pronunciation_language", "発音表記言語",
                 "setting.pronunciation_language_desc", "発音をどの文字/言語基準で表記するか選択します。",

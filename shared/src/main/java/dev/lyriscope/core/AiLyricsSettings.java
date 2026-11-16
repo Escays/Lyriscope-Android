@@ -2,6 +2,7 @@ package dev.lyriscope.core;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.graphics.Color;
 
 import org.json.JSONException;
@@ -34,6 +35,8 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     static final String KEY_PROVIDER = "provider";
     static final String KEY_TARGET_LANG = "target_lang";
     static final String KEY_UI_LANG = "ui_lang";
+    /** Stored when the reader has not pinned a language: the system locale decides. */
+    static final String UI_LANG_AUTO = "auto";
     static final String KEY_OUTPUT_LANG = "output_lang";
     static final String KEY_PRONUNCIATION_LANG = "pronunciation_lang";
     static final String KEY_PRONUNCIATION_NOTATION = "pronunciation_notation_v1";
@@ -419,7 +422,7 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
         String outputLang = storedOutputLanguage(ruleConfig);
         ruleConfig = ruleConfig.withTarget(outputLang);
         Snapshot snapshot = new Snapshot(
-                normalizedUiLanguage(prefs.getString(KEY_UI_LANG, autoTargetLanguage())),
+                normalizedUiLanguage(prefs.getString(KEY_UI_LANG, UI_LANG_AUTO)),
                 outputLang,
                 normalizePronunciationNotation(prefs.getString(
                         KEY_PRONUNCIATION_NOTATION,
@@ -496,13 +499,21 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     }
 
     void setUiLang(String lang) {
-        prefs.edit().putString(KEY_UI_LANG, normalizedUiLanguage(lang)).apply();
+        // "auto" is an answer of its own, not a language to resolve before storing.
+        String stored = lang != null && UI_LANG_AUTO.equalsIgnoreCase(lang.trim())
+                ? UI_LANG_AUTO : normalizedUiLanguage(lang);
+        prefs.edit().putString(KEY_UI_LANG, stored).apply();
+    }
+
+    /** True when no language was ever pinned, so the UI follows the device. */
+    boolean uiLangFollowsSystem() {
+        return UI_LANG_AUTO.equalsIgnoreCase(prefs.getString(KEY_UI_LANG, UI_LANG_AUTO));
     }
 
     /** The chosen UI language for surfaces that hold no settings instance, such as the Spotify shortcut. */
     static String uiLanguage(Context context) {
         SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return normalizedUiLanguage(prefs.getString(KEY_UI_LANG, autoTargetLanguage()));
+        return normalizedUiLanguage(prefs.getString(KEY_UI_LANG, UI_LANG_AUTO));
     }
 
     void setPronunciationLang(String lang) {
@@ -1931,7 +1942,11 @@ final class AiLyricsSettings implements SharedPreferences.OnSharedPreferenceChan
     }
 
     private static String autoTargetLanguage() {
-        Locale locale = Locale.getDefault();
+        // Resources.getSystem() is the device configuration. Locale.getDefault() is the *process*
+        // configuration, which inside the Spotify module is Spotify's own language: a Korean Spotify
+        // on a Chinese phone made the whole UI fall back to Korean.
+        Locale locale = Resources.getSystem().getConfiguration().getLocales().get(0);
+        if (locale == null) locale = Locale.getDefault();
         String candidate;
         if ("zh".equalsIgnoreCase(locale.getLanguage())) {
             String country = locale.getCountry();

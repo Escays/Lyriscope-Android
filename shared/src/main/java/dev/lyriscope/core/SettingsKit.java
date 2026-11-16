@@ -1,5 +1,6 @@
 package dev.lyriscope.core;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
@@ -24,10 +25,12 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.MetricAffectingSpan;
 import android.text.style.RelativeSizeSpan;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -66,6 +69,26 @@ final class SettingsKit {
     static final int ACTION_NORMAL = 0;
     static final int ACTION_DANGER = 1;
     static final int ACTION_LINK = 2;
+
+    // Miuix metric tokens. Everything below reads these instead of scattering numbers, so a later
+    // switch to MD3 only rewrites this block.
+    /** Corner of a card holding rows. */
+    private static final float RADIUS_CARD = 16f;
+    /** Corner of a bordered control inside a row (field, picker, button). */
+    private static final float RADIUS_CONTROL = 12f;
+    /** Corner of a chip or an inline mark. */
+    private static final float RADIUS_CHIP = 12f;
+    /** A row's inner horizontal padding; the hairline between rows starts here too. */
+    private static final float ROW_PADDING = 16f;
+    /** Shortest a row may become, so every row keeps a 48 dp-plus touch target. */
+    private static final float ROW_MIN_HEIGHT = 56f;
+    /** Switch geometry: the pill the reader sees, not the platform control. */
+    private static final float SWITCH_WIDTH = 50f;
+    private static final float SWITCH_HEIGHT = 30f;
+    /** Miuix: the thumb rests 4dp from the edge and travels 21dp to 25dp, growing on press. */
+    private static final float SWITCH_THUMB = 20f;
+    private static final float SWITCH_THUMB_PRESSED = 22.5f;
+    private static final float SWITCH_THUMB_START = 14f;
 
     final Context context;
     final SettingsPalette p;
@@ -161,39 +184,40 @@ final class SettingsKit {
         return view;
     }
 
+    /** A single wordmark: consistent weight and colour across the complete name. */
     TextView brandTitle() {
         TextView view = largeTitle("Lyriscope");
-        SpannableString brand = new SpannableString("Lyriscope");
-        brand.setSpan(new FontSpan(AppFonts.brand(context, 800)), 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        brand.setSpan(new FontSpan(AppFonts.brand(context, 250)), 5, brand.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        view.setText(brand);
+        view.setTextSize(30f);
+        view.setLetterSpacing(-0.025f);
+        view.setPaddingRelative(dp(4), dp(2), dp(4), dp(14));
+        view.setTypeface(AppFonts.brand(context, 600));
         view.setTextDirection(View.TEXT_DIRECTION_LTR);
         return view;
     }
 
     LinearLayout sectionHeader(String title, String subtitle) {
         LinearLayout header = vertical();
-        header.setPaddingRelative(dp(6), 0, dp(6), dp(10));
-        TextView titleView = text(title, 13.5f, p.text3, semi);
+        header.setPaddingRelative(dp(6), 0, dp(6), dp(8));
+        TextView titleView = text(title, 13f, p.text3, semi);
         titleView.setLineSpacing(dp(2), 1f);
         heading(titleView);
         header.addView(titleView, matchWrap());
         if (subtitle != null && !subtitle.trim().isEmpty()) {
             TextView sub = text(subtitle, 12f, p.text4, regular);
             sub.setLineSpacing(dp(3), 1f);
-            header.addView(sub, topMargin(matchWrap(), dp(5)));
+            header.addView(sub, topMargin(matchWrap(), dp(4)));
         }
         return header;
     }
 
     TextView groupLabel(String value) {
-        TextView view = text(value, 13f, p.text3, semi);
-        view.setPaddingRelative(dp(6), 0, dp(6), dp(7));
+        TextView view = text(value, 12.5f, p.text3, semi);
+        view.setPaddingRelative(dp(6), 0, dp(6), dp(8));
         return view;
     }
 
     TextView rowLabel(String value) {
-        TextView view = text(value, 15.5f, p.text, semi);
+        TextView view = text(value, 16f, p.text, semi);
         view.setLineSpacing(dp(2), 1f);
         return view;
     }
@@ -254,12 +278,9 @@ final class SettingsKit {
     LinearLayout group() {
         LinearLayout group = vertical();
         group.setTag(GROUP_TAG);
-        group.setBackground(rect(p.surface, 20f, 0, 0f));
+        group.setBackground(rect(p.card, RADIUS_CARD, 0, 0f));
         group.setClipToOutline(true);
-        GradientDrawable divider = new GradientDrawable();
-        divider.setColor(p.line);
-        divider.setSize(1, Math.max(1, dp(1)));
-        group.setDividerDrawable(divider);
+        group.setDividerDrawable(new InsetLine(p.divider, dp(1), dp(ROW_PADDING)));
         group.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
         return group;
     }
@@ -271,10 +292,7 @@ final class SettingsKit {
     /** Rows separated by hairlines without a card of their own (inside an expanded card). */
     LinearLayout dividedList() {
         LinearLayout list = vertical();
-        GradientDrawable divider = new GradientDrawable();
-        divider.setColor(p.line);
-        divider.setSize(1, Math.max(1, dp(1)));
-        list.setDividerDrawable(divider);
+        list.setDividerDrawable(new InsetLine(p.divider, dp(1), dp(ROW_PADDING)));
         list.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
         return list;
     }
@@ -302,7 +320,7 @@ final class SettingsKit {
     /** Label and description above a full-width control. */
     LinearLayout stackRow(String label, String description, View control) {
         LinearLayout row = vertical();
-        row.setPaddingRelative(dp(16), dp(14), dp(16), dp(15));
+        row.setPaddingRelative(dp(ROW_PADDING), dp(14), dp(ROW_PADDING), dp(14));
         TextView labelView = rowLabel(label);
         row.addView(labelView, matchWrap());
         if (description != null && !description.trim().isEmpty()) {
@@ -319,8 +337,8 @@ final class SettingsKit {
     /** Label and description beside a compact control; the control moves under the text when space runs out. */
     AdaptiveRow inlineRow(String label, String description, View control) {
         AdaptiveRow row = new AdaptiveRow(context, dp(150), dp(14));
-        row.setPaddingRelative(dp(16), dp(12), dp(16), dp(12));
-        row.setMinimumHeight(dp(56));
+        row.setPaddingRelative(dp(ROW_PADDING), dp(12), dp(ROW_PADDING), dp(12));
+        row.setMinimumHeight(dp(ROW_MIN_HEIGHT));
         LinearLayout texts = vertical();
         TextView labelView = rowLabel(label);
         texts.addView(labelView, matchWrap());
@@ -338,21 +356,26 @@ final class SettingsKit {
 
     /** An on/off row: title, description and the switch are one touch target. */
     Switch toggle(String title, String description) {
-        Switch view = new Switch(context);
-        view.setText(labelWithDescription(title, description, 15.5f, 13f));
+        Switch view = new MiuixSwitch(context, p);
+        view.setText(labelWithDescription(title, description, 16f, 13f));
         view.setTextColor(p.text);
-        view.setTextSize(15.5f);
+        view.setTextSize(16f);
         view.setTypeface(semi);
         view.setLineSpacing(dp(3), 1f);
-        view.setPaddingRelative(dp(16), dp(14), dp(16), dp(14));
-        view.setMinHeight(dp(58));
+        view.setPaddingRelative(dp(ROW_PADDING), dp(13), dp(ROW_PADDING), dp(13));
+        view.setMinHeight(dp(ROW_MIN_HEIGHT));
+        view.setMinimumHeight(dp(ROW_MIN_HEIGHT));
         view.setBackground(pressable(rect(0x00000000, 0f), 0f));
-        styleSwitch(view);
-        view.setMinimumHeight(dp(58));
         return view;
     }
 
+    /** A bare switch for a compact row (a provider card's enable mark). */
+    Switch switchToggle() {
+        return new MiuixSwitch(context, p, false);
+    }
+
     void styleSwitch(Switch view) {
+        if (view instanceof MiuixSwitch) return;
         view.setShowText(false);
         view.setSplitTrack(false);
         view.setSwitchMinWidth(dp(44));
@@ -380,20 +403,20 @@ final class SettingsKit {
         button.setTextSize(16f);
         button.setTypeface(regular);
         button.setLineSpacing(dp(2), 1f);
-        button.setTextColor(kind == ACTION_DANGER ? p.danger : p.accentText);
+        button.setTextColor(kind == ACTION_DANGER ? p.danger : kind == ACTION_LINK ? p.accentText : p.text);
         button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         button.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
         button.setSingleLine(false);
         button.setMaxLines(Integer.MAX_VALUE);
         button.setEllipsize(null);
-        button.setPaddingRelative(dp(16), dp(13), dp(16), dp(13));
-        button.setMinHeight(dp(54));
-        button.setMinimumHeight(dp(54));
+        button.setPaddingRelative(dp(ROW_PADDING), dp(14), dp(ROW_PADDING), dp(14));
+        button.setMinHeight(dp(ROW_MIN_HEIGHT));
+        button.setMinimumHeight(dp(ROW_MIN_HEIGHT));
         button.setMinWidth(dp(48));
         button.setMinimumWidth(dp(48));
         button.setCompoundDrawablePadding(dp(12));
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null,
-                icon(kind == ACTION_LINK ? "external" : "right", p.text4, 18f), null);
+                icon(kind == ACTION_LINK ? "external" : "right", p.text4, 16f), null);
         button.setBackground(pressable(rect(0x00000000, 0f), 0f));
         return button;
     }
@@ -419,17 +442,17 @@ final class SettingsKit {
         int textColor;
         Drawable background;
         if (kind == BUTTON_PRIMARY) {
-            textColor = p.inkText;
-            background = rect(p.ink, 8f);
+            textColor = p.accentInk;
+            background = rect(p.accent, RADIUS_CONTROL);
         } else if (kind == BUTTON_DANGER) {
             textColor = p.danger;
-            background = rect(0x00000000, 8f, withAlpha(p.danger, 0x4D), 1f);
+            background = rect(0x00000000, RADIUS_CONTROL, withAlpha(p.danger, 0x4D), 1f);
         } else {
             textColor = p.text;
-            background = rect(p.surface2, 8f, p.line2, 1f);
+            background = rect(p.surface2, RADIUS_CONTROL, p.line2, 1f);
         }
         button.setTextColor(textColor);
-        button.setBackground(pressable(background, 8f));
+        button.setBackground(pressable(background, RADIUS_CONTROL));
         if (iconName != null) {
             button.setCompoundDrawablePadding(dp(7));
             button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon(iconName, textColor, 17f), null, null, null);
@@ -452,14 +475,14 @@ final class SettingsKit {
         button.setSingleLine(false);
         button.setMaxLines(Integer.MAX_VALUE);
         button.setEllipsize(null);
-        button.setPaddingRelative(dp(14), dp(11), dp(12), dp(11));
+        button.setPaddingRelative(dp(14), dp(12), dp(12), dp(12));
         button.setMinHeight(dp(48));
         button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(48));
         button.setMinimumWidth(dp(48));
         button.setCompoundDrawablePadding(dp(10));
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, icon("down", p.text3, 18f), null);
-        button.setBackground(pressable(rect(p.surface2, 8f, p.line2, 1f), 8f));
+        button.setBackground(pressable(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f), RADIUS_CONTROL));
         return button;
     }
 
@@ -505,8 +528,9 @@ final class SettingsKit {
 
     Drawable fieldBackground() {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, rect(p.surface, 8f, p.accentLine, 1.5f));
-        states.addState(new int[]{}, rect(p.surface2, 8f, p.line2, 1f));
+        states.addState(new int[]{android.R.attr.state_focused}, rect(p.card, RADIUS_CONTROL, p.accentLine, 1.5f));
+        // An input reads as a well under the card, never the same tone as the card itself.
+        states.addState(new int[]{}, rect(p.surface, RADIUS_CONTROL, p.line3, 1f));
         return states;
     }
 
@@ -539,8 +563,8 @@ final class SettingsKit {
         note.setGravity(Gravity.TOP);
         int fill = tone == TONE_WARN ? p.warnSoft : tone == TONE_DANGER ? p.dangerSoft : p.infoSoft;
         int accent = tone == TONE_WARN ? p.warn : tone == TONE_DANGER ? p.danger : p.info;
-        note.setBackground(rect(fill, 8f, withAlpha(accent, 0x30), 1f));
-        note.setPaddingRelative(dp(12), dp(11), dp(12), dp(11));
+        note.setBackground(rect(fill, RADIUS_CONTROL, withAlpha(accent, 0x30), 1f));
+        note.setPaddingRelative(dp(12), dp(12), dp(12), dp(12));
         ImageView mark = new ImageView(context);
         mark.setImageDrawable(icon(tone == TONE_INFO ? "info" : "warn", accent, 17f));
         LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(17), dp(17));
@@ -684,7 +708,7 @@ final class SettingsKit {
 
     Choice segmented(List<Option> options, String selected, ChoiceListener listener) {
         SegmentedLayout layout = new SegmentedLayout(context, dp(2));
-        layout.setBackground(rect(p.surface2, 9f, p.line2, 1f));
+        layout.setBackground(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f));
         layout.setPadding(dp(2), dp(2), dp(2), dp(2));
         Choice choice = new Choice(layout, options, false);
         for (Option option : options) {
@@ -716,8 +740,8 @@ final class SettingsKit {
     private void paintSegment(TextView item, Option option, boolean on) {
         item.setTextColor(on ? p.text : p.text3);
         item.setBackground(on
-                ? pressable(rect(p.raise, 7f, p.line2, 1f), 7f)
-                : pressable(rect(0x00000000, 7f), 7f));
+                ? pressable(rect(p.card, 9f, p.line2, 1f), 9f)
+                : pressable(rect(0x00000000, 9f), 9f));
         if (option.icon instanceof SvgIcon) ((SvgIcon) option.icon).setColor(on ? p.text : p.text3);
         if (option.icon != null) {
             item.setCompoundDrawablesRelativeWithIntrinsicBounds(option.icon, null, null, null);
@@ -742,7 +766,9 @@ final class SettingsKit {
             }
             LinearLayout titleRow = horizontal();
             titleRow.setGravity(Gravity.TOP);
-            TextView title = text(option.label, 14f, p.text, semi);
+            // Same weight as a row title: at 14sp the semi face read as a lighter font next to
+            // the 16sp rows above it.
+            TextView title = text(option.label, 15f, p.text, semi);
             title.setLineSpacing(dp(2), 1f);
             titleRow.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             ImageView check = new ImageView(context);
@@ -770,8 +796,8 @@ final class SettingsKit {
 
     private void paintCard(View card, Option option, boolean on) {
         card.setBackground(pressable(on
-                ? rect(p.surface, 9f, p.accent, 2f)
-                : rect(p.surface, 9f, p.line2, 1f), 9f));
+                ? rect(p.card, 12f, p.accent, 2f)
+                : rect(p.card, 12f, p.line2, 1f), 12f));
         LinearLayout titleRow = (LinearLayout) ((LinearLayout) card).getChildAt(option.visual == null ? 0 : 1);
         ((ImageView) titleRow.getChildAt(1)).setImageDrawable(new CheckMark(on, p, dp(18)));
         if (option.visual instanceof ImageView && ((ImageView) option.visual).getDrawable() instanceof SvgIcon) {
@@ -817,17 +843,17 @@ final class SettingsKit {
     void paintChip(CheckBox chip, boolean owner) {
         StateListDrawable states = new StateListDrawable();
         if (owner) {
-            states.addState(new int[]{android.R.attr.state_checked}, rect(p.accent, 8f));
+            states.addState(new int[]{android.R.attr.state_checked}, rect(p.accent, RADIUS_CHIP));
         } else {
-            states.addState(new int[]{android.R.attr.state_checked}, rect(p.surface3, 8f, p.line3, 1f));
+            states.addState(new int[]{android.R.attr.state_checked}, rect(p.surface3, RADIUS_CHIP, p.line3, 1f));
         }
-        states.addState(new int[]{}, rect(0x00000000, 8f, p.line2, 1f));
+        states.addState(new int[]{}, rect(0x00000000, RADIUS_CHIP, p.line2, 1f));
         // An InsetDrawable reports its insets as padding, so keep the chip's own padding.
         int start = chip.getPaddingStart();
         int top = chip.getPaddingTop();
         int end = chip.getPaddingEnd();
         int bottom = chip.getPaddingBottom();
-        chip.setBackground(new InsetDrawable(pressable(states, 8f), 0, dp(4), 0, dp(4)));
+        chip.setBackground(new InsetDrawable(pressable(states, RADIUS_CHIP), 0, dp(4), 0, dp(4)));
         chip.setPaddingRelative(start, top, end, bottom);
         chip.setTextColor(owner ? states(p.text4, p.accentInk, p.text3) : states(p.text4, p.text, p.text3));
         Drawable[] drawables = chip.getCompoundDrawablesRelative();
@@ -842,7 +868,7 @@ final class SettingsKit {
         tag.setGravity(Gravity.CENTER);
         tag.setPaddingRelative(dp(10), dp(8), dp(11), dp(8));
         tag.setMinHeight(dp(36));
-        tag.setBackground(owner ? rect(p.accent, 8f) : rect(0x00000000, 8f, p.line2, 1f));
+        tag.setBackground(owner ? rect(p.accent, RADIUS_CHIP) : rect(0x00000000, RADIUS_CHIP, p.line2, 1f));
         if (leading != null) {
             if (leading instanceof SvgIcon) ((SvgIcon) leading).setColor(owner ? p.accentInk : p.text3);
             tag.setCompoundDrawablePadding(dp(6));
@@ -878,15 +904,15 @@ final class SettingsKit {
     }
 
     Drawable modeDrawable(int type, int solidColor) {
-        if (type == VISUAL_SOLID) return rect(solidColor, 6f);
+        if (type == VISUAL_SOLID) return rect(solidColor, 8f);
         if (type == VISUAL_BLUR) {
-            GradientDrawable base = rect(0xFF182026, 6f);
-            GradientDrawable warm = rect(0x00000000, 6f);
+            GradientDrawable base = rect(0xFF182026, 8f);
+            GradientDrawable warm = rect(0x00000000, 8f);
             warm.setGradientType(GradientDrawable.RADIAL_GRADIENT);
             warm.setColors(new int[]{0xCCC8925A, 0x00C8925A});
             warm.setGradientCenter(0.3f, 0.4f);
             warm.setGradientRadius(dp(72));
-            GradientDrawable cool = rect(0x00000000, 6f);
+            GradientDrawable cool = rect(0x00000000, 8f);
             cool.setGradientType(GradientDrawable.RADIAL_GRADIENT);
             cool.setColors(new int[]{0xD94D8480, 0x004D8480});
             cool.setGradientCenter(0.75f, 0.65f);
@@ -895,7 +921,7 @@ final class SettingsKit {
         }
         GradientDrawable album = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{0xFFC8925A, 0xFF8C8160, 0xFF4D7472, 0xFF1E2A31});
-        album.setCornerRadius(dp(6));
+        album.setCornerRadius(dp(8));
         return album;
     }
 
@@ -905,7 +931,7 @@ final class SettingsKit {
         SvgIcon glyph = new SvgIcon(iconPath(iconName), p.text2, dp(30), 2.2f);
         view.setImageDrawable(glyph);
         view.setScaleType(ImageView.ScaleType.CENTER);
-        view.setBackground(rect(p.surface2, 6f));
+        view.setBackground(rect(p.surface2, 8f));
         view.setMinimumHeight(dp(44));
         view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         return view;
@@ -942,8 +968,7 @@ final class SettingsKit {
             seekBar = new SeekBar(context);
             seekBar.setMax(Math.max(1, (max - min) / this.step));
             seekBar.setProgressDrawable(sliderTrack());
-            GradientDrawable thumb = oval(0xFFFFFFFF, dp(22));
-            thumb.setStroke(Math.max(1, dp(1)), p.dark ? 0x59000000 : 0x38000000);
+            GradientDrawable thumb = oval(0xFFFFFFFF, dp(20));
             seekBar.setThumb(thumb);
             seekBar.setSplitTrack(false);
             seekBar.setPaddingRelative(dp(12), 0, dp(12), 0);
@@ -951,12 +976,12 @@ final class SettingsKit {
             seekBar.setMinimumHeight(dp(48));
             view.addView(seekBar, new LinearLayout.LayoutParams(0, dp(48), 1f));
 
+            // The value reads as text beside the track; it becomes an input only when touched.
             chip = horizontal();
-            chip.setBackground(rect(p.surface2, 8f, p.line2, 1f));
             input = new EditText(context);
             input.setBackground(null);
-            input.setTextColor(p.text);
-            input.setTextSize(15.5f);
+            input.setTextColor(p.text2);
+            input.setTextSize(13f);
             input.setTypeface(semi);
             input.setSingleLine(true);
             input.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -972,10 +997,10 @@ final class SettingsKit {
             input.setMinHeight(dp(48));
             input.setMinimumHeight(dp(48));
             boolean hasUnit = unit != null && !unit.isEmpty();
-            input.setPaddingRelative(dp(10), 0, hasUnit ? dp(3) : dp(12), 0);
+            input.setPaddingRelative(0, 0, hasUnit ? dp(2) : 0, 0);
             chip.addView(input, wrap());
-            unitView = text(hasUnit ? unit : "", 12.5f, p.text3, regular);
-            unitView.setPaddingRelative(0, 0, dp(10), 0);
+            unitView = text(hasUnit ? unit : "", 13f, p.text3, regular);
+            unitView.setPaddingRelative(0, 0, dp(2), 0);
             unitView.setVisibility(hasUnit ? View.VISIBLE : View.GONE);
             unitView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             chip.addView(unitView, wrap());
@@ -1015,7 +1040,7 @@ final class SettingsKit {
                 return false;
             });
             input.setOnFocusChangeListener((view, focused) -> {
-                chip.setBackground(focused ? rect(p.surface, 8f, p.accentLine, 1.5f) : rect(p.surface2, 8f, p.line2, 1f));
+                input.setTextColor(focused ? p.accentText : p.text2);
                 if (!focused) commitInput();
             });
             input.setText(format(min));
@@ -1080,7 +1105,7 @@ final class SettingsKit {
     }
 
     private Drawable sliderTrack() {
-        GradientDrawable track = rect(p.surface4, 2f);
+        GradientDrawable track = rect(p.switchOff, 2f);
         GradientDrawable fill = rect(p.accent, 2f);
         android.graphics.drawable.ClipDrawable progress =
                 new android.graphics.drawable.ClipDrawable(fill, Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL);
@@ -1098,7 +1123,7 @@ final class SettingsKit {
     /** A number with − and + buttons (the lab's stepper) around an existing input. */
     LinearLayout stepper(EditText input, int min, int max, int step, String label) {
         LinearLayout box = horizontal();
-        box.setBackground(rect(p.surface2, 8f, p.line2, 1f));
+        box.setBackground(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f));
         ImageButton minus = iconButton("minus", label + " -" + step, 18f);
         ImageButton plus = iconButton("plus", label + " +" + step, 18f);
         input.setBackground(null);
@@ -1147,19 +1172,18 @@ final class SettingsKit {
 
     // ------------------------------------------------------------------ navigation
 
+    /**
+     * A navigation row. The lab drew a rounded icon tile on the left; the Miuix list carries no such
+     * tile, so the row is a title (with an optional live summary) and a chevron. {@code iconName} is
+     * kept for the search index and for callers that forward it.
+     */
     LinearLayout homeItem(String iconName, String title, String summary) {
         LinearLayout item = horizontal();
-        item.setPaddingRelative(dp(14), dp(11), dp(12), dp(11));
-        item.setMinimumHeight(dp(summary == null || summary.isEmpty() ? 54 : 66));
+        item.setPaddingRelative(dp(ROW_PADDING), dp(13), dp(ROW_PADDING) - dp(2), dp(13));
+        item.setMinimumHeight(dp(summary == null || summary.isEmpty() ? ROW_MIN_HEIGHT : 64));
         item.setFocusable(true);
         item.setClickable(true);
         item.setBackground(pressable(rect(0x00000000, 0f), 0f));
-        ImageView tile = new ImageView(context);
-        tile.setImageDrawable(icon(iconName, p.text2, 18f));
-        tile.setScaleType(ImageView.ScaleType.CENTER);
-        tile.setBackground(rect(p.surface3, 7f));
-        tile.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        item.addView(tile, new LinearLayout.LayoutParams(dp(34), dp(34)));
         LinearLayout texts = vertical();
         TextView titleView = text(title, 16f, p.text, semi);
         titleView.setLineSpacing(dp(2), 1f);
@@ -1171,13 +1195,12 @@ final class SettingsKit {
             texts.addView(summaryView, topMargin(matchWrap(), dp(4)));
         }
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        textParams.setMarginStart(dp(14));
         textParams.setMarginEnd(dp(8));
         item.addView(texts, textParams);
         ImageView chevron = new ImageView(context);
-        chevron.setImageDrawable(icon("right", p.text4, 18f));
+        chevron.setImageDrawable(icon("right", p.text4, 16f));
         chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        item.addView(chevron, new LinearLayout.LayoutParams(dp(18), dp(18)));
+        item.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
         return item;
     }
 
@@ -1549,6 +1572,228 @@ final class SettingsKit {
     }
 
     // ------------------------------------------------------------------ drawables
+
+    /**
+     * The switch the reader sees: a 50 × 30 capsule with a white 20 dp thumb. It stays a {@link Switch},
+     * so every existing listener, {@code setChecked} call and accessibility role keeps working; only
+     * the platform's own track and thumb are made transparent and repainted here.
+     */
+    static final class MiuixSwitch extends Switch {
+        private final SettingsPalette palette;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF track = new RectF();
+        private final int width;
+        private final int height;
+        private final int thumbInset;
+        private final float thumbStart;
+        private final float thumbTravel;
+        private final int thumbPressed;
+        private float thumbScale = 1f;
+        private ValueAnimator thumbAnimator;
+        private final float stroke;
+        private float position;
+        private ValueAnimator animator;
+
+        MiuixSwitch(Context context, SettingsPalette palette) {
+            this(context, palette, true);
+        }
+
+        /**
+         * @param withText false for a bare switch inside a custom row: no text gap is reserved, so
+         *                 the capsule sits centred in its own bounds instead of 12 dp off to one side.
+         */
+        MiuixSwitch(Context context, SettingsPalette palette, boolean withText) {
+            super(context);
+            stroke = Math.max(1f, 0.8f * context.getResources().getDisplayMetrics().density);
+            this.palette = palette;
+            float density = context.getResources().getDisplayMetrics().density;
+            width = Math.round(SWITCH_WIDTH * density);
+            height = Math.round(SWITCH_HEIGHT * density);
+            thumbInset = Math.round(SWITCH_THUMB * density / 2f);
+            thumbStart = SWITCH_THUMB_START * density;
+            thumbTravel = (SWITCH_WIDTH - 2f * SWITCH_THUMB_START) * density;
+            thumbPressed = Math.round(SWITCH_THUMB_PRESSED * density / 2f);
+            setShowText(false);
+            setSplitTrack(false);
+            setSwitchMinWidth(width);
+            setSwitchPadding(withText ? Math.round(12 * density) : 0);
+            // The platform reserves room for the switch beside the text; keep that measurement and
+            // hide what it draws, so the capsule below is the only thing visible.
+            setThumbDrawable(blankShape(GradientDrawable.OVAL, Math.round(SWITCH_THUMB * density),
+                    Math.round(SWITCH_THUMB * density)));
+            setTrackDrawable(blankShape(GradientDrawable.RECTANGLE, width, height));
+            setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            setSingleLine(false);
+            setMaxLines(Integer.MAX_VALUE);
+            setEllipsize(null);
+            setMinimumWidth(Math.max(Math.round(48 * density), width));
+            setMinimumHeight(Math.round(48 * density));
+            position = isChecked() ? 1f : 0f;
+        }
+
+        private static Drawable blankShape(int shape, int width, int height) {
+            GradientDrawable drawable = new GradientDrawable();
+            drawable.setShape(shape);
+            drawable.setColor(0x00000000);
+            drawable.setCornerRadius(height / 2f);
+            drawable.setSize(Math.max(1, width), Math.max(1, height));
+            return drawable;
+        }
+
+        @Override public void setChecked(boolean checked) {
+            boolean changed = isChecked() != checked;
+            super.setChecked(checked);
+            if (changed) animateTo(checked ? 1f : 0f);
+        }
+
+        private void animateTo(float target) {
+            if (animator != null) animator.cancel();
+            if (!isAttachedToWindow() || !ValueAnimator.areAnimatorsEnabled()) {
+                position = target;
+                invalidate();
+                return;
+            }
+            // Miuix runs the thumb on a spring (damping 0.6, stiffness 987): a slight overshoot that
+            // settles in about a quarter second. Overshoot is that curve without a physics animator.
+            animator = ValueAnimator.ofFloat(position, target);
+            animator.setDuration(260L);
+            animator.setInterpolator(new android.view.animation.OvershootInterpolator(0.75f));
+            animator.addUpdateListener(animation -> {
+                position = (float) animation.getAnimatedValue();
+                invalidate();
+            });
+            animator.start();
+        }
+
+        @Override protected void onDetachedFromWindow() {
+            if (animator != null) {
+                animator.cancel();
+                animator = null;
+            }
+            position = isChecked() ? 1f : 0f;
+            super.onDetachedFromWindow();
+        }
+
+        @Override public boolean performClick() {
+            boolean before = isChecked();
+            boolean handled = super.performClick();
+            // Miuix fires a toggle haptic on release; the platform switch is silent.
+            if (isChecked() != before && isEnabled()) {
+                performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+            }
+            return handled;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    setThumbPressed(true);
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    setThumbPressed(false);
+                    break;
+                default:
+                    break;
+            }
+            return super.onTouchEvent(event);
+        }
+
+        /** The thumb grows by 2.5dp under the finger, the way the Miuix switch does. */
+        private void setThumbPressed(boolean pressed) {
+            float target = pressed ? (float) thumbPressed / Math.max(1, thumbInset) : 1f;
+            if (thumbAnimator != null) thumbAnimator.cancel();
+            thumbAnimator = ValueAnimator.ofFloat(thumbScale, target);
+            thumbAnimator.setDuration(120L);
+            thumbAnimator.addUpdateListener(animation -> {
+                thumbScale = (float) animation.getAnimatedValue();
+                invalidate();
+            });
+            thumbAnimator.start();
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            // Text first (the platform's own track and thumb are transparent and draw nothing).
+            super.onDraw(canvas);
+            int start = getPaddingStart();
+            int end = getWidth() - getPaddingEnd();
+            int span = end - start;
+            if (span <= 0 || getHeight() <= 0) return;
+            // A cell narrower than the capsule shrinks it instead of falling back to the platform
+            // track, which would show a second, tinted switch under this one.
+            int capsuleWidth = Math.min(width, span);
+            int capsuleHeight = Math.min(height, getHeight());
+            boolean rtl = getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+            int left = rtl ? start : end - capsuleWidth;
+            int top = Math.round((getHeight() - capsuleHeight) / 2f);
+            track.set(left, top, left + capsuleWidth, top + capsuleHeight);
+            float endRadius = capsuleHeight / 2f;
+            paint.setStyle(Paint.Style.FILL);
+            paint.setAlpha(isEnabled() ? 0xFF : 0x60);
+            paint.setColor(blend(palette.switchOff, palette.accent, position));
+            canvas.drawRoundRect(track, endRadius, endRadius, paint);
+            // A hairline keeps the capsule readable when it sits on a cover, where a 30% white
+            // fill and a white thumb can collapse into one pale shape.
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(stroke);
+            paint.setColor(withAlpha(palette.text, 0x1F));
+            canvas.drawRoundRect(track, endRadius, endRadius, paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0xFFFFFFFF);
+            // Everything scales with the capsule that actually fits: an adaptive row may hand the
+            // switch less than 50 dp, and fixed offsets then push the thumb out of its track.
+            float fit = Math.min(capsuleWidth / (float) width, capsuleHeight / (float) height);
+            float thumbRadius = Math.min(thumbInset * thumbScale * fit,
+                    Math.min(track.width(), track.height()) / 2f - stroke / 2f);
+            thumbRadius = Math.max(0f, thumbRadius);
+            float progress = Math.max(0f, Math.min(1f, position));
+            if (rtl) progress = 1f - progress;
+            float centerX = track.left + (thumbStart + thumbTravel * progress) * fit;
+            float edgeInset = thumbRadius + stroke / 2f;
+            centerX = Math.max(track.left + edgeInset, Math.min(track.right - edgeInset, centerX));
+            canvas.drawCircle(centerX, track.centerY(), thumbRadius, paint);
+        }
+
+        private static int blend(int from, int to, float fraction) {
+            float t = Math.max(0f, Math.min(1f, fraction));
+            int alpha = Math.round(android.graphics.Color.alpha(from)
+                    + (android.graphics.Color.alpha(to) - android.graphics.Color.alpha(from)) * t);
+            int red = Math.round(android.graphics.Color.red(from)
+                    + (android.graphics.Color.red(to) - android.graphics.Color.red(from)) * t);
+            int green = Math.round(android.graphics.Color.green(from)
+                    + (android.graphics.Color.green(to) - android.graphics.Color.green(from)) * t);
+            int blue = Math.round(android.graphics.Color.blue(from)
+                    + (android.graphics.Color.blue(to) - android.graphics.Color.blue(from)) * t);
+            return android.graphics.Color.argb(alpha, red, green, blue);
+        }
+    }
+
+    /** A hairline that stops short of the card's leading edge, the way a grouped list draws it. */
+    static final class InsetLine extends Drawable {
+        private final Paint paint = new Paint();
+        private final int thickness;
+        private final int inset;
+
+        InsetLine(int color, int thickness, int inset) {
+            paint.setColor(color);
+            this.thickness = Math.max(1, thickness);
+            this.inset = Math.max(0, inset);
+        }
+
+        @Override public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            int start = bounds.left + (getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? 0 : inset);
+            int end = bounds.right - (getLayoutDirection() == View.LAYOUT_DIRECTION_RTL ? inset : 0);
+            if (end <= start) return;
+            canvas.drawRect(start, bounds.top, end, bounds.top + thickness, paint);
+        }
+
+        @Override public int getIntrinsicWidth() { return -1; }
+        @Override public int getIntrinsicHeight() { return thickness; }
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+    }
 
     /** The radio mark of a card: an empty ring, or a filled circle with a check. */
     static final class CheckMark extends Drawable {
@@ -1977,6 +2222,14 @@ final class SettingsKit {
         ICONS.put("menu.lyrics", "M5 7h8M5 12h6M5 17h8M16 8l4 4-4 4V8Z");
         ICONS.put("menu.player", "M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5");
         ICONS.put("menu.system", "M4 7h6M14 7h6M4 17h10M18 17h2M10 4v6M14 14v6");
+        // Pages added when the menus were split: without an entry the search result draws no mark.
+        ICONS.put("menu.enhance", "M12 3l1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3ZM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8L5 14Z");
+        ICONS.put("menu.style", "M4 6h16M7 10h10M4 14h16M7 18h10");
+        ICONS.put("menu.background", "M4 5h16v14H4zM4 14l5-4 5 4 3-2 3 3");
+        ICONS.put("menu.screen", "M3.5 6h17v10h-17zM9 20h6");
+        ICONS.put("menu.vinyl", "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-6.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z");
+        ICONS.put("menu.data", "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Zm0 0v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7");
+        ICONS.put("menu.credits", "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 5v.01M11 11.5h1v5h1");
         ICONS.put("arm.s", "M18 4c1.5 4 .5 8-3 11l-4 4");
         ICONS.put("arm.straight", "M18 4 9 18");
         ICONS.put("arm.j", "M18 4v9c0 3-2 5-5 6");

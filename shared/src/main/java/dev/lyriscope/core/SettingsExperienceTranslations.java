@@ -62,28 +62,73 @@ final class SettingsExperienceTranslations {
         // The home groups are named per language, but a language that has no wording of its own must
         // still end up with text: an earlier version copied whatever key it hoped was translated, and
         // a missing one wrote a blank string that killed the module at startup.
-        String[] englishHome = {"Current song", "Lyrics", "Display and playback", "Application",
-                "Translation and pronunciation", "Lyrics sources", "AI services", "Lyrics appearance",
-                "Playback and lyrics behavior", "Player styles", "App settings"};
+        String[] englishHome = {"Current song", "Lyrics", "Display", "Playback", "Application"};
         String[] home = switch (language) {
-            case "zh-CN" -> new String[]{"当前歌曲", "歌词", "显示与播放", "应用", "翻译与注音", "歌词来源", "AI 服务", "歌词外观", "播放与歌词行为", "播放器样式", "应用设置"};
-            case "zh-TW" -> new String[]{"目前歌曲", "歌詞", "顯示與播放", "應用程式", "翻譯與注音", "歌詞來源", "AI 服務", "歌詞外觀", "播放與歌詞行為", "播放器樣式", "應用程式設定"};
+            case "zh-CN" -> new String[]{"当前歌曲", "歌词", "外观", "播放", "其他"};
+            case "zh-TW" -> new String[]{"目前歌曲", "歌詞", "外觀", "播放", "其他"};
+            case "ko" -> new String[]{"현재 곡", "가사", "화면", "재생", "앱"};
+            case "ja" -> new String[]{"再生中の曲", "歌詞", "表示", "再生", "アプリ"};
             case "en" -> englishHome;
             default -> null;
         };
-        String[] homeKeys = {"home.track", "home.lyrics", "home.playback", "home.app", "tab.general", "tab.providers", "tab.ai", "tab.appearance", "tab.lyrics", "tab.player", "tab.system"};
-        // Where a language already names the equivalent group elsewhere, reuse that wording.
-        String[] borrowedKeys = {"tab.current_track", "settings.group_sources", "tab.display", "settings.group_manage"};
+        String[] homeKeys = {"home.track", "home.lyrics", "home.display", "home.playback", "home.app"};
         for (int i = 0; i < homeKeys.length; i++) {
-            String value = home != null && i < home.length
-                    ? home[i]
-                    : i < borrowedKeys.length ? firstNonBlank(target.get(borrowedKeys[i]), englishHome[i])
-                    : firstNonBlank(target.get(homeKeys[i]), englishHome[i]);
-            target.put(homeKeys[i], value);
+            target.put(homeKeys[i], home != null && i < home.length ? home[i] : englishHome[i]);
+        }
+
+        // Page names of the shorter, more numerous menus. Languages without their own wording keep the
+        // English pair here; a missing key falls back to the English table rather than a blank label.
+        String[][] pages = switch (language) {
+            case "zh-CN" -> new String[][]{
+                    {"tab.providers", "歌词来源"}, {"tab.general", "翻译与注音"},
+                    {"tab.ai", "AI 服务"}, {"tab.enhance", "歌词增强"},
+                    {"tab.style", "歌词样式"}, {"tab.background", "背景与效果"},
+                    {"tab.screen", "歌词页元素"}, {"tab.vinyl", "LP 唱机"},
+                    {"tab.player", "播放与手势"}, {"tab.system", "语言与地区"},
+                    {"tab.data", "调试与数据"}, {"tab.credits", "关于与鸣谢"},
+                    {"settings.section.lyrics_page", "歌词页布局"},
+                    {"settings.section.lyrics_page_desc", "正文边距与播放按钮的位置。"}};
+            case "zh-TW" -> new String[][]{
+                    {"tab.providers", "歌詞來源"}, {"tab.general", "翻譯與注音"},
+                    {"tab.ai", "AI 服務"}, {"tab.enhance", "歌詞增強"},
+                    {"tab.style", "歌詞樣式"}, {"tab.background", "背景與效果"},
+                    {"tab.screen", "歌詞頁元素"}, {"tab.vinyl", "LP 唱機"},
+                    {"tab.player", "播放與手勢"}, {"tab.system", "語言與地區"},
+                    {"tab.data", "偵錯與資料"}, {"tab.credits", "關於與鳴謝"},
+                    {"settings.section.lyrics_page", "歌詞頁版面"},
+                    {"settings.section.lyrics_page_desc", "內文邊距與播放按鈕的位置。"}};
+            case "ko" -> new String[][]{
+                    {"tab.providers", "가사 소스"}, {"tab.general", "번역과 발음"},
+                    {"tab.ai", "AI 서비스"}, {"tab.enhance", "가사 확장"},
+                    {"tab.style", "가사 스타일"}, {"tab.background", "배경과 효과"},
+                    {"tab.screen", "가사 화면 요소"}, {"tab.vinyl", "LP 플레이어"},
+                    {"tab.player", "재생과 제스처"}, {"tab.system", "일반"},
+                    {"tab.data", "권한 및 데이터"}, {"tab.credits", "정보 및 크레딧"},
+                    {"settings.section.lyrics_page", "가사 화면 배치"},
+                    {"settings.section.lyrics_page_desc", "본문 여백과 재생 버튼 위치."}};
+            case "ja" -> new String[][]{
+                    {"tab.providers", "歌詞ソース"}, {"tab.general", "翻訳と発音"},
+                    {"tab.ai", "AIサービス"}, {"tab.enhance", "歌詞の拡張"},
+                    {"tab.style", "歌詞スタイル"}, {"tab.background", "背景と効果"},
+                    {"tab.screen", "歌詞ページ要素"}, {"tab.vinyl", "LPプレーヤー"},
+                    {"tab.player", "再生とジェスチャー"}, {"tab.system", "一般"},
+                    {"tab.data", "権限とデータ"}, {"tab.credits", "このアプリとクレジット"},
+                    {"settings.section.lyrics_page", "歌詞ページの配置"},
+                    {"settings.section.lyrics_page_desc", "本文の余白と再生ボタンの位置。"}};
+            case "en" -> new String[][]{
+                    {"tab.providers", "Lyrics sources"}, {"tab.general", "Translation & pronunciation"},
+                    {"tab.ai", "AI services"}, {"tab.enhance", "Lyrics extras"},
+                    {"tab.style", "Lyrics style"}, {"tab.background", "Background & effects"},
+                    {"tab.screen", "Page elements"}, {"tab.vinyl", "LP player"},
+                    {"tab.player", "Playback & gestures"}, {"tab.system", "General"},
+                    {"tab.data", "Permissions & data"}, {"tab.credits", "About & credits"},
+                    {"settings.section.lyrics_page", "Page layout"},
+                    {"settings.section.lyrics_page_desc", "Text margin and where the play button sits."}};
+            default -> null;
+        };
+        if (pages != null) {
+            for (String[] pair : pages) target.put(pair[0], pair[1]);
         }
     }
 
-    private static String firstNonBlank(String preferred, String fallback) {
-        return preferred == null || preferred.trim().isEmpty() ? fallback : preferred;
-    }
 }

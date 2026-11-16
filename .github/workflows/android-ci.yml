@@ -101,6 +101,7 @@ jobs:
           python3 tests/run_furigana_loading_regression.py
           python3 tests/run_furigana_webview_regression.py
           node --test tests/furigana_bridge.test.mjs
+          node tests/run_translation_controls_regression.mjs
           python3 tests/run_metadata_refresh_loading_regression.py
           python3 tests/run_ai_models_regression.py
           python3 tests/run_openai_connections_regression.py

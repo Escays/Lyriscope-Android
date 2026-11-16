@@ -59,6 +59,78 @@ public final class SettingsUiRegressionTest {
     }
 
     @Test public void koreanSmallPortrait() throws Exception { scenario("ko", 1f, 320, 640, false); }
+
+    @Test public void switchThumbStaysInsideCapsule() {
+        launch("en", 1f, false);
+        onMain(() -> {
+            SettingsKit.MiuixSwitch toggle = new SettingsKit.MiuixSwitch(activity, SettingsPalette.ARTWORK, false);
+            toggle.setBackground(null);
+            toggle.setPadding(0, 0, 0, 0);
+            // Sample both spring overshoot ends and the enlarged pressed thumb, in both directions.
+            for (int direction : new int[]{View.LAYOUT_DIRECTION_LTR, View.LAYOUT_DIRECTION_RTL}) {
+                toggle.setLayoutDirection(direction);
+                for (int width : new int[]{50, 40}) {
+                    toggle.measure(View.MeasureSpec.makeMeasureSpec(dp(width), View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(dp(48), View.MeasureSpec.EXACTLY));
+                    toggle.layout(0, 0, dp(width), dp(48));
+                    for (float position : new float[]{-.1f, 0f, .5f, 1f, 1.1f}) {
+                        try {
+                            java.lang.reflect.Field progress = SettingsKit.MiuixSwitch.class.getDeclaredField("position");
+                            progress.setAccessible(true); progress.setFloat(toggle, position);
+                            java.lang.reflect.Field scale = SettingsKit.MiuixSwitch.class.getDeclaredField("thumbScale");
+                            scale.setAccessible(true); scale.setFloat(toggle, 1.125f);
+                        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
+                        Bitmap pixels = Bitmap.createBitmap(dp(width), dp(48), Bitmap.Config.ARGB_8888);
+                        toggle.draw(new Canvas(pixels));
+                        float radius = dp(30) / 2f;
+                        int white = 0;
+                        float center = 0f;
+                        for (int y = 0; y < pixels.getHeight(); y++) for (int x = 0; x < pixels.getWidth(); x++) {
+                            int pixel = pixels.getPixel(x, y);
+                            if (Color.alpha(pixel) < 240 || Color.red(pixel) < 245
+                                    || Color.green(pixel) < 245 || Color.blue(pixel) < 245) continue;
+                            white++; center += x + .5f;
+                            float nearestX = Math.max(radius, Math.min(dp(width) - radius, x + .5f));
+                            float dx = x + .5f - nearestX;
+                            float dy = y + .5f - dp(48) / 2f;
+                            assertTrue("white thumb stays inside the capsule at " + position,
+                                    dx * dx + dy * dy <= (radius + 1f) * (radius + 1f));
+                        }
+                        pixels.recycle();
+                        assertTrue("thumb is visible", white > dp(10) * dp(10));
+                        if (position == 1f) assertTrue("checked thumb follows layout direction",
+                                direction == View.LAYOUT_DIRECTION_RTL ? center / white < dp(width) / 2f
+                                        : center / white > dp(width) / 2f);
+                    }
+                }
+            }
+        });
+    }
+
+    @Test public void translationSheetCardsHaveSpacing() {
+        capturePrefix = "translation-sheet";
+        launch("zh-CN", 1f, false);
+        onMain(() -> {
+            activity.view("settingsPanel").setVisibility(View.GONE);
+            activity.call("showTranslationSettings");
+        });
+        android.widget.PopupWindow popup = (android.widget.PopupWindow) activity.value("translationSettingsPopup");
+        try {
+            for (String tab : new String[]{"track", "global"}) {
+                onMain(() -> { activity.put("translationSettingsTab", tab); activity.call("renderTranslationSettings"); });
+                awaitWindow(popup.getContentView());
+                onMain(() -> {
+                    ViewGroup body = (ViewGroup) activity.view("translationSettingsContent");
+                    assertEquals(5, body.getChildCount());
+                    View sources = body.getChildAt(2);
+                    View mix = body.getChildAt(3);
+                    assertTrue("mix card is separated from source card", mix.getTop() - sources.getBottom() >= dp(12));
+                    assertControls(body);
+                });
+                screenshot("translation-sheet-" + tab);
+            }
+        } finally { onMain(popup::dismiss); }
+    }
     @Test public void koreanLandscapeLargeText() throws Exception { scenario("ko", 1.6f, 568, 320, true); }
     @Test public void englishNarrowLargeText() throws Exception { scenario("en", 1.8f, 280, 600, false); }
     @Test public void englishNarrowLandscapeLargeText() throws Exception { scenario("en", 1.8f, 280, 320, true); }
@@ -594,7 +666,7 @@ public final class SettingsUiRegressionTest {
         TextView title = (TextView) ((ViewGroup) activity.view("settingsHomePage")).getChildAt(0);
         assertEquals("one adjacent brand label", "Lyriscope", title.getText().toString());
         assertEquals("existing title size", android.util.TypedValue.applyDimension(
-                        android.util.TypedValue.COMPLEX_UNIT_SP, 28f, activity.getResources().getDisplayMetrics()),
+                        android.util.TypedValue.COMPLEX_UNIT_SP, 30f, activity.getResources().getDisplayMetrics()),
                 title.getTextSize(), .01f);
         assertEquals("neutral title color", ((SettingsKit) activity.value("settingsKit")).p.text,
                 title.getCurrentTextColor());
@@ -612,30 +684,14 @@ public final class SettingsUiRegressionTest {
                 - title.getCompoundPaddingTop() - title.getCompoundPaddingBottom());
         assertTrue("adjacent LTR runs", layout.getPrimaryHorizontal(0) < layout.getPrimaryHorizontal(5)
                 && layout.getPrimaryHorizontal(5) < layout.getPrimaryHorizontal(9));
-        Spanned label = (Spanned) title.getText();
-        SettingsKit.FontSpan[] spans = label.getSpans(0, label.length(), SettingsKit.FontSpan.class);
-        assertEquals("only the two brand runs", 2, spans.length);
-        for (SettingsKit.FontSpan span : spans) {
-            int start = label.getSpanStart(span);
-            assertTrue("brand run starts at Lyris or cope", start == 0 || start == 5);
-            assertEquals(start == 0 ? 5 : 9, label.getSpanEnd(span));
-            TextPaint paint = new TextPaint(title.getPaint());
-            span.updateDrawState(paint);
-            assertEquals("actual native typeface weight", start == 0 ? 800 : 250, paint.getTypeface().getWeight());
-            assertFalse("uses real outlines without synthetic bold", paint.isFakeBoldText());
-            if (start == 5) {
-                long actual = brandInk(paint);
-                TextPaint reference = new TextPaint(paint);
-                reference.setTypeface(AppFonts.brand(activity, 200));
-                long light = brandInk(reference);
-                reference.setTypeface(AppFonts.brand(activity, 300));
-                long regular = brandInk(reference);
-                assertTrue("250 renders between 200 and 300, not a rounded static weight: "
-                        + light + " < " + actual + " < " + regular, light < actual && actual < regular);
-                android.util.Log.i("SettingsUiRegression", "Brand accepted: locale=" + language
-                        + ", title=28sp/" + title.getTextSize() + "px, weights=800/250, Lyrics ink at 200/250/300="
-                        + light + "/" + actual + "/" + regular);
-            }
+        assertEquals("one weight across the complete wordmark", 600, title.getTypeface().getWeight());
+        assertFalse("no synthetic bold", title.getPaint().isFakeBoldText());
+        if (title.getText() instanceof Spanned) {
+            Spanned label = (Spanned) title.getText();
+            assertEquals("no split font runs", 0,
+                    label.getSpans(0, label.length(), SettingsKit.FontSpan.class).length);
+            assertEquals("no split colour runs", 0,
+                    label.getSpans(0, label.length(), android.text.style.ForegroundColorSpan.class).length);
         }
         assertEquals("localized settings nav label", AppI18n.t(language, "settings.title"),
                 ((TextView) activity.view("settingsNavTitle")).getText().toString());
@@ -696,34 +752,36 @@ public final class SettingsUiRegressionTest {
         assertFalse("no additional textual v: " + dropdown.getText(), dropdown.getText().toString().matches(".*\\s[v⌄⌃]\\s*$"));
     }
 
+    /**
+     * The settings switch is drawn by the control itself (a capsule with a white round thumb), not by
+     * a platform thumb drawable, so the check reads the drawn pixels on the switch side of the row.
+     */
     private void assertThumb(Switch toggle) {
-        // Draw the production control first, so Switch has assigned its actual thumb bounds.
-        drawSwitch(toggle);
-        Drawable thumb = toggle.getThumbDrawable();
-        assertNotNull("native thumb", thumb);
-        Rect padding = new Rect(); thumb.getPadding(padding);
-        assertTrue("intrinsic thumb content width", thumb.getIntrinsicWidth() > padding.left + padding.right);
-        assertTrue("intrinsic thumb content height", thumb.getIntrinsicHeight() > padding.top + padding.bottom);
-        Rect bounds = new Rect(thumb.getBounds());
-        assertTrue("drawn thumb bounds", bounds.width() > 0 && bounds.height() > 0);
-        Bitmap pixels = Bitmap.createBitmap(bounds.width(), bounds.height(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(pixels); canvas.translate(-bounds.left, -bounds.top); thumb.draw(canvas);
-        Rect ink = new Rect(pixels.getWidth(), pixels.getHeight(), 0, 0);
-        int peakAlpha = 0;
-        for (int y = 0; y < pixels.getHeight(); y++) for (int x = 0; x < pixels.getWidth(); x++) {
-            peakAlpha = Math.max(peakAlpha, Color.alpha(pixels.getPixel(x, y)));
-        }
-        assertTrue("thumb has drawn ink even when disabled", peakAlpha > 0);
-        for (int y = 0; y < pixels.getHeight(); y++) for (int x = 0; x < pixels.getWidth(); x++) {
-            if (Color.alpha(pixels.getPixel(x, y)) >= Math.ceil(peakAlpha * .9f)) {
-                ink.left = Math.min(ink.left, x); ink.top = Math.min(ink.top, y);
-                ink.right = Math.max(ink.right, x + 1); ink.bottom = Math.max(ink.bottom, y + 1);
+        Bitmap control = Bitmap.createBitmap(Math.max(1, toggle.getWidth()), Math.max(1, toggle.getHeight()),
+                Bitmap.Config.ARGB_8888);
+        toggle.jumpDrawablesToCurrentState();
+        toggle.draw(new Canvas(control));
+        int from = Math.max(0, control.getWidth() - dp(80));
+        Rect thumb = new Rect(control.getWidth(), control.getHeight(), 0, 0);
+        int bright = 0;
+        for (int y = 0; y < control.getHeight(); y++) {
+            for (int x = from; x < control.getWidth(); x++) {
+                int pixel = control.getPixel(x, y);
+                if (Color.alpha(pixel) < 0x80) continue;
+                if (Color.red(pixel) > 200 && Color.green(pixel) > 200 && Color.blue(pixel) > 200) {
+                    bright++;
+                    thumb.left = Math.min(thumb.left, x);
+                    thumb.top = Math.min(thumb.top, y);
+                    thumb.right = Math.max(thumb.right, x + 1);
+                    thumb.bottom = Math.max(thumb.bottom, y + 1);
+                }
             }
         }
-        pixels.recycle();
-        assertFalse("opaque native thumb ink", ink.isEmpty());
-        float aspect = (float) ink.width() / ink.height();
-        assertTrue("circular drawn thumb, not old 20x26 ellipse: " + aspect, aspect >= .88f && aspect <= 1.14f);
+        control.recycle();
+        assertTrue("switch draws a thumb on its own side", bright > 0);
+        assertFalse("drawn thumb ink", thumb.isEmpty());
+        float aspect = (float) thumb.width() / thumb.height();
+        assertTrue("circular drawn thumb, not an old wide ellipse: " + aspect, aspect >= .88f && aspect <= 1.14f);
     }
 
     private void drawSwitch(Switch toggle) {

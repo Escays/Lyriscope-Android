@@ -42,6 +42,10 @@ final class SettingsPalette {
     final int layerOriginal;
     final int layerPhonetic;
     final int layerTranslation;
+    /** Card fill, one step above the page canvas (Miuix card). */
+    final int card;
+    /** Hairline between two rows of one card; it starts inset, never at the card edge. */
+    final int divider;
 
     // HyperOS dark: black canvas, near-black cards with 20 dp corners, one blue accent.
     static final SettingsPalette DARK = new SettingsPalette(true,
@@ -52,7 +56,8 @@ final class SettingsPalette {
             0xFFFFFFFF, 0xFF000000,
             0xFF32D74B, 0x1F32D74B, 0xFFFFB020, 0x1FFFB020, 0xFFFF453A, 0x1FFF453A,
             0xFF7FB0FF, 0x1A3482FF, 0xFF3A3A3C, 0x24FFFFFF,
-            0xFFD4D4D8, 0xFFE9A23B, 0xFF3FBF8A);
+            0xFFD4D4D8, 0xFFE9A23B, 0xFF3FBF8A,
+            0xFF1A1A1A, 0xFF26262A);
 
     static final SettingsPalette LIGHT = new SettingsPalette(false,
             0xFFF2F3F5, 0xFFFFFFFF, 0xFFF7F7F9, 0xFFEFEFF2, 0xFFE4E4E8, 0xFFFFFFFF,
@@ -62,7 +67,8 @@ final class SettingsPalette {
             0xFF18181B, 0xFFFFFFFF,
             0xFF1A7F37, 0x171A7F37, 0xFF9A6700, 0x1A9A6700, 0xFFCF222E, 0x14CF222E,
             0xFF1D4ED8, 0x122563EB, 0xFFD4D4D9, 0x1A000000,
-            0xFF3F3F46, 0xFFC27612, 0xFF15845A);
+            0xFF3F3F46, 0xFFC27612, 0xFF15845A,
+            0xFFFFFFFF, 0xFFE8E8EC);
 
     // Over a darkened cover colour: no neutral cards, only translucent white layers, as the bulb
     // sheet draws them.
@@ -74,7 +80,8 @@ final class SettingsPalette {
             0xFFFFFFFF, 0xFF000000,
             0xFF7BE0A3, 0x1F7BE0A3, 0xFFFFC65C, 0x1FFFC65C, 0xFFFF7B72, 0x1FFF7B72,
             0xFF9CC2FF, 0x1A9CC2FF, 0x4DFFFFFF, 0x24FFFFFF,
-            0xFFD4D4D8, 0xFFE9A23B, 0xFF3FBF8A);
+            0xFFD4D4D8, 0xFFE9A23B, 0xFF3FBF8A,
+            0x1AFFFFFF, 0x24FFFFFF);
 
     private SettingsPalette(
             boolean dark,
@@ -85,7 +92,8 @@ final class SettingsPalette {
             int ink, int inkText,
             int ok, int okSoft, int warn, int warnSoft, int danger, int dangerSoft,
             int info, int infoSoft, int switchOff, int ripple,
-            int layerOriginal, int layerPhonetic, int layerTranslation
+            int layerOriginal, int layerPhonetic, int layerTranslation,
+            int card, int divider
     ) {
         this.dark = dark;
         this.bg = bg;
@@ -121,6 +129,8 @@ final class SettingsPalette {
         this.layerOriginal = layerOriginal;
         this.layerPhonetic = layerPhonetic;
         this.layerTranslation = layerTranslation;
+        this.card = card;
+        this.divider = divider;
     }
 
     static SettingsPalette forTheme(String theme) {

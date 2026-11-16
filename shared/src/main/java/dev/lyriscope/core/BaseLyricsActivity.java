@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
 import android.app.RemoteAction;
@@ -134,13 +135,21 @@ public class BaseLyricsActivity extends Activity implements
     private static final long EMPTY_LYRICS_PREVIEW_VISIBLE_MS = 3_000L;
     private static final String SETTINGS_TAB_CREDITS = "credits";
     private static final String SETTINGS_TAB_GENERAL = "general";
+    /** Retired page id, kept so remote and test entry points still land on its successor. */
     private static final String SETTINGS_TAB_LYRICS = "lyrics";
     private static final String SETTINGS_TAB_PROVIDERS = "providers";
+    /** Retired page id, kept as an alias for the lyrics style page. */
     private static final String SETTINGS_TAB_APPEARANCE = "appearance";
     private static final String SETTINGS_TAB_PLAYER = "player";
     private static final String SETTINGS_TAB_AI = "ai";
     private static final String SETTINGS_TAB_SYSTEM = "system";
     private static final String SETTINGS_TAB_CURRENT_TRACK = "current_track";
+    private static final String SETTINGS_TAB_ENHANCE = "enhance";
+    private static final String SETTINGS_TAB_STYLE = "style";
+    private static final String SETTINGS_TAB_BACKGROUND = "background";
+    private static final String SETTINGS_TAB_SCREEN = "screen";
+    private static final String SETTINGS_TAB_VINYL = "vinyl";
+    private static final String SETTINGS_TAB_DATA = "data";
     private static final String SETTINGS_ROUTE_HOME = "home";
     private static final String SETTINGS_UI_PREFS = "settings_ui";
     private static final String KEY_SETTINGS_THEME = "theme";
@@ -226,7 +235,6 @@ public class BaseLyricsActivity extends Activity implements
             java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
     private LinearLayout lyricsActionRow;
     private TextView lyricsTranslationButton;
-    private boolean lyricsTranslationVisible = true;
     private PlatformTranslationService.Snapshot currentPlatformSnapshot =
             PlatformTranslationService.Snapshot.empty();
     private SongMeaningService.MeaningTranslation songMeaningTranslation;
@@ -644,6 +652,8 @@ public class BaseLyricsActivity extends Activity implements
     private boolean creatorProfilePrivate;
     private boolean automaticUpdateCheckStarted;
     private boolean spotifySetupRequired;
+    private String lastSavedToast = "";
+    private long lastSavedToastAt;
     private boolean manualLrclibSearchInFlight;
     /**
      * Open-source projects this one learned from, plus the lyric sources it reads. Names and authors
@@ -1474,7 +1484,10 @@ public class BaseLyricsActivity extends Activity implements
                 ? "" : "spotify:track:" + snapshot.trackId);
         updatePictureInPictureActionsIfNeeded(snapshot != null && snapshot.playing);
         updatePermissionState();
-        if (!isSpotifyApiConfigured()) {
+        // Notification access alone is enough to follow the song: title, artist, duration and the
+        // playback position all arrive from the media session. Web API credentials only add the
+        // cover art and the Spotify track id, so they are no longer a gate in front of the lyrics.
+        if (!isSpotifyApiConfigured() && !NowPlayingService.isNotificationAccessEnabled(this)) {
             updateSpotifySetupGate(false);
             setSpotifySetupRequiredState(snapshot);
             return;
@@ -4025,15 +4038,39 @@ public class BaseLyricsActivity extends Activity implements
 
     /** Shows or hides the translation rows without dropping the cached result. */
     private void toggleLyricsTranslation() {
-        lyricsTranslationVisible = !lyricsTranslationVisible;
-        if (lyricsTranslationButton != null) {
-            lyricsTranslationButton.setAlpha(lyricsTranslationVisible ? 1f : 0.55f);
+        setCurrentTrackTranslationEnabled(!currentTrackTranslationEnabled());
+    }
+
+    private boolean currentTrackTranslationEnabled() {
+        return platformTranslationSettings == null || platformTranslationSettings.enabledForTrack(currentLyricsKey);
+    }
+
+    private void setCurrentTrackTranslationEnabled(boolean enabled) {
+        if (platformTranslationSettings != null) {
+            platformTranslationSettings.setTrackEnabled(currentLyricsKey, enabled);
         }
-        LyricsResult shown = lyricsTranslationVisible
-                ? currentLyricsResult
-                : withoutTranslationRows(currentLyricsResult);
-        setLyricsResultOnViews(shown);
+        onTranslationPolicyChanged();
+    }
+
+    /** All translation entry points share the song policy, including results arriving later. */
+    private void onTranslationPolicyChanged() {
+        boolean enabled = currentTrackTranslationEnabled();
+        if (aiLyricsSettings != null) {
+            String source = effectiveSelectedSourceLang();
+            AiLyricsSettings.LanguageRule rule = aiLyricsSettings.snapshot().ruleForSource(source);
+            aiLyricsSettings.setLanguageRule(source, enabled, rule.pronunciationEnabled, rule.targetLang);
+            populateSelectedLanguageRule(aiLyricsSettings.snapshot());
+            updateLyricsLanguageButtonState();
+        }
+        if (lyricsTranslationButton != null) {
+            lyricsTranslationButton.setAlpha(enabled ? 1f : 0.55f);
+        }
+        if (translationSettingsPopup != null && translationSettingsPopup.isShowing()) {
+            renderTranslationSettings();
+        }
+        setLyricsResultOnViews(currentLyricsResult);
         updateLyricPreview(currentTrack == null ? 0L : currentLyricsPlaybackPosition(currentTrack));
+        if (enabled) requestAiLyrics(false);
     }
 
     private static LyricsResult withoutTranslationRows(LyricsResult result) {
@@ -5594,12 +5631,9 @@ public class BaseLyricsActivity extends Activity implements
         panel.setBackground(lyricsLanguageSettingsPanelBackground(false));
 
         if (!IvLyricsBridge.isEmbedded(this)) {
-            TextView pipButton = languageButton(ui("pip.open_lyrics"), false);
-            pipButton.setOnClickListener(view -> enterLyricsPictureInPicture());
-            panel.addView(pipButton, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(40)
-            ));
+            // A secondary way out of the panel, so it reads as a list row instead of a button that
+            // competes with the tab content below it.
+            panel.addView(buildPanelNavRow(ui("pip.open_lyrics"), this::enterLyricsPictureInPicture), matchWrap());
         }
 
         lyricsPopupTabButtonsContainer = new LinearLayout(this);
@@ -5629,49 +5663,51 @@ public class BaseLyricsActivity extends Activity implements
         lyricsMatchStatusBlock = buildLyricsMatchStatusBlock();
         lyricsLanguageSettingsContent.addView(lyricsMatchStatusBlock, matchWrap());
 
-        selectedLanguageRuleView = label("", 11.5f, withAlpha(panelPalette.text, 150), AppFonts.regular(this));
-        selectedLanguageRuleView.setLineSpacing(dp(2), 1f);
+        // The rule summary is four short lines: give it the same 12dp inset as the picker's text and
+        // enough leading that it does not read as one dense block.
+        selectedLanguageRuleView = label("", 12f, withAlpha(panelPalette.text, 175), AppFonts.regular(this));
+        selectedLanguageRuleView.setLineSpacing(dp(4), 1f);
+        selectedLanguageRuleView.setPaddingRelative(dp(12), 0, dp(12), 0);
 
         // Filled here as well as in the update pass: a rebuilt panel never saw that pass.
         sourceLanguageSelectButton = settingsSelectButton(sourceLanguageLabel(selectedRuleSourceLang));
         sourceLanguageSelectButton.setOnClickListener(view -> showLyricsSourceLanguagePopup(sourceLanguageSelectButton));
-        lyricsLanguageSettingsContent.addView(sourceLanguageSelectButton, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        ), dp(6)));
+        sourceLanguageSelectButton.setMinHeight(dp(44));
+        sourceLanguageSelectButton.setMinimumHeight(dp(44));
+        lyricsLanguageSettingsContent.addView(sourceLanguageSelectButton, topMargin(matchWrap(), dp(8)));
         // The rule summary is the selector's caption now, not a block of its own.
         lyricsLanguageSettingsContent.addView(selectedLanguageRuleView, topMargin(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ), dp(6)));
 
-        LinearLayout switchRow = new SettingsControlRow(this);
+        // Two half-width cells: the label keeps the flexible width and a bare capsule switch sits at
+        // the cell's end, so neither cell needs to reserve room for text inside the switch itself.
+        LinearLayout switchRow = new LinearLayout(this);
         switchRow.setOrientation(LinearLayout.HORIZONTAL);
         switchRow.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams switchRowParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        switchRowParams.topMargin = dp(10);
-        lyricsLanguageSettingsContent.addView(switchRow, switchRowParams);
+        lyricsLanguageSettingsContent.addView(switchRow, topMargin(matchWrap(), dp(10)));
 
-        languageTranslationSwitch = settingSwitch(ui("lyrics.translation"), "");
+        LinearLayout translationCell = buildCompactSwitchCell(ui("lyrics.translation"));
+        languageTranslationSwitch = (Switch) translationCell.getChildAt(1);
         languageTranslationSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            updateSelectedLanguageRuleStatusFromUi();
-            saveLyricsLanguageRuleAndRefresh();
+            if (!suppressLanguageRuleEvents) setCurrentTrackTranslationEnabled(isChecked);
         });
-        LinearLayout.LayoutParams translationParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams translationParams =
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         translationParams.rightMargin = dp(4);
-        switchRow.addView(languageTranslationSwitch, translationParams);
+        switchRow.addView(translationCell, translationParams);
 
-        languagePronunciationSwitch = settingSwitch(ui("lyrics.pronunciation"), "");
+        LinearLayout pronunciationCell = buildCompactSwitchCell(ui("lyrics.pronunciation"));
+        languagePronunciationSwitch = (Switch) pronunciationCell.getChildAt(1);
         languagePronunciationSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             updateSelectedLanguageRuleStatusFromUi();
             saveLyricsLanguageRuleAndRefresh();
         });
-        LinearLayout.LayoutParams pronunciationParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams pronunciationParams =
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         pronunciationParams.leftMargin = dp(4);
-        switchRow.addView(languagePronunciationSwitch, pronunciationParams);
+        switchRow.addView(pronunciationCell, pronunciationParams);
 
         lyricsRegenerateButton = languageButton(ui("lyrics.regenerate_supplements"), false);
         lyricsRegenerateButton.setOnClickListener(view -> requestAiLyrics(true));
@@ -5694,7 +5730,11 @@ public class BaseLyricsActivity extends Activity implements
         for (TextView chip : manualSearchSourceChips) {
             setSelectableButtonState(chip, manualSearchSource.equals(chip.getTag()), 14f);
         }
-        updateSelectedLanguageRuleStatusFromUi();
+        if (aiLyricsSettings != null) {
+            populateSelectedLanguageRule(aiLyricsSettings.snapshot());
+        } else {
+            updateSelectedLanguageRuleStatusFromUi();
+        }
         buildingCurrentTrackPanel = false;
         return panel;
     }
@@ -5707,9 +5747,15 @@ public class BaseLyricsActivity extends Activity implements
         if (root instanceof TextView && !(root instanceof android.widget.CompoundButton)) {
             TextView text = (TextView) root;
             // Tab labels style themselves; everything else is a button that came with Control black.
+            // One step lighter than the panel card, or a control reads as a hole in the card.
             boolean tabLabel = text.getParent() == lyricsPopupTabButtonsContainer;
-            if (text.isClickable() && !tabLabel) {
-                text.setBackground(SettingsAppearance.actionBackground(this, palette.surface2, 14, false));
+            // Tagged actions fill themselves (accent, danger); repainting them here turned the
+            // primary button into the same pale grey as the card it sits on.
+            boolean selfPainted = SettingsAppearance.PRIMARY_ACTION.equals(text.getTag())
+                    || SettingsAppearance.SECONDARY_ACTION.equals(text.getTag())
+                    || text == lyricsMatchStatusHeader;
+            if (text.isClickable() && !tabLabel && !selfPainted) {
+                text.setBackground(SettingsAppearance.actionBackground(this, palette.surface3, 12, false));
                 text.setTextColor(palette.text);
             }
         }
@@ -5748,11 +5794,11 @@ public class BaseLyricsActivity extends Activity implements
     private GradientDrawable lyricsLanguageSettingsPanelBackground(boolean solid) {
         if (panelOverArtwork && solid) {
             // The sheet already draws the coloured card; a second fill would cover it.
-            return roundDrawable(Color.TRANSPARENT, dp(14));
+            return roundDrawable(Color.TRANSPARENT, dp(16));
         }
         SettingsPalette palette = themePalette();
-        int color = solid ? palette.surface : withAlpha(palette.text, 38);
-        return roundDrawable(color, dp(14));
+        int color = solid ? palette.card : withAlpha(palette.text, 38);
+        return roundDrawable(color, dp(16));
     }
 
     /** The palette of the stored theme, available before the settings sheet has been built. */
@@ -5801,10 +5847,9 @@ public class BaseLyricsActivity extends Activity implements
 
         TextView resetButton = languageButton(ui("lyrics.sync.reset"), false);
         resetButton.setOnClickListener(view -> setCurrentTrackSyncOffset(0, true));
-        content.addView(resetButton, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        ), dp(8)));
+        resetButton.setMinHeight(dp(48));
+        resetButton.setMinimumHeight(dp(48));
+        content.addView(resetButton, topMargin(matchWrap(), dp(8)));
 
         return content;
     }
@@ -5991,10 +6036,9 @@ public class BaseLyricsActivity extends Activity implements
 
         TextView resetButton = languageButton(ui("lyrics.background.reset"), false);
         resetButton.setOnClickListener(view -> clearCurrentTrackBackgroundSettings(true));
-        content.addView(resetButton, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        ), dp(12)));
+        resetButton.setMinHeight(dp(48));
+        resetButton.setMinimumHeight(dp(48));
+        content.addView(resetButton, topMargin(matchWrap(), dp(12)));
         return content;
     }
 
@@ -6053,10 +6097,9 @@ public class BaseLyricsActivity extends Activity implements
 
         TextView searchButton = primaryButton(ui("lyrics.lrclib_search.button"));
         searchButton.setOnClickListener(view -> performManualSearch());
-        content.addView(searchButton, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        ), dp(10)));
+        searchButton.setMinHeight(dp(48));
+        searchButton.setMinimumHeight(dp(48));
+        content.addView(searchButton, topMargin(matchWrap(), dp(10)));
 
         lyricsManualSearchStatusView = label("", 11f, withAlpha(panelPalette.text, 170), AppFonts.semiBold(this));
         lyricsManualSearchStatusView.setLineSpacing(dp(2), 1f);
@@ -6103,10 +6146,9 @@ public class BaseLyricsActivity extends Activity implements
                 enableBlockedLyricsType(lyricsTypeGateTarget[0], lyricsTypeGateTarget[1]);
             }
         });
-        lyricsTypeGateCard.addView(lyricsTypeGateAction, topMargin(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(40)
-        ), dp(8)));
+        lyricsTypeGateAction.setMinHeight(dp(48));
+        lyricsTypeGateAction.setMinimumHeight(dp(48));
+        lyricsTypeGateCard.addView(lyricsTypeGateAction, topMargin(matchWrap(), dp(8)));
         updateLyricsTypeGateCard();
         return lyricsTypeGateCard;
     }
@@ -6269,15 +6311,13 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         final String key = currentTrack.stableKey();
-        new AlertDialog.Builder(this)
-                .setMessage(ui("lyrics.local.remove"))
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+        showConfirmDialog(ui("lyrics.local.remove"), ui("lyrics.local.description"),
+                ui("lyrics.local.remove"), true, () -> {
                     try {
                         new LocalLyricsStore(this).remove(key);
                         showSavedToast(ui("lyrics.local.removed"));
                     } catch (IOException error) { showSavedToast(ui("lyrics.local.error")); }
-                }).show();
+                });
     }
 
     private LinearLayout buildOffsetButtonRow(int first, int second, int third, OffsetAdjuster adjuster) {
@@ -6289,12 +6329,35 @@ public class BaseLyricsActivity extends Activity implements
             int delta = values[index];
             TextView button = languageButton(offsetDeltaLabel(delta), false);
             button.setOnClickListener(view -> adjuster.adjust(delta));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1f);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1f);
             if (index > 0) {
                 params.leftMargin = dp(8);
             }
             row.addView(button, params);
         }
+        return row;
+    }
+
+    /** A row that leaves the panel: label on the left, chevron at the end, same height as a control. */
+    private LinearLayout buildPanelNavRow(String label, Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(48));
+        row.setPaddingRelative(dp(12), dp(10), dp(8), dp(10));
+        row.setBackground(SettingsAppearance.actionBackground(this, 0x00000000, 12, false));
+        TextView text = label(label, 15f, panelPalette.text, AppFonts.semiBold(this));
+        text.setSingleLine(true);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+        row.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        ImageView chevron = new ImageView(this);
+        chevron.setImageDrawable(new SettingsKit.SvgIcon(SettingsKit.iconPath("right"), panelPalette.text3,
+                dp(16), Math.max(1f, dp(1.5f))));
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
+        makeRemoteFocusable(row);
+        row.setContentDescription(label);
+        row.setOnClickListener(view -> action.run());
         return row;
     }
 
@@ -6318,7 +6381,7 @@ public class BaseLyricsActivity extends Activity implements
 
         TextView closeButton = pillButton(ui("button.close"));
         closeButton.setOnClickListener(view -> toggleDebugPanel());
-        header.addView(closeButton, new LinearLayout.LayoutParams(dp(92), dp(42)));
+        header.addView(closeButton, new LinearLayout.LayoutParams(dp(92), dp(48)));
 
         sourceView = label("", 13f, Color.rgb(142, 236, 198), AppFonts.semiBold(this));
         panel.addView(sourceView, topMargin(matchWrap(), dp(18)));
@@ -6476,14 +6539,20 @@ public class BaseLyricsActivity extends Activity implements
 
         settingsHomePage = buildSettingsHomePage();
         content.addView(settingsHomePage, matchWrap());
+        // One call per page, in the order the home list shows them. Splitting a page never adds views:
+        // the same rows are laid out, only in shorter pages.
         buildCurrentTrackSettingsMenu(content);
-        buildGeneralSettingsMenu(content);
         buildProvidersSettingsMenu(content);
+        buildGeneralSettingsMenu(content);
         buildAiSettingsMenu(content);
-        buildAppearanceSettingsMenu(content);
-        buildBehaviorSettingsMenu(content);
-        buildPlayerSettingsMenu(content);
+        buildEnhanceSettingsMenu(content);
+        buildLyricsStyleSettingsMenu(content);
+        buildBackgroundSettingsMenu(content);
+        buildLyricsScreenSettingsMenu(content);
+        if (!IvLyricsBridge.isEmbedded(this)) buildVinylSettingsMenu(content);
+        if (!IvLyricsBridge.isEmbedded(this)) buildPlayerSettingsMenu(content);
         buildSystemSettingsMenu(content);
+        buildDataSettingsMenu(content);
         buildSettingsCredits(settingsMenuPage(content, SETTINGS_TAB_CREDITS));
         settingsBuildingMenu = "";
         settingsBuildingSection = "";
@@ -6590,29 +6659,45 @@ public class BaseLyricsActivity extends Activity implements
         showSettingsRoute(SETTINGS_ROUTE_HOME.equals(tabId) ? SETTINGS_ROUTE_HOME : normalizeSettingsTab(tabId), true);
     }
 
+    /** Every page that has its own menu, in the order the home list presents them. */
+    private static final String[] SETTINGS_TAB_IDS = {
+            SETTINGS_TAB_CURRENT_TRACK,
+            SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_GENERAL, SETTINGS_TAB_AI, SETTINGS_TAB_ENHANCE,
+            SETTINGS_TAB_STYLE, SETTINGS_TAB_BACKGROUND, SETTINGS_TAB_SCREEN,
+            SETTINGS_TAB_VINYL, SETTINGS_TAB_PLAYER,
+            SETTINGS_TAB_SYSTEM, SETTINGS_TAB_DATA, SETTINGS_TAB_CREDITS
+    };
+
     private String normalizeSettingsTab(String tabId) {
-        if (SETTINGS_TAB_PROVIDERS.equals(tabId)
-                || SETTINGS_TAB_CURRENT_TRACK.equals(tabId)
-                || SETTINGS_TAB_LYRICS.equals(tabId)
-                || SETTINGS_TAB_APPEARANCE.equals(tabId)
-                || SETTINGS_TAB_PLAYER.equals(tabId)
-                || SETTINGS_TAB_AI.equals(tabId)
-                || SETTINGS_TAB_CREDITS.equals(tabId)
-                || SETTINGS_TAB_SYSTEM.equals(tabId)) {
-            return tabId;
+        // Two pages were split; the old ids keep working for remote and test entry points.
+        String requested = SETTINGS_TAB_APPEARANCE.equals(tabId) ? SETTINGS_TAB_STYLE
+                : SETTINGS_TAB_LYRICS.equals(tabId) ? SETTINGS_TAB_ENHANCE : tabId;
+        if (SETTINGS_TAB_VINYL.equals(requested) && IvLyricsBridge.isEmbedded(this)) {
+            return SETTINGS_TAB_SCREEN;
+        }
+        if (SETTINGS_TAB_PLAYER.equals(requested) && IvLyricsBridge.isEmbedded(this)) {
+            return SETTINGS_TAB_SCREEN;
+        }
+        for (String id : SETTINGS_TAB_IDS) {
+            if (id.equals(requested)) return id;
         }
         return SETTINGS_TAB_GENERAL;
     }
 
     private String settingsTabLabel(String tabId) {
-        if (SETTINGS_TAB_CREDITS.equals(tabId)) return ui("credits.section");
+        if (SETTINGS_TAB_CREDITS.equals(tabId)) return ui("tab.credits");
         if (SETTINGS_TAB_CURRENT_TRACK.equals(tabId)) return ui("tab.current_track");
         if (SETTINGS_TAB_PROVIDERS.equals(tabId)) return ui("tab.providers");
-        if (SETTINGS_TAB_LYRICS.equals(tabId)) return ui("tab.lyrics");
-        if (SETTINGS_TAB_APPEARANCE.equals(tabId)) return ui("tab.appearance");
+        if (SETTINGS_TAB_GENERAL.equals(tabId)) return ui("tab.general");
+        if (SETTINGS_TAB_ENHANCE.equals(tabId)) return ui("tab.enhance");
+        if (SETTINGS_TAB_STYLE.equals(tabId)) return ui("tab.style");
+        if (SETTINGS_TAB_BACKGROUND.equals(tabId)) return ui("tab.background");
+        if (SETTINGS_TAB_SCREEN.equals(tabId)) return ui("tab.screen");
+        if (SETTINGS_TAB_VINYL.equals(tabId)) return ui("tab.vinyl");
         if (SETTINGS_TAB_PLAYER.equals(tabId)) return ui("tab.player");
         if (SETTINGS_TAB_AI.equals(tabId)) return ui("tab.ai");
         if (SETTINGS_TAB_SYSTEM.equals(tabId)) return ui("tab.system");
+        if (SETTINGS_TAB_DATA.equals(tabId)) return ui("tab.data");
         return ui("tab.general");
     }
 
@@ -6768,9 +6853,10 @@ public class BaseLyricsActivity extends Activity implements
         host.setPadding(dp(16), dp(6), dp(16), dp(10));
         host.setBackgroundColor(kit.p.bg);
         host.setVisibility(View.GONE);
-        settingsPreviewToggle = kit.picker(ui("settings.preview"));
-        settingsPreviewToggle.setTypeface(kit.semi);
-        settingsPreviewToggle.setBackground(kit.pressable(kit.rect(kit.p.surface, 8f, kit.p.line2, 1f), 8f));
+        // A collapse row, not a dropdown: label on the left, chevron on the right, no field box.
+        settingsPreviewToggle = kit.actionRow(ui("settings.preview"), null, SettingsKit.ACTION_NORMAL);
+        settingsPreviewToggle.setTextColor(kit.p.text);
+        settingsPreviewToggle.setBackground(kit.pressable(kit.rect(0x00000000, 12f), 12f));
         makeRemoteFocusable(settingsPreviewToggle);
         settingsPreviewToggle.setOnClickListener(view -> toggleSettingsPreview());
         host.addView(settingsPreviewToggle, matchWrap());
@@ -6796,7 +6882,7 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private int settingsMenuPreviewKind(String menuId) {
-        if (SETTINGS_TAB_APPEARANCE.equals(menuId)) return SettingsPreviewView.LYRICS;
+        if (SETTINGS_TAB_STYLE.equals(menuId) || SETTINGS_TAB_BACKGROUND.equals(menuId)) return SettingsPreviewView.LYRICS;
         if (SETTINGS_TAB_AI.equals(menuId)) return SettingsPreviewView.ANNOTATION;
         if (SETTINGS_TAB_PLAYER.equals(menuId) && !IvLyricsBridge.isEmbedded(this)) return SettingsPreviewView.PIP;
         return -1;
@@ -6804,7 +6890,8 @@ public class BaseLyricsActivity extends Activity implements
 
     private boolean settingsPreviewOpen(String menuId) {
         return getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE)
-                .getBoolean(KEY_SETTINGS_PREVIEW_PREFIX + menuId, SETTINGS_TAB_APPEARANCE.equals(menuId));
+                .getBoolean(KEY_SETTINGS_PREVIEW_PREFIX + menuId,
+                        SETTINGS_TAB_STYLE.equals(menuId) || SETTINGS_TAB_BACKGROUND.equals(menuId));
     }
 
     private void toggleSettingsPreview() {
@@ -6958,14 +7045,18 @@ public class BaseLyricsActivity extends Activity implements
                 ? currentTrack.title + " · " + currentTrack.artist : ui("status.waiting_current_track");
         String[][] groups = {
                 {ui("home.track"), SETTINGS_TAB_CURRENT_TRACK},
-                {ui("home.lyrics"), SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_GENERAL, SETTINGS_TAB_AI},
-                {ui("home.playback"), SETTINGS_TAB_APPEARANCE, SETTINGS_TAB_LYRICS, SETTINGS_TAB_PLAYER},
-                {ui("home.app"), SETTINGS_TAB_SYSTEM, SETTINGS_TAB_CREDITS}
+                {ui("home.lyrics"), SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_GENERAL, SETTINGS_TAB_AI, SETTINGS_TAB_ENHANCE},
+                {ui("home.display"), SETTINGS_TAB_STYLE, SETTINGS_TAB_BACKGROUND, SETTINGS_TAB_SCREEN},
+                {ui("home.playback"), SETTINGS_TAB_VINYL, SETTINGS_TAB_PLAYER},
+                {ui("home.app"), SETTINGS_TAB_SYSTEM, SETTINGS_TAB_DATA, SETTINGS_TAB_CREDITS}
         };
         for (String[] group : groups) {
             LinearLayout list = settingsKit.group();
             for (int index = 1; index < group.length; index++) {
                 String menuId = group[index];
+                // The LP player is a page of the standalone player only.
+                if (SETTINGS_TAB_VINYL.equals(menuId) && IvLyricsBridge.isEmbedded(this)) continue;
+                if (SETTINGS_TAB_PLAYER.equals(menuId) && IvLyricsBridge.isEmbedded(this)) continue;
                 if (!settingsMenuPages.containsKey(menuId)) continue;
                 String summary = SETTINGS_TAB_CURRENT_TRACK.equals(menuId) ? homeTrackSummary : "";
                 LinearLayout item = settingsKit.homeItem(settingsMenuIcon(menuId), settingsTabLabel(menuId), summary);
@@ -6993,7 +7084,9 @@ public class BaseLyricsActivity extends Activity implements
      */
     private void buildSettingsCredits(LinearLayout page) {
         LinearLayout group = settingsKit.vertical();
-        group.addView(settingsKit.rowDescription(ui("credits.desc")), matchWrap());
+        TextView introduction = settingsKit.rowDescription(ui("credits.desc"));
+        introduction.setPaddingRelative(dp(6), 0, dp(6), 0);
+        group.addView(introduction, matchWrap());
         LinearLayout rows = settingsKit.group();
         for (String[] entry : CREDITS) {
             String description = entry[1] + " \u00b7 " + ui(entry[2]);
@@ -7003,8 +7096,8 @@ public class BaseLyricsActivity extends Activity implements
             registerSetting(row, entry[0], description, null);
             rows.addView(row, matchWrap());
         }
-        group.addView(rows, matchWrap());
-        page.addView(group, topMargin(matchWrap(), dp(26)));
+        group.addView(rows, topMargin(matchWrap(), dp(18)));
+        page.addView(group, topMargin(matchWrap(), dp(12)));
     }
 
     private void openCreditLink(String url) {
@@ -7163,7 +7256,7 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsLanguageSettingsPanel != null) {
             detachFromParent(lyricsLanguageSettingsPanel);
             styleCurrentTrackPanel(true);
-            page.addView(lyricsLanguageSettingsPanel, matchWrap());
+            page.addView(lyricsLanguageSettingsPanel, topMargin(matchWrap(), dp(8)));
         }
     }
 
@@ -7224,7 +7317,7 @@ public class BaseLyricsActivity extends Activity implements
         section.addView(settingsKit.sectionHeader(title, subtitle), matchWrap());
         List<String> titles = settingsMenuSections.get(settingsBuildingMenu);
         LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = titles == null || titles.isEmpty() ? dp(6) : dp(26);
+        params.topMargin = titles == null || titles.isEmpty() ? dp(6) : dp(20);
         page.addView(section, params);
         if (titles != null) titles.add(title);
         settingsBuildingSection = title;
@@ -7351,12 +7444,58 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private void confirmSettingsAction(String title, String message, Runnable action) {
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(title, (dialog, which) -> action.run())
-                .show();
+        showConfirmDialog(title, message, title, true, action);
+    }
+
+    /**
+     * A confirmation drawn on the settings palette. The platform dialog follows the system theme and
+     * its own button spacing, which reads as a different app beside these pages.
+     */
+    private void showConfirmDialog(String title, String message, String confirmLabel, boolean danger, Runnable action) {
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout content = kit.vertical();
+        content.setPadding(dp(22), dp(22), dp(22), dp(18));
+        content.setBackground(kit.rect(kit.p.card, 20f));
+
+        TextView heading = kit.text(title, 18f, kit.p.text, kit.semi);
+        heading.setLineSpacing(dp(2), 1f);
+        content.addView(heading, matchWrap());
+        if (message != null && !message.trim().isEmpty()) {
+            TextView body = kit.text(message, 14f, kit.p.text2, kit.regular);
+            body.setLineSpacing(dp(3), 1f);
+            content.addView(body, topMargin(matchWrap(), dp(10)));
+        }
+
+        LinearLayout actions = kit.horizontal();
+        Button cancel = kit.button(ui("button.cancel"), SettingsKit.BUTTON_NORMAL, null);
+        makeRemoteFocusable(cancel);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        cancelParams.setMarginEnd(dp(8));
+        actions.addView(cancel, cancelParams);
+        Button confirm = kit.button(confirmLabel, danger ? SettingsKit.BUTTON_DANGER : SettingsKit.BUTTON_PRIMARY, null);
+        makeRemoteFocusable(confirm);
+        confirm.setOnClickListener(view -> {
+            dialog.dismiss();
+            action.run();
+        });
+        actions.addView(confirm, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        content.addView(actions, topMargin(matchWrap(), dp(20)));
+
+        dialog.setContentView(content);
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.dimAmount = 0.62f;
+            window.setAttributes(attributes);
+            int width = Math.min(dp(360), Math.round(getResources().getDisplayMetrics().widthPixels * 0.9f));
+            window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     // ------------------------------------------------------------------ 일반 (general)
@@ -7561,9 +7700,27 @@ public class BaseLyricsActivity extends Activity implements
         section.addView(aiConnectionsContainer, matchWrap());
         buildProviderDetailsContainer();
 
-        section = settingsSection(page, ui("setting.cultural_annotations"), null, SettingsPreviewView.ANNOTATION);
-        group = settingsGroup(section);
-        culturalAnnotationsSwitch = settingsToggle(group, ui("setting.cultural_annotations"), ui("setting.cultural_annotations_desc"));
+        buildProviderButtons();
+    }
+
+    /**
+     * Everything that enriches a line beyond the words: cultural notes, the platform translation
+     * engine, song meaning, the instrumental rows and the karaoke fill. These used to be spread over
+     * the AI page and the old behaviour page.
+     */
+    private void buildEnhanceSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_ENHANCE);
+
+        addLyricsEnhanceSettingsSection(page);
+        addInterludeSettingsSection(page);
+        addKaraokeSettingsSection(page);
+
+        // Last, because it is the longest block on the page and the least used.
+        LinearLayout section = settingsSection(page, ui("setting.cultural_annotations"), null,
+                SettingsPreviewView.ANNOTATION);
+        LinearLayout group = settingsGroup(section);
+        culturalAnnotationsSwitch = settingsToggle(group, ui("setting.cultural_annotations"),
+                ui("setting.cultural_annotations_desc"));
         culturalAnnotationsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (suppressSettingsEvents || aiLyricsSettings == null) {
                 return;
@@ -7581,7 +7738,6 @@ public class BaseLyricsActivity extends Activity implements
             showSavedToast(ui("setting.cultural_annotations"));
         });
         group.addView(buildCulturalAnnotationStyleControl(), matchWrap());
-        buildProviderButtons();
     }
 
     /** The selected provider's connection fields; the card that edits them hosts this container. */
@@ -7775,8 +7931,8 @@ public class BaseLyricsActivity extends Activity implements
         return options;
     }
 
-    private void buildAppearanceSettingsMenu(LinearLayout content) {
-        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_APPEARANCE);
+    private void buildLyricsStyleSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_STYLE);
         boolean embedded = IvLyricsBridge.isEmbedded(this);
 
         LinearLayout section = settingsSection(page, ui("settings.section.layout"), null, SettingsPreviewView.LYRICS);
@@ -7834,9 +7990,16 @@ public class BaseLyricsActivity extends Activity implements
             showSavedToast(ui("toast.settings_saved"));
         });
         buildSpeakerColorSettingsList(group);
+    }
 
-        section = settingsSection(page, ui("section.background"), ui("section.background_desc"), SettingsPreviewView.LYRICS);
-        group = settingsGroup(section);
+    /** Background renderer and its tuning: brightness, blur, noise, motion. */
+    private void buildBackgroundSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_BACKGROUND);
+
+        boolean embedded = IvLyricsBridge.isEmbedded(this);
+
+        LinearLayout section = settingsSection(page, ui("section.background"), ui("section.background_desc"), SettingsPreviewView.LYRICS);
+        LinearLayout group = settingsGroup(section);
         List<SettingsKit.Option> modes = new ArrayList<>();
         int solidColor = parseColor(aiLyricsSettings == null ? "#1e3a8a" : aiLyricsSettings.snapshot().background.solidColor,
                 Color.rgb(30, 58, 138));
@@ -7954,9 +8117,23 @@ public class BaseLyricsActivity extends Activity implements
                 showSavedToast(ui("toast.settings_saved"));
             });
         }
+    }
 
-        section = settingsSection(page, ui("settings.section.lyrics_screen"), null, -1);
-        group = settingsGroup(section);
+    /** Title tap action, landscape rows and the empty-lyrics notice. */
+    private void buildLyricsScreenSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_SCREEN);
+
+        LinearLayout section = settingsSection(page, ui("settings.section.lyrics_screen"), null, -1);
+        LinearLayout group = settingsGroup(section);
+        keepScreenOnSwitch = settingsToggle(group, ui("setting.keep_screen_on"), ui("setting.keep_screen_on_desc"));
+        keepScreenOnSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (suppressSettingsEvents || aiLyricsSettings == null) {
+                return;
+            }
+            aiLyricsSettings.setKeepScreenOn(isChecked);
+            applyKeepScreenOnSetting(aiLyricsSettings.snapshot());
+            showSavedToast(isChecked ? ui("toast.keep_screen_on_on") : ui("toast.keep_screen_on_off"));
+        });
         List<SettingsKit.Option> titleActions = new ArrayList<>();
         titleActions.add(new SettingsKit.Option("player", ui("appearance.title_player")));
         titleActions.add(new SettingsKit.Option("disabled", ui("appearance.title_disabled")));
@@ -7975,8 +8152,9 @@ public class BaseLyricsActivity extends Activity implements
         showLyricsNotFoundSwitch = settingsToggle(group, ui("appearance.empty_notice"), null);
         showLyricsNotFoundSwitch.setOnCheckedChangeListener((button, value) ->
                 applyAppearanceToggle(AppearanceOptions.EMPTY_NOTICE, value));
-    }
 
+        addLyricsScreenLayoutSection(page);
+    }
     private int backgroundModeVisual(String mode) {
         String normalized = AiLyricsSettings.normalizeBackgroundMode(mode);
         if (AiLyricsSettings.BACKGROUND_MODE_BLUR_GRADIENT.equals(normalized)) return SettingsKit.VISUAL_BLUR;
@@ -8073,32 +8251,29 @@ public class BaseLyricsActivity extends Activity implements
             group.addView(orderButton, matchWrap());
         }
 
-        TextView marginLabel = settingsKit.text(ui("lyrics_enhance.margin") + ": "
-                + lyricsSidePaddingDp() + " dp", 13f, settingsKit.p.text, settingsKit.regular);
-        group.addView(marginLabel, matchWrap());
-        SeekBar marginBar = new SeekBar(this);
-        marginBar.setMax(LyricsPageSettings.MAX_SIDE_PADDING_DP - LyricsPageSettings.MIN_SIDE_PADDING_DP);
-        marginBar.setProgress(lyricsSidePaddingDp() - LyricsPageSettings.MIN_SIDE_PADDING_DP);
-        marginBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                int value = progress + LyricsPageSettings.MIN_SIDE_PADDING_DP;
-                marginLabel.setText(ui("lyrics_enhance.margin") + ": " + value + " dp");
-                if (fromUser) {
-                    applyLyricsSidePadding(value);
-                }
-            }
+    }
 
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
+    /**
+     * Where the lyrics text and the transport sit on the page. These two used to live at the end of
+     * the enhance section, although neither of them enriches a line.
+     */
+    private void addLyricsScreenLayoutSection(LinearLayout page) {
+        if (lyricsPageSettings == null) {
+            return;
+        }
+        LinearLayout section = settingsSection(page, ui("settings.section.lyrics_page"),
+                ui("settings.section.lyrics_page_desc"), -1);
+        LinearLayout group = settingsGroup(section);
 
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                showSavedToast(ui("toast.settings_saved"));
-            }
-        });
-        group.addView(marginBar, matchWrap());
+        SettingsKit.Range margin = settingsRange(LyricsPageSettings.MIN_SIDE_PADDING_DP,
+                LyricsPageSettings.MAX_SIDE_PADDING_DP, 1, "dp", ui("lyrics_enhance.margin"));
+        margin.setValue(lyricsSidePaddingDp());
+        margin.listener = (value, commit) -> {
+            if (suppressSettingsEvents) return;
+            applyLyricsSidePadding(value);
+            if (commit) showSavedToast(ui("toast.settings_saved"));
+        };
+        settingsStackRow(group, ui("lyrics_enhance.margin"), ui("settings.section.lyrics_page_desc"), margin.view);
 
         List<SettingsKit.Option> positions = new ArrayList<>();
         positions.add(new SettingsKit.Option("center", ui("lyrics_enhance.play_center")));
@@ -8183,10 +8358,10 @@ public class BaseLyricsActivity extends Activity implements
         updateSettingsPreviewKind();
     }
 
-    // ------------------------------------------------------------------ 동작 (behaviour)
+    // ------------------------------------------------------------------ lyrics extras
 
-    private void buildBehaviorSettingsMenu(LinearLayout content) {
-        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_LYRICS);
+    /** Instrumental rows: detection of a break with no words, and the label drawn for it. */
+    private void addInterludeSettingsSection(LinearLayout page) {
         LinearLayout section = settingsSection(page, ui("settings.section.interlude"), null, -1);
         LinearLayout group = settingsGroup(section);
         autoInstrumentalBreakSwitch = settingsToggle(group, ui("setting.auto_interlude"), ui("setting.auto_interlude_desc"));
@@ -8209,11 +8384,12 @@ public class BaseLyricsActivity extends Activity implements
             updateLyricPreview(currentTrack == null ? 0L : currentLyricsPlaybackPosition(currentTrack));
             showSavedToast(ui("toast.settings_saved"));
         });
+    }
 
-        addLyricsEnhanceSettingsSection(page);
-
-        section = settingsSection(page, ui("settings.section.karaoke"), null, -1);
-        group = settingsGroup(section);
+    /** The karaoke fill: whether it runs, how fine it is, and whether it bounces. */
+    private void addKaraokeSettingsSection(LinearLayout page) {
+        LinearLayout section = settingsSection(page, ui("settings.section.karaoke"), null, -1);
+        LinearLayout group = settingsGroup(section);
         syncedLyricsKaraokeSwitch = settingsToggle(group, ui("setting.synced_karaoke_animation"),
                 ui("setting.synced_karaoke_animation_desc"));
         syncedLyricsKaraokeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -8258,15 +8434,6 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_PLAYER);
         LinearLayout section = settingsSection(page, ui("section.player"), null, -1);
         LinearLayout group = settingsGroup(section);
-        keepScreenOnSwitch = settingsToggle(group, ui("setting.keep_screen_on"), ui("setting.keep_screen_on_desc"));
-        keepScreenOnSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (suppressSettingsEvents || aiLyricsSettings == null) {
-                return;
-            }
-            aiLyricsSettings.setKeepScreenOn(isChecked);
-            applyKeepScreenOnSetting(aiLyricsSettings.snapshot());
-            showSavedToast(isChecked ? ui("toast.keep_screen_on_on") : ui("toast.keep_screen_on_off"));
-        });
         albumArtOpenLpSwitch = settingsToggle(group, ui("setting.album_art_open_lp"),
                 ui("setting.album_art_open_lp_desc"));
         albumArtOpenLpSwitch.setOnCheckedChangeListener((button, checked) -> {
@@ -8359,6 +8526,13 @@ public class BaseLyricsActivity extends Activity implements
             applyTypographySettings(aiLyricsSettings.snapshot());
         };
         settingsStackRow(group, ui("setting.pip_lyrics_size"), ui("setting.pip_lyrics_size_desc"), pipSize.view);
+    }
+
+    /** The LP player: record and album size, speed, tonearm, and its own typography. */
+    private void buildVinylSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_VINYL);
+        LinearLayout section;
+        LinearLayout group;
 
         section = settingsSection(page, ui("vinyl.mode"), ui("vinyl.settings.subtitle"), SettingsPreviewView.VINYL);
         group = settingsGroup(section);
@@ -8570,8 +8744,7 @@ public class BaseLyricsActivity extends Activity implements
     private void buildSystemSettingsMenu(LinearLayout content) {
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_SYSTEM);
         boolean embedded = IvLyricsBridge.isEmbedded(this);
-        LinearLayout section;
-        section = settingsSection(page, ui("section.language"), null, -1);
+        LinearLayout section = settingsSection(page, ui("section.language"), null, -1);
         LinearLayout languageGroup = settingsGroup(section);
         uiLanguageSelectButton = settingsKit.picker("");
         makeRemoteFocusable(uiLanguageSelectButton);
@@ -8579,6 +8752,7 @@ public class BaseLyricsActivity extends Activity implements
         settingsStackRow(languageGroup, ui("setting.ui_language"), ui("setting.ui_language_desc"), uiLanguageSelectButton);
 
         buildNetworkRegionSection(page);
+
         if (!embedded) {
             section = settingsSection(page, ui("section.app_update"), ui("section.app_update_desc"), -1);
             LinearLayout group = settingsGroup(section);
@@ -8588,7 +8762,16 @@ public class BaseLyricsActivity extends Activity implements
             settingsAction(group, ui("button.check_updates"), null, SettingsKit.ACTION_NORMAL, view -> checkForUpdates(true));
             settingsAction(group, ui("button.open_release_page"), null, SettingsKit.ACTION_LINK,
                     view -> openExternalUrl(ProjectLinks.RELEASES));
+        }
+    }
 
+    /** Everything the app asks of the system, and the cache it keeps on disk. */
+    private void buildDataSettingsMenu(LinearLayout content) {
+        LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_DATA);
+        boolean embedded = IvLyricsBridge.isEmbedded(this);
+        LinearLayout section;
+        LinearLayout group;
+        if (!embedded) {
             section = settingsSection(page, ui("section.spotify_shortcut"), ui("section.spotify_shortcut_desc"), -1);
             group = settingsGroup(section);
             spotifyDetectionPermissionButton = settingsAction(group, ui("button.open_accessibility_permission"), null,
@@ -8609,7 +8792,7 @@ public class BaseLyricsActivity extends Activity implements
         }
 
         section = settingsSection(page, ui("section.lyrics_cache"), ui("section.lyrics_cache_desc"), -1);
-        LinearLayout group = settingsGroup(section);
+        group = settingsGroup(section);
         settingsAction(group, ui("button.ai_cache_clear"), null, SettingsKit.ACTION_NORMAL,
                 view -> confirmSettingsAction(ui("button.ai_cache_clear"), ui("settings.confirm_irreversible"),
                         this::clearAiCacheFromSettings));
@@ -9486,6 +9669,9 @@ public class BaseLyricsActivity extends Activity implements
 
     private List<LanguageChoice> uiLanguageChoices() {
         List<LanguageChoice> choices = new ArrayList<>();
+        // First entry: let the device decide. Without it a stale stored value keeps the app in a
+        // language the reader no longer uses.
+        choices.add(new LanguageChoice(AiLyricsSettings.UI_LANG_AUTO, ui("setting.ui_language_auto")));
         for (AiLyricsSettings.Language language : AppI18n.UI_LANGUAGES) {
             choices.add(new LanguageChoice(language.code, language.nativeName + " · " + language.name));
         }
@@ -9563,8 +9749,7 @@ public class BaseLyricsActivity extends Activity implements
                 });
         top.addView(order);
 
-        Switch enabledSwitch = new Switch(this);
-        kit.styleSwitch(enabledSwitch);
+        Switch enabledSwitch = kit.switchToggle();
         makeRemoteFocusable(enabledSwitch);
         enabledSwitch.setContentDescription(config.provider.label + ", " + ui("lyrics_provider.enabled"));
         enabledSwitch.setChecked(config.enabled);
@@ -9922,17 +10107,42 @@ public class BaseLyricsActivity extends Activity implements
         }
     }
 
+    /**
+     * A compact half-width cell: label on the left, a bare capsule switch at the end. The platform
+     * switch reserves room for its own text, which a half-width cell cannot spare, so the label lives
+     * outside it and the whole cell toggles as well.
+     */
+    private LinearLayout buildCompactSwitchCell(String title) {
+        LinearLayout cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.HORIZONTAL);
+        cell.setGravity(Gravity.CENTER_VERTICAL);
+        cell.setPadding(dp(14), dp(10), dp(8), dp(10));
+        cell.setMinimumHeight(dp(56));
+        cell.setBackground(roundDrawable(panelPalette.surface3, dp(16)));
+
+        TextView text = label(title, 15f, panelPalette.text, AppFonts.semiBold(this));
+        text.setSingleLine(true);
+        text.setEllipsize(TextUtils.TruncateAt.END);
+        cell.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        Switch toggle = new SettingsKit.MiuixSwitch(this, panelPalette, false);
+        toggle.setContentDescription(title);
+        cell.addView(toggle, new LinearLayout.LayoutParams(dp(50), dp(48)));
+        cell.setOnClickListener(view -> toggle.setChecked(!toggle.isChecked()));
+        return cell;
+    }
+
     private Switch settingSwitch(String title, String subtitle) {
-        Switch view = new Switch(this);
+        // The panel uses the same capsule switch as the settings pages, on the panel's own palette.
+        Switch view = new SettingsKit.MiuixSwitch(this, panelPalette);
         view.setText(SettingsAppearance.switchLabel(this, title, subtitle));
         view.setTextColor(panelPalette.text);
-        view.setTextSize(15f);
+        view.setTextSize(16f);
         view.setTypeface(AppFonts.semiBold(this));
-        view.setPadding(dp(16), dp(14), dp(16), dp(14));
+        view.setPadding(dp(16), dp(13), dp(16), dp(13));
         view.setMinHeight(dp(56));
-        view.setBackground(SettingsAppearance.surface(this, panelPalette.surface, 18, false));
+        view.setBackground(roundDrawable(panelPalette.surface3, dp(16)));
         view.setLineSpacing(dp(2), 1f);
-        SettingsAppearance.styleSwitch(view);
         return view;
     }
 
@@ -9959,7 +10169,7 @@ public class BaseLyricsActivity extends Activity implements
         field.setPadding(dp(14), dp(12), dp(14), dp(12));
         // These cards also appear on the themed settings pages, so they follow the stored theme.
         SettingsPalette settingsColors = buildingCurrentTrackPanel ? panelPalette : themePalette();
-        field.setBackground(roundDrawable(settingsColors.surface, dp(18)));
+        field.setBackground(roundDrawable(settingsColors.surface3, dp(16)));
 
         TextView label = label(title, 15f, settingsColors.text, AppFonts.semiBold(this));
         field.addView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -10939,11 +11149,24 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private TextView primaryButton(String label) {
-        TextView view = SettingsAppearance.button(this, label, 13.5f);
+        TextView view = SettingsAppearance.button(this, label, 14f);
         view.setTag(SettingsAppearance.PRIMARY_ACTION);
         makeRemoteFocusable(view);
-        SettingsAppearance.styleControls(view);
+        // Ink on an accent fill follows the fill's own brightness: the artwork palette's accent is a
+        // pale blue that white text disappears into.
+        view.setTextColor(onAccentInk(panelPalette.accent));
+        view.setBackground(SettingsAppearance.actionBackground(this, panelPalette.accent, 12, false));
+        view.setMinHeight(dp(48));
+        view.setMinimumHeight(dp(48));
         return view;
+    }
+
+    /** White on a dark accent, near-black on a pale one. */
+    private static int onAccentInk(int accent) {
+        double luminance = (0.299 * android.graphics.Color.red(accent)
+                + 0.587 * android.graphics.Color.green(accent)
+                + 0.114 * android.graphics.Color.blue(accent)) / 255.0;
+        return luminance > 0.62 ? 0xFF10121A : 0xFFFFFFFF;
     }
 
     private LinearLayout addChoiceGridRow(LinearLayout container) {
@@ -11065,8 +11288,7 @@ public class BaseLyricsActivity extends Activity implements
         installProviderAccessibilityActions(order, provider, providerIndex, snapshot.aiProviderOrder.size());
         top.addView(order);
 
-        Switch enabledSwitch = new Switch(this);
-        kit.styleSwitch(enabledSwitch);
+        Switch enabledSwitch = kit.switchToggle();
         makeRemoteFocusable(enabledSwitch);
         enabledSwitch.setChecked(enabled);
         enabledSwitch.setContentDescription(uiFormat("setting.ai_provider_toggle_format", provider.label));
@@ -11458,8 +11680,7 @@ public class BaseLyricsActivity extends Activity implements
             });
             remove.setImageDrawable(kit.icon("trash", kit.p.danger, 18f));
             head.addView(remove);
-            Switch enabled = new Switch(this);
-            kit.styleSwitch(enabled);
+            Switch enabled = kit.switchToggle();
             makeRemoteFocusable(enabled);
             enabled.setContentDescription(name);
             enabled.setChecked(connection.enabled);
@@ -11688,14 +11909,21 @@ public class BaseLyricsActivity extends Activity implements
         if (uiLanguageSelectButton == null) {
             return;
         }
-        uiLanguageSelectButton.setText(AppI18n.label(selectedLang));
+        // "Follow system" alone, not "follow system · language · English": the value wrapped to two
+        // lines and the page is already written in that language.
+        boolean followsSystem = aiLyricsSettings != null && aiLyricsSettings.uiLangFollowsSystem();
+        uiLanguageSelectButton.setText(followsSystem
+                ? ui("setting.ui_language_auto")
+                : AppI18n.label(selectedLang));
     }
 
     private void showSettingsUiLanguagePopup(View anchor) {
         if (anchor == null || aiLyricsSettings == null) {
             return;
         }
-        showSettingsChoicePopup(anchor, uiLanguageChoices(), aiLyricsSettings.snapshot().uiLang, code -> {
+        String current = aiLyricsSettings.uiLangFollowsSystem()
+                ? AiLyricsSettings.UI_LANG_AUTO : aiLyricsSettings.snapshot().uiLang;
+        showSettingsChoicePopup(anchor, uiLanguageChoices(), current, code -> {
             aiLyricsSettings.setUiLang(code);
             applyUiLanguageChange();
             AiLyricsSettings.Snapshot nextSnapshot = aiLyricsSettings.snapshot();
@@ -12217,26 +12445,18 @@ public class BaseLyricsActivity extends Activity implements
         if (lyricsPopupTabButtonsContainer == null) {
             return;
         }
-        if (lyricsPopupTabButtonsContainer.getChildCount() > 0) {
-            View divider = new View(this);
-            divider.setBackgroundColor(withAlpha(0xFFFFFFFF, 70));
-            LinearLayout.LayoutParams dividerParams =
-                    new LinearLayout.LayoutParams(dp(1), dp(16));
-            dividerParams.leftMargin = dp(6);
-            dividerParams.rightMargin = dp(2);
-            lyricsPopupTabButtonsContainer.addView(divider, dividerParams);
-        }
-        TextView tab = label(text, 17f, 0xFFFFFFFF, AppFonts.bold(this));
+        // No pipe dividers: the selected tab is a filled pill, the others are plain labels.
+        TextView tab = label(text, 15.5f, 0xFFFFFFFF, AppFonts.semiBold(this));
         tab.setMaxWidth(dp(220));
         makeRemoteFocusable(tab);
         tab.setTag(tabId);
         tab.setGravity(Gravity.CENTER);
-        tab.setPadding(dp(12), dp(6), dp(12), dp(6));
+        tab.setPadding(dp(14), dp(9), dp(14), dp(9));
         tab.setOnClickListener(view -> switchLyricsPopupTab(tabId));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         if (lyricsPopupTabButtonsContainer.getChildCount() > 0) {
-            params.leftMargin = dp(2);
+            params.leftMargin = dp(6);
         }
         lyricsPopupTabButtonsContainer.addView(tab, params);
     }
@@ -12343,7 +12563,7 @@ public class BaseLyricsActivity extends Activity implements
             // near-black in the light theme — hardcoding white made the tabs vanish there.
             int ink = panelPalette.text;
             button.setTextColor(selected ? ink : withAlpha(ink, 120));
-            button.setBackground(selected ? roundDrawable(withAlpha(ink, 38), dp(14)) : null);
+            button.setBackground(selected ? roundDrawable(withAlpha(ink, 38), dp(12)) : null);
         }
     }
 
@@ -12503,7 +12723,10 @@ public class BaseLyricsActivity extends Activity implements
 
     private void addManualSearchSourceChip(LinearLayout row, String id, String text) {
         // A touch smaller than an ordinary language chip: the suffix makes these longer than a name.
-        TextView chip = SettingsAppearance.button(this, text, 12f);
+        TextView chip = SettingsAppearance.button(this, text, 12.5f);
+        chip.setMinHeight(0);
+        chip.setMinimumHeight(0);
+        chip.setPaddingRelative(dp(14), 0, dp(14), 0);
         makeRemoteFocusable(chip);
         chip.setGravity(Gravity.CENTER);
         chip.setTextColor(panelPalette.text);
@@ -12512,7 +12735,7 @@ public class BaseLyricsActivity extends Activity implements
         chip.setOnClickListener(view -> selectManualSearchSource(id));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                dp(40)
         );
         if (row.getChildCount() > 0) {
             params.leftMargin = dp(6);
@@ -13125,7 +13348,7 @@ public class BaseLyricsActivity extends Activity implements
         makeRemoteFocusable(button);
         button.setGravity(Gravity.CENTER);
         button.setTextColor(panelPalette.text);
-        setSelectableButtonState(button, selected, 14f);
+        setSelectableButtonState(button, selected, 12f);
         return button;
     }
 
@@ -13137,19 +13360,23 @@ public class BaseLyricsActivity extends Activity implements
         button.setSelected(selected);
         // The selected chip inverts against the panel instead of drawing a near-white pill, which
         // would vanish on the light theme.
-        button.setTextColor(selected ? panelPalette.inkText : panelPalette.text);
+        // A tinted accent plate reads as "chosen" without punching a solid block into the card,
+        // which is what the old ink fill did on the artwork palette.
+        button.setTextColor(selected ? panelPalette.accentText : panelPalette.text);
         button.setBackground(SettingsAppearance.actionBackground(this,
-                selected ? panelPalette.ink : panelPalette.surface2,
-                Math.round(Math.max(radiusDp, 14f)), false
+                selected ? withAlpha(panelPalette.accent, 0x2E) : panelPalette.surface3,
+                Math.round(radiusDp), false
         ));
     }
 
     private TextView settingsSelectButton(String text) {
-        TextView button = SettingsAppearance.button(this, text, 14.5f);
+        TextView button = SettingsAppearance.button(this, text, 14f);
+        button.setMinHeight(dp(44));
+        button.setMinimumHeight(dp(44));
         makeRemoteFocusable(button);
         button.setGravity(Gravity.CENTER_VERTICAL);
         button.setTextColor(panelPalette.text);
-        button.setBackground(SettingsAppearance.actionBackground(this, panelPalette.surface2, 14, false));
+        button.setBackground(SettingsAppearance.actionBackground(this, panelPalette.surface3, 12, false));
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, SettingsAppearance.chevron(this), null);
         button.setCompoundDrawablePadding(dp(10));
         return button;
@@ -13175,7 +13402,7 @@ public class BaseLyricsActivity extends Activity implements
         }
         AiLyricsSettings.LanguageRule rule = snapshot.ruleForSource(effectiveSelectedSourceLang());
         suppressLanguageRuleEvents = true;
-        languageTranslationSwitch.setChecked(rule.translationEnabled);
+        languageTranslationSwitch.setChecked(currentTrackTranslationEnabled());
         languagePronunciationSwitch.setChecked(rule.pronunciationEnabled);
         suppressLanguageRuleEvents = false;
         updateSelectedLanguageRuleStatusFromUi();
@@ -13382,10 +13609,19 @@ public class BaseLyricsActivity extends Activity implements
     private View buildLyricsMatchStatusBlock() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(2), 0, dp(2), dp(8));
-        // The header is the toggle: diagnostics stay folded away unless something failed.
-        lyricsMatchStatusHeader = label(ui("lyrics_enhance.match_status") + "  \u203a", 12f,
-                withAlpha(panelPalette.text, 150), AppFonts.bold(this));
+        box.setPaddingRelative(dp(2), dp(4), dp(2), dp(8));
+        // The header is the toggle: diagnostics stay folded away unless something failed. The mark is
+        // an icon, so it stays crisp and lines up with the chevrons of the rows around it.
+        lyricsMatchStatusHeader = label(ui("lyrics_enhance.match_status"), 12.5f,
+                panelPalette.text3, AppFonts.semiBold(this));
+        lyricsMatchStatusHeader.setMinHeight(dp(40));
+        lyricsMatchStatusHeader.setMinimumHeight(dp(40));
+        lyricsMatchStatusHeader.setGravity(Gravity.CENTER_VERTICAL);
+        lyricsMatchStatusHeader.setPaddingRelative(dp(12), dp(6), dp(12), dp(6));
+        lyricsMatchStatusHeader.setCompoundDrawablePadding(dp(6));
+        lyricsMatchStatusHeader.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null,
+                new SettingsKit.SvgIcon(SettingsKit.iconPath("right"), panelPalette.text3,
+                        dp(12), Math.max(1f, dp(1.4f))), null);
         lyricsMatchStatusHeader.setOnClickListener(view -> {
             lyricsMatchStatusExpanded = !lyricsMatchStatusExpanded;
             updateLyricsMatchStatusBlock();
@@ -13467,9 +13703,12 @@ public class BaseLyricsActivity extends Activity implements
             lyricsMatchStatusDetails.setVisibility(expanded ? View.VISIBLE : View.GONE);
         }
         if (lyricsMatchStatusHeader != null) {
-            String arrow = expanded ? "  \u2304" : "  \u203a";
-            lyricsMatchStatusHeader.setText(ui("lyrics_enhance.match_status") + arrow);
-            lyricsMatchStatusHeader.setTextColor(withAlpha(panelPalette.text, failed ? 220 : 150));
+            lyricsMatchStatusHeader.setText(ui("lyrics_enhance.match_status"));
+            lyricsMatchStatusHeader.setTextColor(failed ? panelPalette.text : panelPalette.text3);
+            // Down when there is something to open, up once it is open.
+            lyricsMatchStatusHeader.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null,
+                    new SettingsKit.SvgIcon(SettingsKit.iconPath(expanded ? "up" : "right"),
+                            panelPalette.text3, dp(12), Math.max(1f, dp(1.4f))), null);
         }
         if (lyricsMatchRestoreButton != null) {
             // Nothing to restore unless this song was pinned to a manual source.
@@ -13486,6 +13725,7 @@ public class BaseLyricsActivity extends Activity implements
     private LinearLayout translationSettingsCard;
     private LinearLayout translationSettingsContent;
     private LinearLayout translationSettingsTabs;
+    private SettingsKit translationSheetKitInstance;
 
     /** Long press on the 译文 pill: the translation switches for this song or for every song. */
     private void showTranslationSettings() {
@@ -13539,8 +13779,9 @@ public class BaseLyricsActivity extends Activity implements
         addTranslationTab(ui("translation.tab.track"), TRANS_TAB_TRACK, 0);
         addTranslationTab(ui("translation.tab.global"), TRANS_TAB_GLOBAL, 1);
 
-        translationSettingsContent = new LinearLayout(this);
-        translationSettingsContent.setOrientation(LinearLayout.VERTICAL);
+        // Swiping the body sideways moves between 当前歌曲 and 全局; a plain tap still reaches the
+        // rows, because the gesture is only intercepted once it is clearly horizontal.
+        translationSettingsContent = new SwipeableColumn();
         translationSettingsCard.addView(translationSettingsContent, topMargin(matchWrap(), dp(10)));
 
         translationSettingsPopup = new PopupWindow(translationSettingsCard,
@@ -13551,11 +13792,57 @@ public class BaseLyricsActivity extends Activity implements
                 new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
     }
 
+    /** A vertical column that turns a sideways drag into a tab change. */
+    private final class SwipeableColumn extends LinearLayout {
+        private float downX;
+        private float downY;
+        private boolean swiping;
+
+        SwipeableColumn() {
+            super(BaseLyricsActivity.this);
+            setOrientation(LinearLayout.VERTICAL);
+        }
+
+        @Override public boolean onInterceptTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = event.getX();
+                    downY = event.getY();
+                    swiping = false;
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    float dx = event.getX() - downX;
+                    float dy = event.getY() - downY;
+                    if (Math.abs(dx) > dp(24) && Math.abs(dx) > Math.abs(dy) * 1.5f) {
+                        swiping = true;
+                        return true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+            return swiping;
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            if (event.getActionMasked() == MotionEvent.ACTION_UP && Math.abs(event.getX() - downX) > dp(56)) {
+                String next = event.getX() < downX ? TRANS_TAB_GLOBAL : TRANS_TAB_TRACK;
+                if (!next.equals(translationSettingsTab)) {
+                    translationSettingsTab = next;
+                    renderTranslationSettings();
+                }
+            }
+            return true;
+        }
+    }
+
     private void addTranslationTab(String text, String tabId, int index) {
-        TextView tab = label(text, 17f, Color.WHITE, AppFonts.bold(this));
+        TextView tab = label(text, 15.5f, Color.WHITE, AppFonts.semiBold(this));
         tab.setGravity(Gravity.CENTER);
         tab.setTag(tabId);
-        tab.setPadding(dp(12), dp(6), dp(12), dp(6));
+        tab.setMinHeight(dp(40));
+        tab.setMinimumHeight(dp(40));
+        tab.setPadding(dp(16), dp(9), dp(16), dp(9));
         tab.setOnClickListener(view -> {
             translationSettingsTab = tabId;
             renderTranslationSettings();
@@ -13577,75 +13864,91 @@ public class BaseLyricsActivity extends Activity implements
         for (int index = 0; index < translationSettingsTabs.getChildCount(); index++) {
             TextView tab = (TextView) translationSettingsTabs.getChildAt(index);
             boolean selected = tab.getTag().equals(translationSettingsTab);
-            tab.setTextColor(selected ? Color.WHITE : Color.argb(120, 255, 255, 255));
-            tab.setBackground(selected ? roundDrawable(Color.argb(38, 255, 255, 255), dp(14)) : null);
+            tab.setTextColor(selected ? Color.WHITE : Color.argb(140, 255, 255, 255));
+            tab.setBackground(selected
+                    ? SettingsAppearance.actionBackground(this, Color.argb(38, 255, 255, 255), 12, false)
+                    : SettingsAppearance.actionBackground(this, 0x00000000, 12, false));
         }
         String trackKey = currentLyricsKey == null ? "" : currentLyricsKey;
 
         if (TRANS_TAB_GLOBAL.equals(translationSettingsTab)) {
-            addTranslationSwitch(ui("lyrics_action.translation"), platformTranslationSettings.enabled(),
+            addTranslationSwitch(ui("lyrics_action.translation"), null, platformTranslationSettings.enabled(),
                     checked -> {
                         platformTranslationSettings.setEnabled(checked);
-                        reloadLyricsForTranslation();
+                        platformTranslationSettings.setTrackEnabled(currentLyricsKey, null);
+                        onTranslationPolicyChanged();
                     });
             translationSettingsContent.addView(translationSectionTitle(ui("translation.source")),
                     topMargin(matchWrap(), dp(12)));
             String globalSource = platformTranslationSettings.globalSource();
-            addGlobalSourceChoice(ui("translation.auto"),
+            LinearLayout globalSources = translationSheetKit().group();
+            translationSettingsContent.addView(globalSources, topMargin(matchWrap(), dp(8)));
+            addGlobalSourceChoice(globalSources, ui("translation.auto"),
                     PlatformTranslationSettings.MANUAL_AUTO, globalSource);
-            addGlobalSourceChoice(NeteaseLyricSource.LABEL, NeteaseLyricSource.ID, globalSource);
-            addGlobalSourceChoice(QqLyricSource.LABEL, QqLyricSource.ID, globalSource);
-            addGlobalSourceChoice(KugouLyricSource.LABEL, KugouLyricSource.ID, globalSource);
-            translationSettingsContent.addView(translationSectionTitle(ui("translation.mix")),
-                    topMargin(matchWrap(), dp(12)));
-            addTranslationSwitch(ui("translation.mix"), platformTranslationSettings.mixSources(),
+            addGlobalSourceChoice(globalSources, NeteaseLyricSource.LABEL, NeteaseLyricSource.ID, globalSource);
+            addGlobalSourceChoice(globalSources, QqLyricSource.LABEL, QqLyricSource.ID, globalSource);
+            addGlobalSourceChoice(globalSources, KugouLyricSource.LABEL, KugouLyricSource.ID, globalSource);
+            addTranslationSwitch(ui("translation.mix"), ui("translation.mix_hint"),
+                    platformTranslationSettings.mixSources(),
                     checked -> {
                         platformTranslationSettings.setMixSources(checked);
                         reloadLyricsForTranslation();
                     });
-            translationSettingsContent.addView(translationHint(ui("translation.mix_hint")),
-                    topMargin(matchWrap(), dp(2)));
         } else {
-            addTranslationSwitch(ui("lyrics_action.translation"),
+            addTranslationSwitch(ui("lyrics_action.translation"), null,
                     platformTranslationSettings.enabledForTrack(trackKey),
                     checked -> {
-                        platformTranslationSettings.setTrackEnabled(trackKey, checked);
-                        reloadLyricsForTranslation();
+                        setCurrentTrackTranslationEnabled(checked);
                     });
-            if (platformTranslationSettings.trackEnabled(trackKey) != null) {
-                translationSettingsContent.addView(translationChoiceRow(
-                        ui("translation.follow_global"), false, () -> {
-                            platformTranslationSettings.setTrackEnabled(trackKey, null);
-                            reloadLyricsForTranslation();
-                            renderTranslationSettings();
-                        }), topMargin(matchWrap(), dp(2)));
-            }
             translationSettingsContent.addView(translationSectionTitle(ui("translation.source")),
                     topMargin(matchWrap(), dp(14)));
+            LinearLayout trackSources = translationSheetKit().group();
+            translationSettingsContent.addView(trackSources, topMargin(matchWrap(), dp(8)));
+            if (platformTranslationSettings.trackEnabled(trackKey) != null) {
+                trackSources.addView(translationChoiceRow(
+                        ui("translation.follow_global"), false, () -> {
+                            platformTranslationSettings.setTrackEnabled(trackKey, null);
+                            onTranslationPolicyChanged();
+                        }), matchWrap());
+            }
             String manual = platformTranslationSettings.manualSource(trackKey);
-            addSourceChoice(ui("translation.auto"), PlatformTranslationSettings.MANUAL_AUTO, manual, trackKey);
-            addSourceChoice(NeteaseLyricSource.LABEL, NeteaseLyricSource.ID, manual, trackKey);
-            addSourceChoice(QqLyricSource.LABEL, QqLyricSource.ID, manual, trackKey);
-            addSourceChoice(KugouLyricSource.LABEL, KugouLyricSource.ID, manual, trackKey);
-            translationSettingsContent.addView(translationSectionTitle(ui("translation.mix")),
-                    topMargin(matchWrap(), dp(14)));
-            addTranslationSwitch(ui("translation.mix"), platformTranslationSettings.mixSources(),
+            addSourceChoice(trackSources, ui("translation.auto"), PlatformTranslationSettings.MANUAL_AUTO, manual, trackKey);
+            addSourceChoice(trackSources, NeteaseLyricSource.LABEL, NeteaseLyricSource.ID, manual, trackKey);
+            addSourceChoice(trackSources, QqLyricSource.LABEL, QqLyricSource.ID, manual, trackKey);
+            addSourceChoice(trackSources, KugouLyricSource.LABEL, KugouLyricSource.ID, manual, trackKey);
+            addTranslationSwitch(ui("translation.mix"), ui("translation.mix_hint"),
+                    platformTranslationSettings.mixSources(),
                     checked -> {
                         platformTranslationSettings.setMixSources(checked);
                         reloadLyricsForTranslation();
                     });
-            translationSettingsContent.addView(translationHint(ui("translation.mix_hint")),
-                    topMargin(matchWrap(), dp(2)));
         }
 
-        Button reload = SettingsAppearance.button(this, ui("translation.reload"), 14f);
-        makeRemoteFocusable(reload);
+        Button reload = translationSheetKit().button(ui("translation.reload"),
+                SettingsKit.ACTION_NORMAL, null);
         reload.setOnClickListener(view -> reloadLyricsForTranslation());
+        reload.setTextColor(Color.WHITE);
+        reload.setMinHeight(dp(48));
+        makeRemoteFocusable(reload);
         translationSettingsContent.addView(reload, topMargin(matchWrap(), dp(18)));
+
+        // The tab body arrives the way the settings panel's does: a short rise with the fade.
+        if (!android.animation.ValueAnimator.areAnimatorsEnabled()) {
+            translationSettingsContent.setAlpha(1f);
+            translationSettingsContent.setTranslationY(0f);
+        } else {
+            translationSettingsContent.setAlpha(0f);
+            translationSettingsContent.setTranslationX(TRANS_TAB_GLOBAL.equals(translationSettingsTab) ? dp(14) : -dp(14));
+            translationSettingsContent.animate().alpha(1f).translationX(0f)
+                    .setDuration(160L)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
+        }
     }
 
     private View translationSectionTitle(String text) {
-        TextView title = label(text, 13f, Color.argb(165, 255, 255, 255), AppFonts.bold(this));
+        TextView title = label(text, 13f, Color.argb(170, 255, 255, 255), AppFonts.semiBold(this));
+        title.setPaddingRelative(dp(6), 0, dp(6), 0);
         return title;
     }
 
@@ -13656,45 +13959,82 @@ public class BaseLyricsActivity extends Activity implements
         return hint;
     }
 
-    private void addTranslationSwitch(String text, boolean checked,
+    /**
+     * One switch row inside the sheet's own card. The label and the summary sit beside a bare
+     * capsule switch, and the whole row toggles, the way a Miuix preference row behaves.
+     */
+    private void addTranslationSwitch(String text, String summary, boolean checked,
             java.util.function.Consumer<Boolean> action) {
-        android.widget.Switch toggle = new android.widget.Switch(this);
-        toggle.setText(text);
-        toggle.setTextSize(15f);
-        toggle.setTextColor(Color.WHITE);
+        SettingsKit kit = translationSheetKit();
+        LinearLayout card = kit.group();
+        Switch toggle = new SettingsKit.MiuixSwitch(this, kit.p, false);
         toggle.setChecked(checked);
-        toggle.setPadding(0, dp(8), 0, dp(8));
+        toggle.setContentDescription(text);
         toggle.setOnCheckedChangeListener((button, value) -> action.accept(value));
-        translationSettingsContent.addView(toggle, matchWrap());
+
+        LinearLayout row = kit.vertical();
+        row.setPaddingRelative(dp(16), dp(14), dp(16), dp(14));
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = kit.text(text, 15f, kit.p.text, kit.semi);
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        titleRow.addView(toggle, new LinearLayout.LayoutParams(dp(50), dp(48)));
+        row.addView(titleRow, matchWrap());
+        if (summary != null && !summary.trim().isEmpty()) {
+            TextView description = kit.text(summary, 13f, kit.p.text3, kit.regular);
+            description.setLineSpacing(dp(2), 1f);
+            row.addView(description, topMargin(matchWrap(), dp(6)));
+        }
+        row.setOnClickListener(view -> toggle.toggle());
+        card.addView(row, matchWrap());
+        translationSettingsContent.addView(card, topMargin(matchWrap(),
+                translationSettingsContent.getChildCount() == 0 ? 0 : dp(12)));
+    }
+
+    /** The sheet borrows the settings kit, painted for a cover-coloured surface. */
+    private SettingsKit translationSheetKit() {
+        if (translationSheetKitInstance == null) {
+            translationSheetKitInstance = new SettingsKit(this, SettingsPalette.ARTWORK);
+        }
+        return translationSheetKitInstance;
     }
 
     private View translationChoiceRow(String text, boolean selected, Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(12), 0, dp(12));
-        TextView name = label(text, 15f, Color.WHITE, AppFonts.regular(this));
+        row.setMinimumHeight(dp(48));
+        row.setPaddingRelative(dp(16), dp(12), dp(16), dp(12));
+        row.setBackground(SettingsAppearance.actionBackground(this, 0x00000000, 10, false));
+        TextView name = label(text, 15f, selected ? Color.WHITE : Color.argb(200, 255, 255, 255),
+                selected ? AppFonts.semiBold(this) : AppFonts.regular(this));
         row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         if (selected) {
-            TextView mark = label("\u2713", 15f, Color.argb(235, 30, 215, 96), AppFonts.bold(this));
-            row.addView(mark);
+            ImageView mark = new ImageView(this);
+            mark.setImageDrawable(new SettingsKit.SvgIcon(SettingsKit.iconPath("check"),
+                    Color.argb(235, 30, 215, 96), dp(18), Math.max(1f, dp(1.8f))));
+            mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            row.addView(mark, new LinearLayout.LayoutParams(dp(18), dp(18)));
         }
+        makeRemoteFocusable(row);
+        row.setContentDescription(text);
         row.setOnClickListener(view -> action.run());
         return row;
     }
 
-    private void addGlobalSourceChoice(String text, String sourceId, String current) {
+    private void addGlobalSourceChoice(LinearLayout host, String text, String sourceId, String current) {
         boolean selected = sourceId.equals(current);
-        translationSettingsContent.addView(translationChoiceRow(text, selected, () -> {
+        host.addView(translationChoiceRow(text, selected, () -> {
             platformTranslationSettings.setGlobalSource(sourceId);
             reloadLyricsForTranslation();
             renderTranslationSettings();
         }), matchWrap());
     }
 
-    private void addSourceChoice(String text, String sourceId, String current, String trackKey) {
+    private void addSourceChoice(LinearLayout host, String text, String sourceId, String current, String trackKey) {
         boolean selected = sourceId.equals(current);
-        translationSettingsContent.addView(translationChoiceRow(text, selected, () -> {
+        host.addView(translationChoiceRow(text, selected, () -> {
             platformTranslationSettings.setManualSource(trackKey, sourceId);
             reloadLyricsForTranslation();
             renderTranslationSettings();
@@ -13732,6 +14072,13 @@ public class BaseLyricsActivity extends Activity implements
             lyricsLanguageSettingsPanel = buildLyricsLanguageSettingsPanel(SettingsPalette.ARTWORK);
             panelOverArtwork = true;
         }
+        // Bind the controls that will actually be displayed. Updating before the palette rebuild
+        // only populated the detached old switches, leaving the new ones unchecked.
+        updateSourceLanguageSelect();
+        populateSelectedLanguageRule(aiLyricsSettings.snapshot());
+        updateLyricsMatchStatusBlock();
+        updateLyricsTypeGateCard();
+        switchLyricsPopupTab(activeLyricsPopupTab);
         detachFromParent(lyricsLanguageSettingsPanel);
 
         // The card is a darkened cover colour in both themes, so its ink is always the sheet's own.
@@ -14459,9 +14806,10 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         AiLyricsSettings.LanguageRule rule = aiLyricsSettings.snapshot().ruleForSource(effectiveSelectedSourceLang());
-        boolean active = rule.enabled();
+        boolean translationEnabled = currentTrackTranslationEnabled();
+        boolean active = translationEnabled || rule.pronunciationEnabled;
         String label = active ? ui("lyrics.button.translation_on") : ui("lyrics.translation");
-        if (rule.pronunciationEnabled && !rule.translationEnabled) {
+        if (rule.pronunciationEnabled && !translationEnabled) {
             label = ui("lyrics.button.pronunciation_on");
         } else if (rule.pronunciationEnabled) {
             label = ui("lyrics.button.translation_plus");
@@ -15243,9 +15591,19 @@ public class BaseLyricsActivity extends Activity implements
         updateLyricPreview(snapshot == null ? 0L : currentLyricsPlaybackPosition(snapshot));
     }
 
+    /**
+     * The confirmation for a change that already shows itself. Repeats are dropped: five switches in
+     * a row should not queue five toasts, and the live preview must still follow every change.
+     */
     private void showSavedToast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-        // Every settings change ends with this confirmation: keep the live preview in step with it.
+        long now = SystemClock.uptimeMillis();
+        boolean repeated = message != null && message.equals(lastSavedToast) && now - lastSavedToastAt < 2500L;
+        boolean tooSoon = now - lastSavedToastAt < 1200L;
+        if (message != null && !message.isEmpty() && !repeated && !tooSoon) {
+            lastSavedToast = message;
+            lastSavedToastAt = now;
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        }
         onSettingsControlChanged();
     }
 
@@ -16431,7 +16789,9 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     protected boolean isInitialSetupComplete() {
-        return setupSkipped() || (isSpotifyApiConfigured() && NowPlayingService.isNotificationAccessEnabled(this));
+        // Either an explicit "later", or the one permission the playback read needs. Credentials are
+        // optional now, so requiring them here would keep the whole app behind the setup screen.
+        return setupSkipped() || NowPlayingService.isNotificationAccessEnabled(this);
     }
 
     /**
@@ -17416,6 +17776,11 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private void setLyricsResultOnViews(LyricsResult result) {
+        boolean translationEnabled = currentTrackTranslationEnabled();
+        if (!translationEnabled) result = withoutTranslationRows(result);
+        if (lyricsTranslationButton != null) {
+            lyricsTranslationButton.setAlpha(translationEnabled ? 1f : 0.55f);
+        }
         updateLyricsRegenerateActions();
         if (IvLyricsBridge.isEmbedded(this)) {
             IvLyricsBridge.publishLyrics(currentTrack, result, effectiveSelectedSourceLang());

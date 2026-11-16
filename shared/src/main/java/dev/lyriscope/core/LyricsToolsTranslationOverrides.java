@@ -13,7 +13,7 @@ final class LyricsToolsTranslationOverrides {
                         "lyrics.background.desc", "이 곡에서만 사용할 배경 종류를 선택합니다. 블러, 밝기, 영상 배율 같은 세부 옵션은 기본 배경 설정을 따릅니다.",
                         "lyrics.background.override", "이 곡의 배경",
                         "lyrics.background.override_desc", "기본 설정 사용 · 개별 배경",
-                        "lyrics.background.mode_desc", "이 곡에서만 사용할 배경 종류를 선택합니다. 블러, 밝기, 영상 배율 같은 세부 옵션은 기본 배경 설정을 따릅니다.",
+                        "lyrics.background.mode_desc", "이 곡에만 적용됩니다. 커버, 블러 그라데이션, 단색 중 선택하세요.",
                         "lyrics.background.reset", "기본 설정 사용",
                         "toast.track_background_saved", "개별 배경 · 설정이 저장되었습니다",
                         "toast.track_background_cleared", "개별 배경 · 기본 설정 사용"
@@ -25,7 +25,7 @@ final class LyricsToolsTranslationOverrides {
                         "lyrics.background.desc", "Choose the background type for this track only. Detail options like blur, brightness, and video scale follow the default background settings.",
                         "lyrics.background.override", "Background for This Track",
                         "lyrics.background.override_desc", "Use Default Settings · Track Background",
-                        "lyrics.background.mode_desc", "Choose the background type for this track only. Detail options like blur, brightness, and video scale follow the default background settings.",
+                        "lyrics.background.mode_desc", "This track only: album cover, blurred gradient, or solid colour.",
                         "lyrics.background.reset", "Use Default Settings",
                         "toast.track_background_saved", "Track Background · Settings saved",
                         "toast.track_background_cleared", "Track Background · Use Default Settings"
@@ -37,7 +37,7 @@ final class LyricsToolsTranslationOverrides {
                         "lyrics.background.desc", "只为当前歌曲选择背景类型。模糊、亮度和视频缩放等详细选项会沿用默认背景设置。",
                         "lyrics.background.override", "此歌曲的背景",
                         "lyrics.background.override_desc", "使用默认设置 · 单曲背景",
-                        "lyrics.background.mode_desc", "只为当前歌曲选择背景类型。模糊、亮度和视频缩放等详细选项会沿用默认背景设置。",
+                        "lyrics.background.mode_desc", "只影响当前歌曲：封面、模糊渐变或纯色。",
                         "lyrics.background.reset", "使用默认设置",
                         "toast.track_background_saved", "单曲背景 · 设置已保存",
                         "toast.track_background_cleared", "单曲背景 · 使用默认设置"
@@ -49,7 +49,7 @@ final class LyricsToolsTranslationOverrides {
                         "lyrics.background.desc", "只為目前歌曲選擇背景類型。模糊、亮度與影片縮放等詳細選項會沿用預設背景設定。",
                         "lyrics.background.override", "此歌曲的背景",
                         "lyrics.background.override_desc", "使用預設設定 · 單曲背景",
-                        "lyrics.background.mode_desc", "只為目前歌曲選擇背景類型。模糊、亮度與影片縮放等詳細選項會沿用預設背景設定。",
+                        "lyrics.background.mode_desc", "只影響目前歌曲：封面、模糊漸層或純色。",
                         "lyrics.background.reset", "使用預設設定",
                         "toast.track_background_saved", "單曲背景 · 設定已儲存",
                         "toast.track_background_cleared", "單曲背景 · 使用預設設定"
@@ -61,7 +61,7 @@ final class LyricsToolsTranslationOverrides {
                         "lyrics.background.desc", "この曲だけで使用する背景の種類を選択します。ぼかし、明るさ、動画倍率などの詳細オプションは既定の背景設定に従います。",
                         "lyrics.background.override", "この曲の背景",
                         "lyrics.background.override_desc", "既定設定を使用 · 個別背景",
-                        "lyrics.background.mode_desc", "この曲だけで使用する背景の種類を選択します。ぼかし、明るさ、動画倍率などの詳細オプションは既定の背景設定に従います。",
+                        "lyrics.background.mode_desc", "この曲だけに適用します。カバー、ぼかしグラデーション、単色から選びます。",
                         "lyrics.background.reset", "既定設定を使用",
                         "toast.track_background_saved", "個別背景 · 設定が保存されました",
                         "toast.track_background_cleared", "個別背景 · 既定設定を使用"
