@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Lyriscope 模块</string>
+    <string name="app_name">Lyriscope</string>
     <string name="xposed_description">Lyriscope 模块：在 Spotify 内显示歌词、歌曲研究、翻译与卡拉 OK。</string>
 </resources>
