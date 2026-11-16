@@ -96,7 +96,7 @@ docs/            release notes and records
 
 ## Credits
 
-Ideas and data come from these projects; the app lists them with links under **Settings → About → Credits**:
+Ideas and data come from these projects; the app lists them with links under **Settings → Others → About & credits**:
 
 - [ivLyrics](https://github.com/ivLis-Studio/ivLyrics-Android) — ivLis Studio (code baseline)
 - [HyperLyrics Enhanced](https://github.com/juren233/HyperLyrics-Enhanced) — juren233

@@ -100,7 +100,7 @@ docs/            版本说明与发布记录
 
 ## 致谢
 
-思路与数据来自这些开源项目，应用内「设置 → 关于 → 致谢」也有一份可点击的列表：
+思路与数据来自这些开源项目，应用内「设置 → 其他 → 关于与鸣谢」也有一份可点击的列表：
 
 - [ivLyrics](https://github.com/ivLis-Studio/ivLyrics-Android) — ivLis Studio（代码基线）
 - [HyperLyrics Enhanced](https://github.com/juren233/HyperLyrics-Enhanced) — juren233
