@@ -763,11 +763,18 @@ public final class SettingsUiRegressionTest {
         toggle.draw(new Canvas(control));
         int from = Math.max(0, control.getWidth() - dp(80));
         Rect thumb = new Rect(control.getWidth(), control.getHeight(), 0, 0);
+        int peakAlpha = 0;
+        for (int y = 0; y < control.getHeight(); y++) {
+            for (int x = from; x < control.getWidth(); x++) {
+                peakAlpha = Math.max(peakAlpha, Color.alpha(control.getPixel(x, y)));
+            }
+        }
+        assertTrue("thumb has drawn ink even when disabled", peakAlpha > 0);
         int bright = 0;
         for (int y = 0; y < control.getHeight(); y++) {
             for (int x = from; x < control.getWidth(); x++) {
                 int pixel = control.getPixel(x, y);
-                if (Color.alpha(pixel) < 0x80) continue;
+                if (Color.alpha(pixel) < Math.ceil(peakAlpha * .9f)) continue;
                 if (Color.red(pixel) > 200 && Color.green(pixel) > 200 && Color.blue(pixel) > 200) {
                     bright++;
                     thumb.left = Math.min(thumb.left, x);
