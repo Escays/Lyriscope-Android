@@ -19,7 +19,10 @@ public final class OpenAIConnectionsRegression {
         return new AiLyricsSettings.Snapshot(AiLyricsSettings.providerById(provider), profile, Map.of("chatgpt", profile));
     }
     private static List<String> placeholders(String value) {
-        return Pattern.compile("\\{\\w+\\}|%(?:\\d+\\$)?[sd@]").matcher(value).results().map(match -> match.group()).sorted().toList();
+        // Distinct indices only: a translation may repeat an argument (Korean and Japanese often do),
+        // and that never breaks formatting. What must match is the set of arguments it uses.
+        return Pattern.compile("\\{\\w+\\}|%(?:\\d+\\$)?[sd@]").matcher(value).results()
+                .map(match -> match.group()).distinct().sorted().toList();
     }
     public static void main(String[] args) throws Exception {
         AiLyricsSettings storage = new AiLyricsSettings();

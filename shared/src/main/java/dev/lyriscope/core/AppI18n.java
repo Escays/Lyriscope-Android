@@ -2367,9 +2367,9 @@ final class AppI18n {
         switch (lang == null ? "" : lang) {
             case "ko":
                 copy.put("repo.detail.synced_type_off_format",
-                        "%1$s 가사입니다. %1$s의 '%2$s' 형식이 꺼져 있어 타임라인이 없습니다. 켜면 시간축이 있는 가사를 사용합니다.");
+                        "%1$s 가사입니다. '%2$s' 형식이 꺼져 있어 타임라인이 없습니다. 켜면 시간축이 있는 가사를 사용합니다.");
                 copy.put("repo.detail.karaoke_type_off_format",
-                        "%1$s 싱크 가사입니다. %1$s의 '%2$s' 형식이 꺼져 있어 글자별 채우기가 없습니다. 켜면 글자 타이밍을 사용합니다.");
+                        "%1$s 싱크 가사입니다. '%2$s' 형식이 꺼져 있어 글자별 채우기가 없습니다. 켜면 글자 타이밍을 사용합니다.");
                 copy.put("lyrics_provider.type_off_hint_format",
                         "현재 가사는 %1$s에서 왔지만 타임라인이 없습니다. %1$s의 '%2$s' 형식이 꺼져 있습니다.");
                 copy.put("lyrics_provider.type_off_action_format", "'%1$s' 켜고 다시 불러오기");
