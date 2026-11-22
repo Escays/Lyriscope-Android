@@ -11,6 +11,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
@@ -35,6 +36,7 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -70,18 +72,19 @@ final class SettingsKit {
     static final int ACTION_DANGER = 1;
     static final int ACTION_LINK = 2;
 
-    // Miuix metric tokens. Everything below reads these instead of scattering numbers, so a later
-    // switch to MD3 only rewrites this block.
-    /** Corner of a card holding rows. */
+    // KernelSU-Style-UI-Kit Miuix metric tokens (top.yukonga.miuix.kmp defaults).
+    /** Corner of a card holding rows (CardDefaults.CornerRadius = 16.dp). */
     private static final float RADIUS_CARD = 16f;
-    /** Corner of a bordered control inside a row (field, picker, button). */
-    private static final float RADIUS_CONTROL = 12f;
+    /** Corner of a Miuix button or text field (16.dp). */
+    private static final float RADIUS_CONTROL = 16f;
     /** Corner of a chip or an inline mark. */
     private static final float RADIUS_CHIP = 12f;
-    /** A row's inner horizontal padding; the hairline between rows starts here too. */
+    /** A row's inner horizontal padding (BasicComponentDefaults.InsideMargin = 16.dp). */
     private static final float ROW_PADDING = 16f;
     /** Shortest a row may become, so every row keeps a 48 dp-plus touch target. */
     private static final float ROW_MIN_HEIGHT = 56f;
+    /** Thick capsule height of a Miuix slider track. */
+    private static final float SLIDER_HEIGHT = 26f;
     /** Switch geometry: the pill the reader sees, not the platform control. */
     private static final float SWITCH_WIDTH = 50f;
     private static final float SWITCH_HEIGHT = 30f;
@@ -179,7 +182,7 @@ final class SettingsKit {
         TextView view = text(value, 28f, p.text, semi);
         view.setLetterSpacing(-0.02f);
         view.setLineSpacing(dp(2), 1f);
-        view.setPaddingRelative(dp(4), dp(6), dp(4), dp(14));
+        view.setPaddingRelative(dp(12), dp(6), dp(12), dp(14));
         heading(view);
         return view;
     }
@@ -189,7 +192,7 @@ final class SettingsKit {
         TextView view = largeTitle("Lyriscope");
         view.setTextSize(30f);
         view.setLetterSpacing(-0.025f);
-        view.setPaddingRelative(dp(4), dp(2), dp(4), dp(14));
+        view.setPaddingRelative(dp(12), dp(2), dp(12), dp(14));
         view.setTypeface(AppFonts.brand(context, 600));
         view.setTextDirection(View.TEXT_DIRECTION_LTR);
         return view;
@@ -197,22 +200,22 @@ final class SettingsKit {
 
     LinearLayout sectionHeader(String title, String subtitle) {
         LinearLayout header = vertical();
-        header.setPaddingRelative(dp(6), 0, dp(6), dp(8));
+        header.setPaddingRelative(dp(14), 0, dp(14), dp(8));
         TextView titleView = text(title, 13f, p.text3, semi);
         titleView.setLineSpacing(dp(2), 1f);
         heading(titleView);
         header.addView(titleView, matchWrap());
         if (subtitle != null && !subtitle.trim().isEmpty()) {
-            TextView sub = text(subtitle, 12f, p.text4, regular);
+            TextView sub = text(subtitle, 12.5f, p.text4, regular);
             sub.setLineSpacing(dp(3), 1f);
-            header.addView(sub, topMargin(matchWrap(), dp(4)));
+            header.addView(sub, topMargin(matchWrap(), dp(3)));
         }
         return header;
     }
 
     TextView groupLabel(String value) {
-        TextView view = text(value, 12.5f, p.text3, semi);
-        view.setPaddingRelative(dp(6), 0, dp(6), dp(8));
+        TextView view = text(value, 13f, p.text3, semi);
+        view.setPaddingRelative(dp(14), 0, dp(14), dp(8));
         return view;
     }
 
@@ -274,15 +277,38 @@ final class SettingsKit {
         return layout;
     }
 
-    /** A card of rows separated by hairlines; it disappears when every row is hidden. */
+    /** A Miuix Card holding rows without divider clutter; disappears when every row is hidden. */
     LinearLayout group() {
         LinearLayout group = vertical();
         group.setTag(GROUP_TAG);
         group.setBackground(rect(p.card, RADIUS_CARD, 0, 0f));
         group.setClipToOutline(true);
-        group.setDividerDrawable(new InsetLine(p.divider, dp(1), dp(ROW_PADDING)));
-        group.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
+        group.setShowDividers(LinearLayout.SHOW_DIVIDER_NONE);
         return group;
+    }
+
+    /** A standalone borderless Miuix Card container. */
+    LinearLayout card() {
+        LinearLayout card = vertical();
+        card.setBackground(rect(p.card, RADIUS_CARD, 0, 0f));
+        card.setClipToOutline(true);
+        return card;
+    }
+
+    /** Subtle HyperOS sink press feedback without intercepting click listeners. */
+    static void attachPressSink(View view) {
+        view.setOnTouchListener((v, event) -> {
+            if (!v.isEnabled()) return false;
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90L)
+                        .setInterpolator(new DecelerateInterpolator()).start();
+            } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(180L)
+                        .setInterpolator(new DecelerateInterpolator()).start();
+            }
+            return false;
+        });
     }
 
     FlowLayout flow(float horizontalGapDp, float verticalGapDp) {
@@ -392,7 +418,7 @@ final class SettingsKit {
         view.setMinimumWidth(dp(48));
     }
 
-    /** A list action: full-width text with a chevron, or an external-link mark for links. */
+    /** A Miuix ArrowPreference-style list action: full-width text with a subtle trailing chevron. */
     Button actionRow(String label, String description, int kind) {
         Button button = new Button(context);
         button.setAllCaps(false);
@@ -401,7 +427,7 @@ final class SettingsKit {
         button.setText(description == null || description.trim().isEmpty() ? label
                 : labelWithDescription(label, description, 16f, 13f));
         button.setTextSize(16f);
-        button.setTypeface(regular);
+        button.setTypeface(semi);
         button.setLineSpacing(dp(2), 1f);
         button.setTextColor(kind == ACTION_DANGER ? p.danger : kind == ACTION_LINK ? p.accentText : p.text);
         button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
@@ -409,7 +435,7 @@ final class SettingsKit {
         button.setSingleLine(false);
         button.setMaxLines(Integer.MAX_VALUE);
         button.setEllipsize(null);
-        button.setPaddingRelative(dp(ROW_PADDING), dp(14), dp(ROW_PADDING), dp(14));
+        button.setPaddingRelative(dp(ROW_PADDING), dp(15), dp(ROW_PADDING), dp(15));
         button.setMinHeight(dp(ROW_MIN_HEIGHT));
         button.setMinimumHeight(dp(ROW_MIN_HEIGHT));
         button.setMinWidth(dp(48));
@@ -421,20 +447,20 @@ final class SettingsKit {
         return button;
     }
 
-    /** A bordered button for actions inside rows and cards. */
+    /** A borderless Miuix TextButton for actions inside rows, cards and dialogs. */
     Button button(String label, int kind, String iconName) {
         Button button = new Button(context);
         button.setAllCaps(false);
         button.setStateListAnimator(null);
         button.setElevation(0f);
         button.setText(label);
-        button.setTextSize(14.5f);
+        button.setTextSize(15f);
         button.setTypeface(semi);
         button.setGravity(Gravity.CENTER);
         button.setSingleLine(false);
         button.setMaxLines(Integer.MAX_VALUE);
         button.setEllipsize(null);
-        button.setPaddingRelative(dp(14), dp(10), dp(14), dp(10));
+        button.setPaddingRelative(dp(16), dp(12), dp(16), dp(12));
         button.setMinHeight(dp(48));
         button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(48));
@@ -446,21 +472,22 @@ final class SettingsKit {
             background = rect(p.accent, RADIUS_CONTROL);
         } else if (kind == BUTTON_DANGER) {
             textColor = p.danger;
-            background = rect(0x00000000, RADIUS_CONTROL, withAlpha(p.danger, 0x4D), 1f);
+            background = rect(p.dangerSoft, RADIUS_CONTROL);
         } else {
             textColor = p.text;
-            background = rect(p.surface2, RADIUS_CONTROL, p.line2, 1f);
+            background = rect(p.surface2, RADIUS_CONTROL);
         }
         button.setTextColor(textColor);
         button.setBackground(pressable(background, RADIUS_CONTROL));
         if (iconName != null) {
-            button.setCompoundDrawablePadding(dp(7));
+            button.setCompoundDrawablePadding(dp(8));
             button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon(iconName, textColor, 17f), null, null, null);
         }
+        attachPressSink(button);
         return button;
     }
 
-    /** A drop-down field with one graphical chevron. */
+    /** A borderless Miuix drop-down selector with one graphical chevron. */
     Button picker(String value) {
         Button button = new Button(context);
         button.setAllCaps(false);
@@ -468,21 +495,21 @@ final class SettingsKit {
         button.setElevation(0f);
         button.setText(value);
         button.setTextSize(15.5f);
-        button.setTypeface(regular);
+        button.setTypeface(semi);
         button.setTextColor(p.text);
         button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
         button.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
         button.setSingleLine(false);
         button.setMaxLines(Integer.MAX_VALUE);
         button.setEllipsize(null);
-        button.setPaddingRelative(dp(14), dp(12), dp(12), dp(12));
+        button.setPaddingRelative(dp(14), dp(12), dp(14), dp(12));
         button.setMinHeight(dp(48));
         button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(48));
         button.setMinimumWidth(dp(48));
         button.setCompoundDrawablePadding(dp(10));
-        button.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, icon("down", p.text3, 18f), null);
-        button.setBackground(pressable(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f), RADIUS_CONTROL));
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, icon("down", p.text4, 18f), null);
+        button.setBackground(pressable(rect(p.surface2, 12f), 12f));
         return button;
     }
 
@@ -491,7 +518,7 @@ final class SettingsKit {
         button.setImageDrawable(icon(iconName, p.text, iconDp));
         button.setScaleType(ImageView.ScaleType.CENTER);
         button.setContentDescription(description);
-        button.setBackground(pressable(rect(0x00000000, 10f), 10f));
+        button.setBackground(pressable(rect(0x00000000, 24f), 24f));
         button.setPadding(0, 0, 0, 0);
         button.setMinimumWidth(dp(48));
         button.setMinimumHeight(dp(48));
@@ -528,9 +555,9 @@ final class SettingsKit {
 
     Drawable fieldBackground() {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_focused}, rect(p.card, RADIUS_CONTROL, p.accentLine, 1.5f));
-        // An input reads as a well under the card, never the same tone as the card itself.
-        states.addState(new int[]{}, rect(p.surface, RADIUS_CONTROL, p.line3, 1f));
+        states.addState(new int[]{android.R.attr.state_focused}, rect(p.surface, 14f, p.accent, 1.8f));
+        // Miuix TextField: borderless soft filled container, accented border only when focused.
+        states.addState(new int[]{}, rect(p.surface, 14f));
         return states;
     }
 
@@ -558,22 +585,22 @@ final class SettingsKit {
         return row;
     }
 
+    /** KernelSU-Style-UI-Kit Miuix WarningCard: borderless tinted 16dp notice card. */
     LinearLayout note(CharSequence value, int tone) {
         LinearLayout note = horizontal();
-        note.setGravity(Gravity.TOP);
+        note.setGravity(Gravity.CENTER_VERTICAL);
         int fill = tone == TONE_WARN ? p.warnSoft : tone == TONE_DANGER ? p.dangerSoft : p.infoSoft;
         int accent = tone == TONE_WARN ? p.warn : tone == TONE_DANGER ? p.danger : p.info;
-        note.setBackground(rect(fill, RADIUS_CONTROL, withAlpha(accent, 0x30), 1f));
-        note.setPaddingRelative(dp(12), dp(12), dp(12), dp(12));
+        note.setBackground(rect(fill, RADIUS_CARD));
+        note.setPaddingRelative(dp(16), dp(14), dp(16), dp(14));
         ImageView mark = new ImageView(context);
-        mark.setImageDrawable(icon(tone == TONE_INFO ? "info" : "warn", accent, 17f));
-        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(17), dp(17));
-        markParams.topMargin = dp(1);
+        mark.setImageDrawable(icon(tone == TONE_INFO ? "info" : "warn", accent, 18f));
+        LinearLayout.LayoutParams markParams = new LinearLayout.LayoutParams(dp(18), dp(18));
         note.addView(mark, markParams);
-        TextView body = text(value, 13.5f, p.text, regular);
+        TextView body = text(value, 14f, accent, semi);
         body.setLineSpacing(dp(3), 1f);
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        bodyParams.setMarginStart(dp(10));
+        bodyParams.setMarginStart(dp(12));
         note.addView(body, bodyParams);
         return note;
     }
@@ -707,9 +734,9 @@ final class SettingsKit {
     }
 
     Choice segmented(List<Option> options, String selected, ChoiceListener listener) {
-        SegmentedLayout layout = new SegmentedLayout(context, dp(2));
-        layout.setBackground(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f));
-        layout.setPadding(dp(2), dp(2), dp(2), dp(2));
+        SegmentedLayout layout = new SegmentedLayout(context, dp(3));
+        layout.setBackground(rect(p.surface2, 12f));
+        layout.setPadding(dp(3), dp(3), dp(3), dp(3));
         Choice choice = new Choice(layout, options, false);
         for (Option option : options) {
             TextView item = text(option.label, 14f, p.text3, semi);
@@ -738,9 +765,10 @@ final class SettingsKit {
     }
 
     private void paintSegment(TextView item, Option option, boolean on) {
+        int activeFill = p.bg == 0 ? p.surface3 : (p.dark ? p.surface3 : p.card);
         item.setTextColor(on ? p.text : p.text3);
         item.setBackground(on
-                ? pressable(rect(p.card, 9f, p.line2, 1f), 9f)
+                ? pressable(rect(activeFill, 9f), 9f)
                 : pressable(rect(0x00000000, 9f), 9f));
         if (option.icon instanceof SvgIcon) ((SvgIcon) option.icon).setColor(on ? p.text : p.text3);
         if (option.icon != null) {
@@ -796,8 +824,8 @@ final class SettingsKit {
 
     private void paintCard(View card, Option option, boolean on) {
         card.setBackground(pressable(on
-                ? rect(p.card, 12f, p.accent, 2f)
-                : rect(p.card, 12f, p.line2, 1f), 12f));
+                ? rect(p.accentSoft, 14f, p.accent, 1.8f)
+                : rect(p.surface2, 14f), 14f));
         LinearLayout titleRow = (LinearLayout) ((LinearLayout) card).getChildAt(option.visual == null ? 0 : 1);
         ((ImageView) titleRow.getChildAt(1)).setImageDrawable(new CheckMark(on, p, dp(18)));
         if (option.visual instanceof ImageView && ((ImageView) option.visual).getDrawable() instanceof SvgIcon) {
@@ -967,11 +995,7 @@ final class SettingsKit {
             view = horizontal();
             seekBar = new SeekBar(context);
             seekBar.setMax(Math.max(1, (max - min) / this.step));
-            seekBar.setProgressDrawable(sliderTrack());
-            GradientDrawable thumb = oval(0xFFFFFFFF, dp(20));
-            seekBar.setThumb(thumb);
-            seekBar.setSplitTrack(false);
-            seekBar.setPaddingRelative(dp(12), 0, dp(12), 0);
+            styleMiuixSeekBar(seekBar, p, dp(SLIDER_HEIGHT));
             seekBar.setContentDescription(label);
             seekBar.setMinimumHeight(dp(48));
             view.addView(seekBar, new LinearLayout.LayoutParams(0, dp(48), 1f));
@@ -980,8 +1004,8 @@ final class SettingsKit {
             chip = horizontal();
             input = new EditText(context);
             input.setBackground(null);
-            input.setTextColor(p.text2);
-            input.setTextSize(13f);
+            input.setTextColor(p.text3);
+            input.setTextSize(14f);
             input.setTypeface(semi);
             input.setSingleLine(true);
             input.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
@@ -992,14 +1016,14 @@ final class SettingsKit {
             input.setImeOptions(EditorInfo.IME_ACTION_DONE);
             input.setSelectAllOnFocus(true);
             input.setContentDescription(label);
-            input.setMinWidth(dp(56));
-            input.setMinimumWidth(dp(56));
+            input.setMinWidth(dp(52));
+            input.setMinimumWidth(dp(52));
             input.setMinHeight(dp(48));
             input.setMinimumHeight(dp(48));
             boolean hasUnit = unit != null && !unit.isEmpty();
             input.setPaddingRelative(0, 0, hasUnit ? dp(2) : 0, 0);
             chip.addView(input, wrap());
-            unitView = text(hasUnit ? unit : "", 13f, p.text3, regular);
+            unitView = text(hasUnit ? unit : "", 13.5f, p.text4, regular);
             unitView.setPaddingRelative(0, 0, dp(2), 0);
             unitView.setVisibility(hasUnit ? View.VISIBLE : View.GONE);
             unitView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -1014,6 +1038,9 @@ final class SettingsKit {
                     int value = Range.this.min + progress * Range.this.step;
                     if (!input.hasFocus()) input.setText(format(value));
                     if (!fromUser || listener == null) return;
+                    if (tracking && bar.getMax() <= 20) {
+                        bar.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+                    }
                     listener.onValue(value, false);
                     // Keys and accessibility actions move the slider without a touch gesture.
                     if (!tracking) listener.onValue(value, true);
@@ -1040,7 +1067,7 @@ final class SettingsKit {
                 return false;
             });
             input.setOnFocusChangeListener((view, focused) -> {
-                input.setTextColor(focused ? p.accentText : p.text2);
+                input.setTextColor(focused ? p.accentText : p.text3);
                 if (!focused) commitInput();
             });
             input.setText(format(min));
@@ -1104,26 +1131,19 @@ final class SettingsKit {
         return new Range(min, max, step, divisor, unit, label);
     }
 
-    private Drawable sliderTrack() {
-        GradientDrawable track = rect(p.switchOff, 2f);
-        GradientDrawable fill = rect(p.accent, 2f);
-        android.graphics.drawable.ClipDrawable progress =
-                new android.graphics.drawable.ClipDrawable(fill, Gravity.LEFT, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-        android.graphics.drawable.LayerDrawable layers =
-                new android.graphics.drawable.LayerDrawable(new Drawable[]{track, progress});
-        layers.setId(0, android.R.id.background);
-        layers.setId(1, android.R.id.progress);
-        for (int index = 0; index < 2; index++) {
-            layers.setLayerGravity(index, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
-            layers.setLayerHeight(index, dp(4));
-        }
-        return layers;
+    /** Styles a SeekBar as a Miuix thick rounded capsule slider with an embedded indicator dot. */
+    static void styleMiuixSeekBar(SeekBar seekBar, SettingsPalette palette, int heightPx) {
+        seekBar.setProgressDrawable(new MiuixSliderDrawable(palette, heightPx));
+        seekBar.setThumb(new ColorDrawable(0x00000000));
+        seekBar.setThumbOffset(0);
+        seekBar.setSplitTrack(false);
+        seekBar.setPaddingRelative(0, 0, 0, 0);
     }
 
-    /** A number with − and + buttons (the lab's stepper) around an existing input. */
+    /** A borderless Miuix stepper around an existing input. */
     LinearLayout stepper(EditText input, int min, int max, int step, String label) {
         LinearLayout box = horizontal();
-        box.setBackground(rect(p.surface2, RADIUS_CONTROL, p.line2, 1f));
+        box.setBackground(rect(p.surface2, 14f));
         ImageButton minus = iconButton("minus", label + " -" + step, 18f);
         ImageButton plus = iconButton("plus", label + " +" + step, 18f);
         input.setBackground(null);
@@ -1144,9 +1164,9 @@ final class SettingsKit {
         minus.setOnClickListener(view -> bump(input, -step, min, max));
         plus.setOnClickListener(view -> bump(input, step, min, max));
         box.addView(minus, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        box.addView(divider(true), new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(28)));
+        box.addView(divider(true), new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(24)));
         box.addView(input, wrap());
-        box.addView(divider(true), new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(28)));
+        box.addView(divider(true), new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(24)));
         box.addView(plus, new LinearLayout.LayoutParams(dp(48), dp(48)));
         return box;
     }
@@ -1173,17 +1193,27 @@ final class SettingsKit {
     // ------------------------------------------------------------------ navigation
 
     /**
-     * A navigation row. The lab drew a rounded icon tile on the left; the Miuix list carries no such
-     * tile, so the row is a title (with an optional live summary) and a chevron. {@code iconName} is
-     * kept for the search index and for callers that forward it.
+     * KernelSU-Style-UI-Kit Miuix ArrowPreference row: crisp leading monochrome icon (no box tile),
+     * semibold title, optional summary, and trailing subtle chevron.
      */
     LinearLayout homeItem(String iconName, String title, String summary) {
         LinearLayout item = horizontal();
-        item.setPaddingRelative(dp(ROW_PADDING), dp(13), dp(ROW_PADDING) - dp(2), dp(13));
-        item.setMinimumHeight(dp(summary == null || summary.isEmpty() ? ROW_MIN_HEIGHT : 64));
+        item.setPaddingRelative(dp(ROW_PADDING), dp(15), dp(ROW_PADDING) - dp(2), dp(15));
+        item.setMinimumHeight(dp(summary == null || summary.isEmpty() ? ROW_MIN_HEIGHT : 66));
         item.setFocusable(true);
         item.setClickable(true);
         item.setBackground(pressable(rect(0x00000000, 0f), 0f));
+        if (iconName != null && !iconName.isEmpty()) {
+            ImageView leading = new ImageView(context);
+            SvgIcon glyph = icon(iconName, p.text, 22f);
+            glyph.setStrokeWidth(1.85f);
+            leading.setImageDrawable(glyph);
+            leading.setScaleType(ImageView.ScaleType.CENTER);
+            leading.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(24), dp(24));
+            iconParams.setMarginEnd(dp(14));
+            item.addView(leading, iconParams);
+        }
         LinearLayout texts = vertical();
         TextView titleView = text(title, 16f, p.text, semi);
         titleView.setLineSpacing(dp(2), 1f);
@@ -1192,7 +1222,7 @@ final class SettingsKit {
             TextView summaryView = text(summary, 13f, p.text3, regular);
             summaryView.setSingleLine(true);
             summaryView.setEllipsize(TextUtils.TruncateAt.END);
-            texts.addView(summaryView, topMargin(matchWrap(), dp(4)));
+            texts.addView(summaryView, topMargin(matchWrap(), dp(3)));
         }
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         textParams.setMarginEnd(dp(8));
@@ -1204,21 +1234,72 @@ final class SettingsKit {
         return item;
     }
 
+    /**
+     * KernelSU-Style-UI-Kit HomeMiuix Hero Status Card: tinted 16dp card with a large clipped
+     * watermark icon in the bottom-right corner and bold title + subtitle on the left.
+     */
+    FrameLayout heroStatusCard(String iconName, String title, String summary, boolean active) {
+        FrameLayout card = new FrameLayout(context);
+        int containerColor = active ? p.okSoft : p.card;
+        int titleColor = active ? (p.dark ? 0xFFF2F2F2 : 0xFF111111) : p.text;
+        int summaryColor = active ? (p.dark ? 0xCCF2F2F2 : 0xB3111111) : p.text3;
+        int watermarkColor = active ? withAlpha(p.ok, p.dark ? 0x55 : 0x7A) : withAlpha(p.text4, 0x33);
+        card.setBackground(pressable(rect(containerColor, RADIUS_CARD), RADIUS_CARD));
+        card.setClipToOutline(true);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setMinimumHeight(dp(84));
+
+        ImageView watermark = new ImageView(context);
+        SvgIcon markIcon = icon(iconName, watermarkColor, 88f);
+        markIcon.setStrokeWidth(1.5f);
+        watermark.setImageDrawable(markIcon);
+        watermark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        watermark.setTranslationX(dp(16));
+        watermark.setTranslationY(dp(20));
+        FrameLayout.LayoutParams markParams = new FrameLayout.LayoutParams(dp(88), dp(88), Gravity.BOTTOM | Gravity.END);
+        card.addView(watermark, markParams);
+
+        LinearLayout row = horizontal();
+        row.setPaddingRelative(dp(18), dp(16), dp(14), dp(16));
+        LinearLayout texts = vertical();
+        TextView titleView = text(title, 19f, titleColor, semi);
+        titleView.setLineSpacing(dp(2), 1f);
+        texts.addView(titleView, matchWrap());
+        if (summary != null && !summary.isEmpty()) {
+            TextView summaryView = text(summary, 13.5f, summaryColor, regular);
+            summaryView.setLineSpacing(dp(2), 1f);
+            summaryView.setMaxLines(2);
+            summaryView.setEllipsize(TextUtils.TruncateAt.END);
+            texts.addView(summaryView, topMargin(matchWrap(), dp(4)));
+        }
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        textParams.setMarginEnd(dp(12));
+        row.addView(texts, textParams);
+        ImageView chevron = new ImageView(context);
+        chevron.setImageDrawable(icon("right", active ? summaryColor : p.text4, 16f));
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
+        card.addView(row, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+        attachPressSink(card);
+        return card;
+    }
+
     LinearLayout searchResult(String iconName, CharSequence title, String subtitle) {
         LinearLayout item = horizontal();
-        item.setPaddingRelative(dp(10), dp(9), dp(10), dp(9));
-        item.setMinimumHeight(dp(56));
+        item.setPaddingRelative(dp(ROW_PADDING), dp(13), dp(ROW_PADDING), dp(13));
+        item.setMinimumHeight(dp(58));
         item.setFocusable(true);
         item.setClickable(true);
-        item.setBackground(pressable(rect(0x00000000, 8f), 8f));
-        ImageView tile = new ImageView(context);
-        tile.setImageDrawable(icon(iconName, p.text3, 16f));
-        tile.setScaleType(ImageView.ScaleType.CENTER);
-        tile.setBackground(rect(p.surface2, 7f, p.line, 1f));
-        tile.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        item.addView(tile, new LinearLayout.LayoutParams(dp(32), dp(32)));
+        item.setBackground(pressable(rect(0x00000000, 0f), 0f));
+        ImageView leading = new ImageView(context);
+        leading.setImageDrawable(icon(iconName, p.text2, 20f));
+        leading.setScaleType(ImageView.ScaleType.CENTER);
+        leading.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        item.addView(leading, new LinearLayout.LayoutParams(dp(22), dp(22)));
         LinearLayout texts = vertical();
-        TextView titleView = text(title, 15.5f, p.text, regular);
+        TextView titleView = text(title, 15.5f, p.text, semi);
         titleView.setLineSpacing(dp(2), 1f);
         titleView.setMaxLines(2);
         titleView.setEllipsize(TextUtils.TruncateAt.END);
@@ -1227,8 +1308,13 @@ final class SettingsKit {
         subtitleView.setLineSpacing(dp(2), 1f);
         texts.addView(subtitleView, topMargin(matchWrap(), dp(3)));
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        textParams.setMarginStart(dp(12));
+        textParams.setMarginStart(dp(14));
+        textParams.setMarginEnd(dp(8));
         item.addView(texts, textParams);
+        ImageView chevron = new ImageView(context);
+        chevron.setImageDrawable(icon("right", p.text4, 16f));
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        item.addView(chevron, new LinearLayout.LayoutParams(dp(16), dp(16)));
         return item;
     }
 
@@ -1270,8 +1356,14 @@ final class SettingsKit {
             for (int index = 0; index < getChildCount(); index++) {
                 View child = getChildAt(index);
                 if (child.getVisibility() == GONE) continue;
-                child.measure(MeasureSpec.makeMeasureSpec(limit, MeasureSpec.AT_MOST),
-                        MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                ViewGroup.LayoutParams lp = child.getLayoutParams();
+                int childWidthSpec = (lp != null && lp.width >= 0)
+                        ? MeasureSpec.makeMeasureSpec(Math.min(limit, lp.width), MeasureSpec.EXACTLY)
+                        : MeasureSpec.makeMeasureSpec(limit, MeasureSpec.AT_MOST);
+                int childHeightSpec = (lp != null && lp.height >= 0)
+                        ? MeasureSpec.makeMeasureSpec(lp.height, MeasureSpec.EXACTLY)
+                        : MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
+                child.measure(childWidthSpec, childHeightSpec);
                 int width = child.getMeasuredWidth();
                 if (lineWidth > 0 && lineWidth + horizontalGap + width > limit) {
                     total += lineHeight + verticalGap;
@@ -1732,12 +1824,13 @@ final class SettingsKit {
             paint.setAlpha(isEnabled() ? 0xFF : 0x60);
             paint.setColor(blend(palette.switchOff, palette.accent, position));
             canvas.drawRoundRect(track, endRadius, endRadius, paint);
-            // A hairline keeps the capsule readable when it sits on a cover, where a 30% white
-            // fill and a white thumb can collapse into one pale shape.
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(stroke);
-            paint.setColor(withAlpha(palette.text, 0x1F));
-            canvas.drawRoundRect(track, endRadius, endRadius, paint);
+            // Only draw the hairline on translucent cover sheets (ARTWORK palette); opaque Miuix cards stay borderless.
+            if (palette.bg == 0) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(stroke);
+                paint.setColor(withAlpha(palette.text, 0x1F));
+                canvas.drawRoundRect(track, endRadius, endRadius, paint);
+            }
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(0xFFFFFFFF);
             // Everything scales with the capsule that actually fits: an adaptive row may hand the
@@ -1766,6 +1859,77 @@ final class SettingsKit {
                     + (android.graphics.Color.blue(to) - android.graphics.Color.blue(from)) * t);
             return android.graphics.Color.argb(alpha, red, green, blue);
         }
+    }
+
+    /**
+     * Miuix thick capsule slider drawable: a rounded capsule track filled from the start edge with
+     * the primary accent colour and a clean white inner indicator circle inside the active tip.
+     */
+    static final class MiuixSliderDrawable extends Drawable {
+        private final SettingsPalette palette;
+        private final int barHeight;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF trackRect = new RectF();
+        private final RectF fillRect = new RectF();
+        private final Path clipPath = new Path();
+        private int alpha = 0xFF;
+
+        MiuixSliderDrawable(SettingsPalette palette, int barHeight) {
+            this.palette = palette;
+            this.barHeight = Math.max(8, barHeight);
+        }
+
+        @Override protected boolean onLevelChange(int level) {
+            invalidateSelf();
+            return true;
+        }
+
+        @Override public void draw(Canvas canvas) {
+            Rect bounds = getBounds();
+            if (bounds.width() <= 0 || bounds.height() <= 0) return;
+            float height = Math.min(barHeight, bounds.height());
+            float radius = height / 2f;
+            float top = bounds.exactCenterY() - radius;
+            float bottom = top + height;
+            trackRect.set(bounds.left, top, bounds.right, bottom);
+
+            int trackBg = palette.bg == 0 ? 0x26FFFFFF : (palette.dark ? 0x26FFFFFF : 0x12000000);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(trackBg);
+            if (alpha < 0xFF) paint.setAlpha(Math.round(paint.getAlpha() * (alpha / 255f)));
+            canvas.drawRoundRect(trackRect, radius, radius, paint);
+
+            float fraction = Math.max(0f, Math.min(1f, getLevel() / 10000f));
+            boolean rtl = getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+            float travel = Math.max(0f, trackRect.width() - height);
+            float centerX = rtl
+                    ? trackRect.right - radius - travel * fraction
+                    : trackRect.left + radius + travel * fraction;
+            if (rtl) {
+                fillRect.set(centerX - radius, top, trackRect.right, bottom);
+            } else {
+                fillRect.set(trackRect.left, top, centerX + radius, bottom);
+            }
+
+            clipPath.reset();
+            clipPath.addRoundRect(trackRect, radius, radius, Path.Direction.CW);
+            int saved = canvas.save();
+            canvas.clipPath(clipPath);
+            paint.setColor(palette.accent);
+            paint.setAlpha(alpha);
+            canvas.drawRoundRect(fillRect, radius, radius, paint);
+
+            float dotRadius = Math.max(2f, radius * 0.54f);
+            paint.setColor(0xFFFFFFFF);
+            paint.setAlpha(Math.round(0xEB * (alpha / 255f)));
+            canvas.drawCircle(centerX, trackRect.centerY(), dotRadius, paint);
+            canvas.restoreToCount(saved);
+        }
+
+        @Override public int getIntrinsicHeight() { return barHeight; }
+        @Override public void setAlpha(int alpha) { this.alpha = Math.max(0, Math.min(255, alpha)); invalidateSelf(); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
     /** A hairline that stops short of the card's leading edge, the way a grouped list draws it. */

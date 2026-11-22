@@ -47,6 +47,8 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
                         if (mapping == null) {
                             Log.e(TAG, "Unsupported Spotify " + version
                                     + "; mapped builds " + SpotifyMapping.versions());
+                            IvLyricsBridge.setHookHealth(new IvLyricsBridge.HookHealth(
+                                    version, false, false, false, false, null));
                             return;
                         }
                         ContextBridge.initialize(modulePath);
@@ -61,6 +63,9 @@ public final class SpotifyXposedHooks implements IXposedHookLoadPackage, IXposed
                         SpotifyWebViewSupport.install();
                         IvLyricsBridge.initialize(context);
                         installHooks(loader, mapping);
+                        IvLyricsBridge.setHookHealth(new IvLyricsBridge.HookHealth(
+                                version, true, mapping.inline != null, mapping.karaoke != null,
+                                mapping.metadata != null, missing));
                         installed = true;
                         Log.i(TAG, "Native lyrics hooks installed for Spotify " + version);
                     } catch (Throwable error) {

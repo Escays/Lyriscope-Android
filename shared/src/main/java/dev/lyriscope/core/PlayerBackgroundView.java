@@ -10,7 +10,9 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
+import android.graphics.RuntimeShader;
 import android.graphics.Shader;
+import android.os.Build;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.View;
@@ -31,6 +33,8 @@ public final class PlayerBackgroundView extends View {
     private Bitmap noiseBitmap;
     private BitmapShader noiseShader;
     private BlobShaderCache blobShaderCache;
+    private Object fluidRuntimeShader;
+    private boolean fluidShaderFailed;
     private LinearGradient dimmingGradientShader;
     private int dimmingGradientHeight = -1;
     private int dimmingGradientDim = Integer.MIN_VALUE;
@@ -322,7 +326,89 @@ public final class PlayerBackgroundView extends View {
         canvas.drawRect(0f, 0f, width, height, paint);
     }
 
+    private static final String FLUID_AGSL_SRC =
+            "uniform float2 uRes;\n"
+            + "uniform float uTime;\n"
+            + "uniform float uBrightness;\n"
+            + "uniform float4 uBg;\n"
+            + "uniform float4 uC0;\n"
+            + "uniform float4 uC1;\n"
+            + "uniform float4 uC2;\n"
+            + "uniform float4 uP01;\n"
+            + "uniform float4 uP23;\n"
+            + "float dither(float2 p) {\n"
+            + "    return fract(52.9829189 * fract(dot(p, float2(0.06711056, 0.00583715))));\n"
+            + "}\n"
+            + "half4 main(float2 fragCoord) {\n"
+            + "    float2 uv = fragCoord / max(uRes, float2(1.0));\n"
+            + "    float2 warp = float2(sin(uv.y * 3.1 + uTime * 0.45), cos(uv.x * 2.9 - uTime * 0.38)) * 0.065;\n"
+            + "    float2 p = uv + warp;\n"
+            + "    float d0 = smoothstep(0.92, 0.0, distance(p, uP01.xy));\n"
+            + "    float d1 = smoothstep(0.86, 0.0, distance(p, uP01.zw));\n"
+            + "    float d2 = smoothstep(0.88, 0.0, distance(p, uP23.xy));\n"
+            + "    float d3 = smoothstep(0.82, 0.0, distance(p, uP23.zw));\n"
+            + "    float3 col = uBg.rgb;\n"
+            + "    col = mix(col, uC0.rgb, d0 * 0.52);\n"
+            + "    col = mix(col, uC1.rgb, d1 * 0.48);\n"
+            + "    col = mix(col, uC2.rgb, d2 * 0.44);\n"
+            + "    col = mix(col, (uC0.rgb + uC1.rgb) * 0.5, d3 * 0.34);\n"
+            + "    col *= uBrightness;\n"
+            + "    col += (6.0 / 255.0) * dither(fragCoord) - (3.0 / 255.0);\n"
+            + "    return half4(clamp(col, 0.0, 1.0), 1.0);\n"
+            + "}\n";
+
+    private boolean drawFluidAgsl(Canvas canvas, int width, int height, double seconds) {
+        if (Build.VERSION.SDK_INT < 33 || fluidShaderFailed || !canvas.isHardwareAccelerated()) {
+            return false;
+        }
+        try {
+            RuntimeShader shader = (RuntimeShader) fluidRuntimeShader;
+            if (shader == null) {
+                shader = new RuntimeShader(FLUID_AGSL_SRC);
+                fluidRuntimeShader = shader;
+            }
+            float t = backgroundSettings.reduceMotion ? 0f : (float) (seconds * 0.35);
+            shader.setFloatUniform("uRes", width, height);
+            shader.setFloatUniform("uTime", t);
+            shader.setFloatUniform("uBrightness", 0.54f + backgroundSettings.brightness / 185f);
+            setColorUniform(shader, "uBg", paletteBackground);
+            setColorUniform(shader, "uC0", palettePrimary);
+            setColorUniform(shader, "uC1", paletteSecondary);
+            setColorUniform(shader, "uC2", paletteAccent);
+            float x0 = animatedValue(seconds, 0.012, phaseX, 0.05f, 0.95f);
+            float y0 = animatedValue(seconds, 0.015, phaseY, 0.08f, 0.92f);
+            float x1 = animatedValue(seconds, 0.014, phaseY + 1.4f, 0.05f, 0.95f);
+            float y1 = animatedValue(seconds, 0.011, phaseZ + 0.9f, 0.08f, 0.92f);
+            float x2 = animatedValue(seconds, 0.016, phaseZ + 2.3f, 0.08f, 0.92f);
+            float y2 = animatedValue(seconds, 0.013, phaseX + 1.9f, 0.05f, 0.95f);
+            float x3 = animatedValue(seconds, 0.010, phaseX + 3.1f, 0.12f, 0.88f);
+            float y3 = animatedValue(seconds, 0.017, phaseY + 2.7f, 0.12f, 0.88f);
+            shader.setFloatUniform("uP01", x0, y0, x1, y1);
+            shader.setFloatUniform("uP23", x2, y2, x3, y3);
+            paint.setShader(shader);
+            paint.setAlpha(255);
+            canvas.drawRect(0f, 0f, width, height, paint);
+            paint.setShader(null);
+            drawDimmingGradient(canvas, width, height, 0.56f);
+            return true;
+        } catch (Throwable error) {
+            fluidShaderFailed = true;
+            fluidRuntimeShader = null;
+            return false;
+        }
+    }
+
+    private static void setColorUniform(RuntimeShader shader, String name, int color) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            shader.setFloatUniform(name, Color.red(color) / 255f, Color.green(color) / 255f,
+                    Color.blue(color) / 255f, 1f);
+        }
+    }
+
     private void drawBlurGradient(Canvas canvas, int width, int height, double seconds) {
+        if (drawFluidAgsl(canvas, width, height, seconds)) {
+            return;
+        }
         paint.setShader(null);
         paint.setColor(adjustBrightness(paletteBackground, 0.42f + backgroundSettings.brightness / 240f));
         paint.setAlpha(255);

@@ -32,6 +32,11 @@ final class MainLyricPreviewView extends View {
     private static final float SLIDE_START_HOLD = 0.3f;
     private static final float SLIDE_MOVE_DURATION = 0.4f;
     private static final int RESERVED_TEXT_ROWS = 3;
+    static final int COMPACT_RESERVE_NONE = 0;
+    static final int COMPACT_RESERVE_PRIMARY = 1;
+    static final int COMPACT_RESERVE_RUBY = 1 << 1;
+    static final int COMPACT_RESERVE_PRONUNCIATION = 1 << 2;
+    static final int COMPACT_RESERVE_TRANSLATION = 1 << 3;
     private static final int PREVIEW_LAYOUT_MATCH = 1;
     private static final int PREVIEW_INSTANCES_MATCH = 1 << 1;
     private static final int PREVIEW_WIDTH_INPUTS_MATCH = 1 << 2;
@@ -80,6 +85,8 @@ final class MainLyricPreviewView extends View {
     private float edgeFadeShaderLeft = Float.NaN;
     private float edgeFadeShaderWidth = Float.NaN;
     private float edgeFadeShaderStop = Float.NaN;
+    private boolean edgeFadeShaderFadeLeft = true;
+    private boolean edgeFadeShaderFadeRight = true;
     private Typeface primaryTypeface;
     private Typeface secondaryTypeface;
     private AiLyricsSettings.TypographySettings typographySettings = AiLyricsSettings.TypographySettings.defaults();
@@ -99,6 +106,7 @@ final class MainLyricPreviewView extends View {
     private PreviewInterlude exitingInterlude;
     private boolean playing;
     private boolean compactLayout;
+    private int compactReservedSlots = COMPACT_RESERVE_NONE;
     private boolean externallyDriven;
     private boolean timeDrivenVisuals;
     private boolean frameAnimationsEnabled;
@@ -183,6 +191,15 @@ final class MainLyricPreviewView extends View {
         if (compactLayout == compact) return;
         compactLayout = compact;
         requestLayout();
+    }
+
+    /** Reserves stable height for compact inline lyrics so interlude/lyric transitions do not shift the album cover. */
+    void setCompactReservedSlots(int slots) {
+        if (compactReservedSlots == slots) return;
+        compactReservedSlots = slots;
+        if (compactLayout) {
+            requestLayout();
+        }
     }
 
     void setExternallyDriven(boolean driven) {
@@ -318,7 +335,8 @@ final class MainLyricPreviewView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int desiredHeight = Math.round(Math.max(desiredContentHeight(), compactLayout ? 0f : reservedContentHeight()));
+        float reservedHeight = compactLayout ? compactReservedContentHeight() : reservedContentHeight();
+        int desiredHeight = Math.round(Math.max(desiredContentHeight(), reservedHeight));
         int measuredWidth = MeasureSpec.getSize(widthMeasureSpec);
         int measuredHeight = resolveSize(desiredHeight, heightMeasureSpec);
         setMeasuredDimension(measuredWidth, measuredHeight);
@@ -359,6 +377,8 @@ final class MainLyricPreviewView extends View {
                 ? canvas.saveLayer(left, 0f, left + width, getHeight(), null)
                 : canvas.save();
         canvas.clipRect(left, 0f, left + width, getHeight());
+        boolean anyClippedLeft = false;
+        boolean anyClippedRight = false;
         for (int index = 0; index < lines.size(); index++) {
             PreviewLine line = lines.get(index);
             float progress = frameAnimationsEnabled ? line.progress(position, lineStartMs, lineEndMs) : 0f;
@@ -384,6 +404,10 @@ final class MainLyricPreviewView extends View {
                     ? measureLineWidth(line)
                     : measuredLineWidths[index];
             float x = xForText(textWidth, width, left, progress);
+            if (textWidth > width) {
+                if (x < left - 0.5f) anyClippedLeft = true;
+                if (x + textWidth > left + width + 0.5f) anyClippedRight = true;
+            }
             drawPreviewLine(canvas, line, x, baseline, textSize, alpha, position, left, width);
             if (line.isInterlude()) {
                 if (lastDrawnInterlude == null || !lastDrawnInterlude.label.equals(line.text)
@@ -401,7 +425,8 @@ final class MainLyricPreviewView extends View {
         }
         drawPreviewInterludeExit(canvas, left, width);
         if (overflow) {
-            applyEdgeFadeMask(canvas, left, width);
+            boolean leftAligned = AiLyricsSettings.LYRICS_ALIGN_LEFT.equals(lyricTextAlignment);
+            applyEdgeFadeMask(canvas, left, width, !leftAligned || anyClippedLeft, !leftAligned || anyClippedRight);
         }
         canvas.restoreToCount(save);
         playbackRenderWindow.begin(position);
@@ -632,6 +657,12 @@ final class MainLyricPreviewView extends View {
         if (textWidth <= width) {
             return alignedStart(textWidth, width, left);
         }
+        if (AiLyricsSettings.LYRICS_ALIGN_LEFT.equals(lyricTextAlignment)) {
+            // Left-aligned lyrics start flush with the album cover / title left edge.
+            float startX = left;
+            float endX = left + width - textWidth;
+            return startX + (endX - startX) * slideProgress(progress);
+        }
         float fadeWidth = edgeFadeWidth(width);
         float startX = left + fadeWidth;
         float endX = left + width - fadeWidth - textWidth;
@@ -655,9 +686,9 @@ final class MainLyricPreviewView extends View {
         return clamp((lineProgress - SLIDE_START_HOLD) / SLIDE_MOVE_DURATION);
     }
 
-    private void applyEdgeFadeMask(Canvas canvas, float left, float width) {
+    private void applyEdgeFadeMask(Canvas canvas, float left, float width, boolean fadeLeft, boolean fadeRight) {
         float fadeWidth = edgeFadeWidth(width);
-        if (fadeWidth <= 0f) {
+        if (fadeWidth <= 0f || (!fadeLeft && !fadeRight)) {
             return;
         }
         float fadeStop = clamp(fadeWidth / width);
@@ -665,17 +696,19 @@ final class MainLyricPreviewView extends View {
         if (edgeFadeShader == null
                 || Float.compare(edgeFadeShaderLeft, left) != 0
                 || Float.compare(edgeFadeShaderWidth, width) != 0
-                || Float.compare(edgeFadeShaderStop, fadeStop) != 0) {
+                || Float.compare(edgeFadeShaderStop, fadeStop) != 0
+                || edgeFadeShaderFadeLeft != fadeLeft
+                || edgeFadeShaderFadeRight != fadeRight) {
             edgeFadeShader = new LinearGradient(
                     left,
                     0f,
                     left + width,
                     0f,
                     new int[] {
-                            Color.TRANSPARENT,
+                            fadeLeft ? Color.TRANSPARENT : Color.BLACK,
                             Color.BLACK,
                             Color.BLACK,
-                            Color.TRANSPARENT
+                            fadeRight ? Color.TRANSPARENT : Color.BLACK
                     },
                     new float[] {
                             0f,
@@ -688,6 +721,8 @@ final class MainLyricPreviewView extends View {
             edgeFadeShaderLeft = left;
             edgeFadeShaderWidth = width;
             edgeFadeShaderStop = fadeStop;
+            edgeFadeShaderFadeLeft = fadeLeft;
+            edgeFadeShaderFadeRight = fadeRight;
         }
         edgeFadePaint.setShader(edgeFadeShader);
         edgeFadePaint.setXfermode(edgeFadeXfermode);
@@ -806,6 +841,29 @@ final class MainLyricPreviewView extends View {
             }
         }
         return height;
+    }
+
+    private float compactReservedContentHeight() {
+        if (compactReservedSlots == COMPACT_RESERVE_NONE) {
+            return 0f;
+        }
+        float primaryText = sp(textSizeSp(AiLyricsSettings.TYPO_MAIN_PREVIEW_ORIGINAL, PRIMARY_TEXT_SP));
+        float height = primaryText * 1.22f;
+        if ((compactReservedSlots & COMPACT_RESERVE_RUBY) != 0) {
+            height += Math.max(sp(7f), primaryText * FURIGANA_TEXT_RATIO * 0.82f);
+        }
+        float gap = sp(rowGapSp());
+        if ((compactReservedSlots & COMPACT_RESERVE_PRONUNCIATION) != 0) {
+            float pronText = sp(textSizeSp(AiLyricsSettings.TYPO_MAIN_PREVIEW_PRONUNCIATION, SECONDARY_TEXT_SP));
+            height += gap + pronText * 1.18f;
+        }
+        if ((compactReservedSlots & COMPACT_RESERVE_TRANSLATION) != 0) {
+            float transText = sp(textSizeSp(AiLyricsSettings.TYPO_MAIN_PREVIEW_TRANSLATION, SECONDARY_TEXT_SP));
+            height += gap + transText * 1.18f;
+        }
+        float animatedPrimaryRow = sp(24f * textScale
+                * typographyStyle(AiLyricsSettings.TYPO_MAIN_PREVIEW_ORIGINAL).scale());
+        return Math.max(height, animatedPrimaryRow);
     }
 
     private float reservedContentHeight() {

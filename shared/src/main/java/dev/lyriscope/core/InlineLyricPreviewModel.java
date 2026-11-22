@@ -19,6 +19,7 @@ final class InlineLyricPreviewModel {
     private final boolean translationLoading;
     private final boolean pronunciationEnabled;
     private final boolean translationEnabled;
+    private final int reservedSlots;
     private final long[] boundaries;
     private final Map<LyricsLine, List<MainLyricPreviewView.PreviewLine>> rowCache = new IdentityHashMap<>();
     private int cachedBucket = Integer.MIN_VALUE;
@@ -36,6 +37,13 @@ final class InlineLyricPreviewModel {
         pronunciationEnabled = settings.ruleForSource(sourceLanguage).pronunciationEnabled;
         translationEnabled = settings.ruleForSource(sourceLanguage).translationEnabled
                 && !settings.shouldSkipTranslation(sourceLanguage, settings.resolveTargetLanguage(sourceLanguage));
+        boolean pronunciationAllowed = pronunciationEnabled
+                && AiLyricsSettings.previewItemEnabled(settings.previewItems, AiLyricsSettings.PREVIEW_ITEM_PRONUNCIATION);
+        boolean translationAllowed = translationEnabled;
+        boolean hasRuby = false;
+        boolean hasPronunciation = pronunciationAllowed && pronunciationLoading;
+        boolean hasTranslation = translationAllowed && translationLoading
+                && AiLyricsSettings.previewItemEnabled(settings.previewItems, AiLyricsSettings.PREVIEW_ITEM_TRANSLATION);
         TreeSet<Long> changes = new TreeSet<>();
         changes.add(0L);
         changes.add(Math.max(0L, durationMs));
@@ -45,10 +53,53 @@ final class InlineLyricPreviewModel {
             changes.add(line.endTimeMs);
             long lastEnd = previewLastLyricEndTime(line);
             if (lastEnd >= 0L) changes.add(lastEnd + PREVIEW_TRAILING_INTERLUDE_DELAY_MS);
+            if (!isPreviewInterludeMarkerText(previewInterludeCandidateText(line))) {
+                if (!hasRuby && lineHasPreviewRuby(line)) {
+                    hasRuby = true;
+                }
+                if (pronunciationAllowed && !hasPronunciation
+                        && line.pronunciationText != null && !line.pronunciationText.trim().isEmpty()) {
+                    hasPronunciation = true;
+                }
+                if (translationAllowed && !hasTranslation
+                        && line.translationText != null && !line.translationText.trim().isEmpty()) {
+                    hasTranslation = true;
+                }
+            }
         }
+        int slots = settings.previewItems == AiLyricsSettings.PREVIEW_ITEM_NONE
+                ? MainLyricPreviewView.COMPACT_RESERVE_NONE
+                : MainLyricPreviewView.COMPACT_RESERVE_PRIMARY;
+        if (slots != MainLyricPreviewView.COMPACT_RESERVE_NONE) {
+            if (hasRuby) slots |= MainLyricPreviewView.COMPACT_RESERVE_RUBY;
+            if (hasPronunciation) slots |= MainLyricPreviewView.COMPACT_RESERVE_PRONUNCIATION;
+            if (hasTranslation) slots |= MainLyricPreviewView.COMPACT_RESERVE_TRANSLATION;
+        }
+        reservedSlots = slots;
         boundaries = new long[changes.size()];
         int index = 0;
         for (Long change : changes) boundaries[index++] = change;
+    }
+
+    int reservedSlots() {
+        return reservedSlots;
+    }
+
+    private boolean lineHasPreviewRuby(LyricsLine line) {
+        if (!previewJapaneseFuriganaEnabled() || line == null) {
+            return false;
+        }
+        if (line.furiganaText != null && line.furiganaText.contains("<ruby>")) {
+            return true;
+        }
+        if (line.vocalParts != null) {
+            for (LyricsLine.VocalPart part : line.vocalParts) {
+                if (part != null && part.furiganaText != null && part.furiganaText.contains("<ruby>")) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     PreviewEntry at(long positionMs) {

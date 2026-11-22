@@ -30,6 +30,7 @@ import android.widget.TextView;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -44,6 +45,41 @@ public final class IvLyricsBridge {
     private static Engine engine;
     private static boolean wordSegmenterInitialized;
     private static volatile IvLyricsHost host;
+    private static volatile HookHealth hookHealth;
+
+    /** Diagnostic snapshot of runtime Xposed hooks installed in the host app. */
+    public static final class HookHealth {
+        public final String hostVersion;
+        public final boolean mappingMatched;
+        public final boolean inlineActive;
+        public final boolean karaokeActive;
+        public final boolean metadataActive;
+        public final List<String> missingAnchors;
+
+        public HookHealth(String hostVersion, boolean mappingMatched, boolean inlineActive,
+                boolean karaokeActive, boolean metadataActive, List<String> missingAnchors) {
+            this.hostVersion = hostVersion == null ? "" : hostVersion;
+            this.mappingMatched = mappingMatched;
+            this.inlineActive = inlineActive;
+            this.karaokeActive = karaokeActive;
+            this.metadataActive = metadataActive;
+            this.missingAnchors = missingAnchors == null
+                    ? Collections.emptyList()
+                    : Collections.unmodifiableList(new ArrayList<>(missingAnchors));
+        }
+
+        public boolean healthy() {
+            return mappingMatched && missingAnchors.isEmpty();
+        }
+    }
+
+    public static void setHookHealth(HookHealth health) {
+        hookHealth = health;
+    }
+
+    public static HookHealth hookHealth() {
+        return hookHealth;
+    }
     private static TrackSnapshot sharedTrack;
     private static LyricsResult sharedResult;
     private static String sharedSourceLanguage = "auto";
@@ -443,7 +479,12 @@ public final class IvLyricsBridge {
         final LyricsView lyrics;
         final TextView title;
         AiLyricsSettings.Snapshot appliedSettings;
+        AiLyricsSettings.BackgroundSettings appliedBackground;
+        boolean appliedShowBackground;
         LyricsResult appliedResult;
+        final Map<String, Integer> stableBackgroundColors = new HashMap<>();
+        String stableBackgroundTrackKey = "";
+        boolean stableBackgroundHadArtwork;
 
         NativeCard(Context context) {
             super(context);
@@ -469,7 +510,7 @@ public final class IvLyricsBridge {
             title.setPadding(dp(8), 0, dp(8), 0);
             content.addView(title, new LinearLayout.LayoutParams(-1, dp(24)));
             lyrics = new LyricsView(context);
-            lyrics.setSidePaddingSp(9f);
+            lyrics.setSidePaddingSp(8f);
             lyrics.setTypographySizeMultiplier(0.78f);
             lyrics.setVerticalCenterBias(0.42f);
             content.addView(lyrics, new LinearLayout.LayoutParams(-1, 0, 1f));
@@ -511,11 +552,27 @@ public final class IvLyricsBridge {
                 lyrics.setJapaneseFuriganaEnabled(settings.japaneseFuriganaEnabled);
                 lyrics.setUiText(state.ui("status.lyrics_loading"), state.ui("lyrics.empty_none"),
                         state.ui("interlude.prelude"), state.ui("interlude.break"), state.ui("interlude.postlude"));
-                boolean showBackground = state.settings.playerCardBackgroundEnabled();
-                background.setVisibility(showBackground ? View.VISIBLE : View.GONE);
-                if (showBackground) background.setBackgroundSettings(settings.background);
-                else background.setArtwork(null, "");
                 setContentDescription("Lyriscope, " + state.ui("accessibility.open_lyrics"));
+            }
+            String trackKey = state.track == null || !state.track.hasUsableMetadata() ? "" : state.track.stableKey();
+            boolean showBackground = state.settings.playerCardBackgroundEnabled();
+            AiLyricsSettings.BackgroundSettings trackOverride = trackKey.isEmpty()
+                    ? null : state.settings.trackBackgroundSettings(trackKey);
+            AiLyricsSettings.BackgroundSettings effectiveBackground = trackOverride == null
+                    ? settings.background : trackOverride;
+            if (appliedBackground == null || appliedShowBackground != showBackground
+                    || !sameBackgroundSettings(appliedBackground, effectiveBackground)) {
+                appliedShowBackground = showBackground;
+                appliedBackground = effectiveBackground;
+                background.setVisibility(showBackground ? View.VISIBLE : View.GONE);
+                if (showBackground) {
+                    background.setBackgroundSettings(effectiveBackground);
+                } else {
+                    background.setArtwork(null, "");
+                    background.setStableSolidColor(0);
+                    stableBackgroundTrackKey = "";
+                    stableBackgroundHadArtwork = false;
+                }
             }
             if (appliedResult != state.result) {
                 appliedResult = state.result;
@@ -528,10 +585,48 @@ public final class IvLyricsBridge {
             lyrics.setCulturalAnnotations(state.annotations, settings.culturalAnnotationsFontFamily,
                     settings.culturalAnnotationsFontSize, settings.culturalAnnotationsFontWeight,
                     settings.culturalAnnotationsOpacity);
-            if (background.getVisibility() == View.VISIBLE && state.track != null) {
-                background.setArtwork(state.track.artwork, state.track.artworkKey());
+            if (showBackground) {
+                Bitmap artwork = state.effectiveArtwork();
+                if (state.track != null) {
+                    background.setArtwork(artwork, state.effectiveArtworkKey());
+                } else {
+                    background.setArtwork(null, "");
+                }
+                applyStableBackgroundColor(effectiveBackground, trackKey, artwork);
             }
             lyrics.setPlaybackPosition(state.position());
+        }
+        private void applyStableBackgroundColor(AiLyricsSettings.BackgroundSettings effectiveBackground,
+                String trackKey, Bitmap artwork) {
+            boolean enabled = effectiveBackground != null
+                    && AiLyricsSettings.BACKGROUND_MODE_SOLID.equals(effectiveBackground.mode)
+                    && AiLyricsSettings.SOLID_SOURCE_AUTO.equals(effectiveBackground.solidSource);
+            if (!enabled || trackKey == null || trackKey.isEmpty()) {
+                background.setStableSolidColor(0);
+                stableBackgroundTrackKey = "";
+                stableBackgroundHadArtwork = false;
+                return;
+            }
+            stableBackgroundTrackKey = trackKey;
+            TrackColorResolver.resolve(trackKey, artwork, (resolvedKey, color, fromArtwork) -> {
+                if (!resolvedKey.equals(stableBackgroundTrackKey) || !isAttachedToWindow()) return;
+                stableBackgroundColors.put(resolvedKey, color);
+                stableBackgroundHadArtwork = fromArtwork;
+                background.setStableSolidColor(color);
+                drawOnceIfCovered();
+            });
+        }
+        private static boolean sameBackgroundSettings(AiLyricsSettings.BackgroundSettings a,
+                AiLyricsSettings.BackgroundSettings b) {
+            if (a == b) return true;
+            if (a == null || b == null) return false;
+            return a.brightness == b.brightness
+                    && a.blur == b.blur
+                    && a.noise == b.noise
+                    && a.reduceMotion == b.reduceMotion
+                    && a.mode.equals(b.mode)
+                    && a.solidColor.equals(b.solidColor)
+                    && a.solidSource.equals(b.solidSource);
         }
         TextView text(String value, float size) {
             TextView view = new TextView(getContext());
@@ -563,7 +658,12 @@ public final class IvLyricsBridge {
             super(context);
             setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
-            setPadding(0, 0, 0, Math.round(12f * getResources().getDisplayMetrics().density));
+            float density = getResources().getDisplayMetrics().density;
+            // Spotify's Now Playing inline slot sits at 16dp horizontal inset while the album art,
+            // track title, artist and progress bar sit at 24dp. Applying 8dp here keeps all builds
+            // (including 9.2 where inline.padding is null) aligned cleanly on the 24dp guideline.
+            int horizontalPad = Math.round(8f * density);
+            setPadding(horizontalPad, 0, horizontalPad, Math.round(12f * density));
             setMinimumHeight(Math.round(32f * getResources().getDisplayMetrics().density));
             setClickable(true);
             setFocusable(true);
@@ -609,6 +709,11 @@ public final class IvLyricsBridge {
                 model = state.result == null || state.result.lines.isEmpty() ? null
                         : new InlineLyricPreviewModel(state.result, settings, duration,
                                 state.pronunciationLoading, state.translationLoading, state.sourceLanguage);
+                preview.setCompactReservedSlots(model == null
+                        ? (settings.previewItems == AiLyricsSettings.PREVIEW_ITEM_NONE
+                                ? MainLyricPreviewView.COMPACT_RESERVE_NONE
+                                : MainLyricPreviewView.COMPACT_RESERVE_PRIMARY)
+                        : model.reservedSlots());
                 entryApplied = false;
                 emptyKey = "";
             }
@@ -674,6 +779,8 @@ public final class IvLyricsBridge {
         final SharedPreferences providerPreferences;
         final SpotifyDjLyricsTimeline timeline = new SpotifyDjLyricsTimeline();
         TrackSnapshot track;
+        Bitmap loadedArtwork;
+        String loadedArtworkKey = "";
         LyricsResult base;
         // The line-timed base replaced by generated lrc.red word timing, if any.
         LyricsResult timingSource;
@@ -781,6 +888,8 @@ public final class IvLyricsBridge {
                 if (!key.isEmpty()) {
                     generation++;
                     key = "";
+                    loadedArtwork = null;
+                    loadedArtworkKey = "";
                     base = null;
                     result = LyricsResult.empty(ui("status.waiting_current_track"));
                     loading = pronunciationLoading = translationLoading = false;
@@ -797,6 +906,8 @@ public final class IvLyricsBridge {
                 key = next.stableKey();
                 long request = ++generation;
                 if (!enriched) {
+                    loadedArtwork = null;
+                    loadedArtworkKey = "";
                     base = null;
                     furiganaResult = null;
                     annotations = Collections.emptyList();
@@ -845,7 +956,12 @@ public final class IvLyricsBridge {
                     }
                     @Override public void onLyricsProviderLoading(String callbackKey, String provider) {}
                     @Override public void onLyricsLog(String callbackKey, String message) {}
-                    @Override public void onLyricsArtworkLoaded(String callbackKey, Bitmap artwork, String artworkKey) {}
+                    @Override public void onLyricsArtworkLoaded(String callbackKey, Bitmap artwork, String artworkKey) {
+                        if (!current(callbackKey) || artwork == null || artwork.isRecycled()) return;
+                        loadedArtwork = artwork;
+                        loadedArtworkKey = artworkKey == null ? "" : artworkKey;
+                        renderCards();
+                    }
                     @Override public void onLyricsMetadataResolved(String callbackKey, String isrc, String spotifyTrackId) {}
                     @Override public void onLyricsWordSyncFinished(String callbackKey, LyricsResult upgraded) {
                         // Only the timing changes; the card keeps its supplements and requests.
@@ -923,6 +1039,15 @@ public final class IvLyricsBridge {
             if (track == null) return 0d;
             double value = track.positionAtFrame(frameTimeNanos) + djOffset +                     + settings.trackSyncOffsetMs(key);
             return Math.max(0d, track.durationMs > 0 ? Math.min(track.durationMs + djOffset, value) : value);
+        }
+        Bitmap effectiveArtwork() {
+            if (track != null && track.artwork != null && !track.artwork.isRecycled()) return track.artwork;
+            return loadedArtwork != null && !loadedArtwork.isRecycled() ? loadedArtwork : null;
+        }
+        String effectiveArtworkKey() {
+            if (track != null && track.artwork != null && !track.artwork.isRecycled()) return track.artworkKey();
+            if (loadedArtwork != null && !loadedArtwork.isRecycled()) return loadedArtworkKey;
+            return track == null ? "" : track.artworkKey();
         }
         String ui(String message) { return AppI18n.t(settings.snapshot().uiLang, message); }
         void renderCards() {

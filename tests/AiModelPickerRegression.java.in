@@ -17,11 +17,32 @@ public final class AiModelPickerRegression {
     private final EditText baseUrlInput = new EditText();
     private final QueueExecutor aiModelExecutor = new QueueExecutor();
     private int aiModelRequestId;
+    private SettingsKit settingsKit;
     private AlertDialog dialog;
     private String toast = "";
     private boolean destroyed;
 
     // PRODUCTION_METHODS
+
+    private Object themePalette() { return null; }
+    static class SettingsKit {
+        SettingsKit(AiModelPickerRegression owner, Object palette) {}
+    }
+    static class MiuixDialogs {
+        interface OnSelect { void onSelected(int index); }
+        static void showSingleChoice(AiModelPickerRegression owner, SettingsKit kit, String title,
+                CharSequence[] labels, int selected, String cancelLabel, OnSelect onSelect) {
+            AlertDialog d = new AlertDialog();
+            d.labels = new String[labels.length];
+            for (int i = 0; i < labels.length; i++) d.labels[i] = labels[i].toString();
+            d.selected = selected;
+            d.listener = (dlg, idx) -> {
+                dlg.dismiss();
+                if (onSelect != null) onSelect.onSelected(idx);
+            };
+            owner.dialog = d;
+        }
+    }
 
     private boolean isFinishing() { return false; }
     private boolean isDestroyed() { return destroyed; }

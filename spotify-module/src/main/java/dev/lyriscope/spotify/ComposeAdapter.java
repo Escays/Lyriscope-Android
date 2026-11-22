@@ -190,7 +190,7 @@ public final class ComposeAdapter {
             Object padded = inline.padding == null ? sized
                     : Class.forName(inline.padding, false, loader)
                             .getMethod("y", float.class, float.class, int.class, modifierType)
-                            .invoke(null, 8f, 0f, 2, sized);
+                            .invoke(null, 0f, 0f, 2, sized);
             modifier = padded;
             if (!modifierType.isInstance(modifier)) throw new IllegalStateException("Invalid inline modifier");
             factory = Proxy.newProxyInstance(loader, new Class<?>[]{function}, this);

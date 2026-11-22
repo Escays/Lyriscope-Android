@@ -99,9 +99,7 @@ final class LocalAiSettingsView extends LinearLayout {
         if (palette == null) {
             SettingsAppearance.styleSlider(quality);
         } else {
-            quality.setProgressTintList(ColorStateList.valueOf(palette.accent));
-            quality.setProgressBackgroundTintList(ColorStateList.valueOf(palette.surface4));
-            quality.setThumbTintList(ColorStateList.valueOf(palette.accent));
+            SettingsKit.styleMiuixSeekBar(quality, palette, dp(26));
             quality.setMinimumHeight(dp(48));
         }
         quality.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {

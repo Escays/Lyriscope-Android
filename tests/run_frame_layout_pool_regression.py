@@ -36,6 +36,7 @@ def renderer(value, name):
     ))
     return "static final class " + name + " {\n" + radius + "\n" + declarations + "\n" + r"""
         private final FrameLineLayouts pool = new FrameLineLayouts();
+        private boolean untimedLyrics;
         int[] range(int count, float animatedCenterIndex, boolean manualScrollActive,
                 int activeDisplayFirstSingingCacheValue) {
             List<DisplayLine> displayLines = Collections.nCopies(count, null);

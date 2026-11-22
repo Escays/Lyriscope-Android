@@ -20,6 +20,7 @@ import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.util.TypedValue;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -170,6 +171,7 @@ public final class LyricsView extends View {
     private String breakLabel = AppI18n.t("en", "interlude.break");
     private String postludeLabel = AppI18n.t("en", "interlude.postlude");
     private boolean karaoke;
+    private boolean untimedLyrics;
     private boolean autoInstrumentalBreakEnabled = true;
     private boolean interludeLabelsEnabled = true;
     private boolean originalVisible = true;
@@ -188,6 +190,10 @@ public final class LyricsView extends View {
     /** Lines that carry an external annotation; these are drawn with a dashed underline. */
     private Set<LyricsLine> annotatedLines = Collections.emptySet();
     private OnAnnotationLongPressListener annotationLongPressListener;
+    private OnLineLongPressListener lineLongPressListener;
+    private OnPinchZoomListener pinchZoomListener;
+    private ScaleGestureDetector pinchScaleDetector;
+    private boolean pinchZoomActive;
     private boolean annotationLongPressFired;
     private Runnable annotationLongPressRunnable;
 
@@ -198,14 +204,21 @@ public final class LyricsView extends View {
     private Runnable annotationLongPressRunnable() {
         if (annotationLongPressRunnable == null) {
             annotationLongPressRunnable = () -> {
-                LyricsLine line = pressedAnnotationLine();
-                if (line == null) {
+                LyricsLine annotated = pressedAnnotationLine();
+                if (annotated != null) {
+                    annotationLongPressFired = true;
+                    pressedTarget = null;
+                    performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                    annotationLongPressListener.onAnnotationLongPress(annotated);
                     return;
                 }
-                annotationLongPressFired = true;
-                pressedTarget = null;
-                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
-                annotationLongPressListener.onAnnotationLongPress(line);
+                LyricsLine line = pressedTarget == null ? null : pressedTarget.line;
+                if (line != null && lineLongPressListener != null) {
+                    annotationLongPressFired = true;
+                    pressedTarget = null;
+                    performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                    lineLongPressListener.onLineLongPress(line);
+                }
             };
         }
         return annotationLongPressRunnable;
@@ -299,11 +312,13 @@ public final class LyricsView extends View {
             emptyMessage = result == null || result.detail.isEmpty() ? emptyFallbackMessage : result.detail;
             emptyLoading = result != null && result.loading;
             karaoke = false;
+            untimedLyrics = false;
         } else {
             lines = result.lines;
             emptyMessage = "";
             emptyLoading = false;
             karaoke = result.karaoke || hasTimedKaraokeData(lines);
+            untimedLyrics = !hasTimedLines(lines);
         }
         normalizedSpeakerKeys.clear();
         lineRenderInputs.clear();
@@ -727,6 +742,11 @@ public final class LyricsView extends View {
         if (this.positionMs == nextPositionMs && framePositionMs == nextFramePositionMs && !smoothNextSeekCenter) {
             return;
         }
+        if (untimedLyrics) {
+            this.positionMs = nextPositionMs;
+            framePositionMs = nextFramePositionMs;
+            return;
+        }
         boolean smoothSeekCenter = smoothNextSeekCenter && centerInitialized;
         smoothNextSeekCenter = false;
         if (smoothSeekCenter || nextPositionMs + 120L < this.positionMs
@@ -799,8 +819,70 @@ public final class LyricsView extends View {
         annotationLongPressListener = listener;
     }
 
+    void setOnLineLongPressListener(OnLineLongPressListener listener) {
+        lineLongPressListener = listener;
+    }
+
     interface OnAnnotationLongPressListener {
         void onAnnotationLongPress(LyricsLine line);
+    }
+
+    interface OnLineLongPressListener {
+        void onLineLongPress(LyricsLine line);
+    }
+
+    interface OnPinchZoomListener {
+        void onPinchZoom(float scaleFactor);
+        void onPinchZoomEnd();
+    }
+
+    void setOnPinchZoomListener(OnPinchZoomListener listener) {
+        pinchZoomListener = listener;
+        if (listener != null && pinchScaleDetector == null) {
+            pinchScaleDetector = new ScaleGestureDetector(getContext(),
+                    new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                        @Override public boolean onScaleBegin(ScaleGestureDetector detector) {
+                            pinchZoomActive = true;
+                            removeCallbacks(annotationLongPressRunnable());
+                            draggingLyrics = false;
+                            pressedTarget = null;
+                            if (getParent() != null) {
+                                getParent().requestDisallowInterceptTouchEvent(true);
+                            }
+                            return true;
+                        }
+
+                        @Override public boolean onScale(ScaleGestureDetector detector) {
+                            if (pinchZoomListener != null) {
+                                pinchZoomListener.onPinchZoom(detector.getScaleFactor());
+                            }
+                            return true;
+                        }
+
+                        @Override public void onScaleEnd(ScaleGestureDetector detector) {
+                            if (pinchZoomListener != null) {
+                                pinchZoomListener.onPinchZoomEnd();
+                            }
+                        }
+                    });
+        }
+    }
+
+    int activeLineIndex() {
+        if (lines == null || lines.isEmpty()) {
+            return 0;
+        }
+        if (untimedLyrics) {
+            return Math.max(0, Math.min(lines.size() - 1, Math.round(animatedCenterIndex)));
+        }
+        int best = 0;
+        for (int index = 0; index < lines.size(); index++) {
+            LyricsLine line = lines.get(index);
+            if (line != null && line.isTimed() && line.startTimeMs <= positionMs) {
+                best = index;
+            }
+        }
+        return best;
     }
     void setOnSeekListener(OnSeekListener seekListener) {
         this.seekListener = seekListener;
@@ -1015,11 +1097,12 @@ public final class LyricsView extends View {
         updateDisplayCenter(visualCenterIndex, adaptiveCenteringDuration(displayLines, visualCenterIndex));
 
         int anchorIndex = Math.max(0, Math.min(displayLines.size() - 1, (int) Math.floor(animatedCenterIndex)));
-        int firstIndex = Math.max(0, anchorIndex - VISIBLE_RADIUS - 2);
+        int untimedExtra = untimedLyrics ? 4 : 0;
+        int firstIndex = Math.max(0, anchorIndex - VISIBLE_RADIUS - 2 - untimedExtra);
         if (!manualScrollActive && activeDisplayFirstSingingCacheValue >= 0) {
             firstIndex = Math.min(firstIndex, activeDisplayFirstSingingCacheValue);
         }
-        int lastIndex = Math.min(displayLines.size() - 1, anchorIndex + VISIBLE_RADIUS + 3);
+        int lastIndex = Math.min(displayLines.size() - 1, anchorIndex + VISIBLE_RADIUS + 3 + untimedExtra);
         FrameLineLayouts layouts = nextFrameLayouts;
         layouts.beginFrame();
         for (int displayIndex = firstIndex; displayIndex <= lastIndex; displayIndex++) {
@@ -1283,6 +1366,32 @@ public final class LyricsView extends View {
         if (lines.isEmpty()) {
             return super.onTouchEvent(event);
         }
+        if (pinchScaleDetector != null) {
+            pinchScaleDetector.onTouchEvent(event);
+            if (event.getPointerCount() >= 2) {
+                pinchZoomActive = true;
+                removeCallbacks(annotationLongPressRunnable());
+                draggingLyrics = false;
+                pressedTarget = null;
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                }
+                return true;
+            }
+            if (pinchZoomActive) {
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    pinchZoomActive = false;
+                    pressedTarget = null;
+                    draggingLyrics = false;
+                    recycleVelocityTracker();
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+                }
+                return true;
+            }
+        }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
                 if (manualScroller != null) {
@@ -1303,7 +1412,7 @@ public final class LyricsView extends View {
                 }
                 annotationLongPressFired = false;
                 removeCallbacks(annotationLongPressRunnable());
-                if (target != null && annotationLongPressListener != null) {
+                if (target != null && (annotationLongPressListener != null || lineLongPressListener != null)) {
                     postDelayed(annotationLongPressRunnable(), ViewConfiguration.getLongPressTimeout());
                 }
                 return true;
@@ -1409,7 +1518,7 @@ public final class LyricsView extends View {
                 postInvalidateOnAnimation();
                 return;
             }
-            if (!draggingLyrics && now - lastManualScrollUptimeMs > MANUAL_SCROLL_HOLD_MS) {
+            if (!untimedLyrics && !draggingLyrics && now - lastManualScrollUptimeMs > MANUAL_SCROLL_HOLD_MS) {
                 manualScrollActive = false;
                 centerInitialized = false;
             } else {
@@ -1461,8 +1570,12 @@ public final class LyricsView extends View {
     }
 
     private void scheduleReturnToPlayback() {
+        if (untimedLyrics) {
+            return;
+        }
         postDelayed(() -> {
-            if (!draggingLyrics
+            if (!untimedLyrics
+                    && !draggingLyrics
                     && manualScrollActive
                     && (manualScroller == null || manualScroller.isFinished())
                     && SystemClock.uptimeMillis() - lastManualScrollUptimeMs >= MANUAL_SCROLL_HOLD_MS) {
@@ -1926,6 +2039,18 @@ public final class LyricsView extends View {
         cachedRows("line:" + lineIndex + typographyCacheKey(AiLyricsSettings.TYPO_LYRICS_ORIGINAL), line.text, japaneseFuriganaEnabled ? line.furiganaText : "", line.syllables, line.startTimeMs, line.endTimeMs, textSize);
     }
 
+    private static boolean hasTimedLines(List<LyricsLine> lyricLines) {
+        if (lyricLines == null || lyricLines.isEmpty()) {
+            return false;
+        }
+        for (LyricsLine line : lyricLines) {
+            if (line != null && line.isTimed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean hasTimedKaraokeData(List<LyricsLine> lyricLines) {
         if (lyricLines == null || lyricLines.isEmpty()) {
             return false;
@@ -2020,10 +2145,12 @@ public final class LyricsView extends View {
         }
 
         List<CulturalAnnotation> lineAnnotations = lineRenderInput(line, lineIndex).annotations;
-        int inactiveColor = inactiveColorForSpeaker(line.speaker, line.speakerColor, line.speakerFallback, distance);
         int activeColor = shouldRenderKaraokeTiming()
                 ? colorForSpeaker(line.speaker, line.speakerColor, line.speakerFallback, "", normalActiveColor())
                 : normalActiveColor();
+        int inactiveColor = untimedLyrics
+                ? activeColor
+                : inactiveColorForSpeaker(line.speaker, line.speakerColor, line.speakerFallback, distance);
         groups.add(buildGroup(
                 CulturalAnnotation.annotateText(line.text, lineAnnotations),
                 japaneseFuriganaEnabled ? line.furiganaText : "",
@@ -4986,6 +5113,9 @@ public final class LyricsView extends View {
             return LineVisualState.INACTIVE;
         }
         if (!displayLine.isTimed()) {
+            if (untimedLyrics) {
+                return LineVisualState.STATIC_ACTIVE;
+            }
             return index == findActiveDisplayIndex(displayLines)
                     ? LineVisualState.ACTIVE
                     : LineVisualState.INACTIVE;
@@ -5781,6 +5911,7 @@ public final class LyricsView extends View {
 
     private static final class LineVisualState {
         static final LineVisualState ACTIVE = new LineVisualState(true, true, 1f);
+        static final LineVisualState STATIC_ACTIVE = new LineVisualState(true, false, 1f);
         static final LineVisualState INACTIVE = new LineVisualState(false, false, 0f);
 
         final boolean highlighted;

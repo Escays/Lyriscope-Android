@@ -72,7 +72,9 @@ public final class LyricsCenterRegression extends TestView {
     private Object getContext() { return this; }
     private boolean isLoadingEmptyMessage() { return false; }
     private boolean canSoftUpdateResult(LyricsResult result) { return testSoftUpdate; }
+    private boolean untimedLyrics;
     private boolean hasTimedKaraokeData(List<Object> lines) { return false; }
+    private boolean hasTimedLines(List<Object> lines) { return true; }
     private void invalidateDisplayLineCache() { }
     private void releaseHitTargets() { }
     private void scheduleRowPrewarm() { }

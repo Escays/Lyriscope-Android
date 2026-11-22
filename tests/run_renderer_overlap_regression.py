@@ -27,6 +27,7 @@ def declaration(signature):
 
 production = "\n".join(declaration(signature) for signature in (
     "private String footerText",
+    "private boolean untimedLyrics",
     "private List<DisplayLine> buildDisplayLines()",
     "private LineVisualState lineVisualState(",
     "private long displayLineContentEndTime(",

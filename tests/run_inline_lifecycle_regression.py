@@ -85,8 +85,13 @@ public final class InlineLifecycleRegression {
 ''' + detect_language + r'''
     }
     static class MainLyricPreviewView {
+        static final int COMPACT_RESERVE_NONE = 0;
+        static final int COMPACT_RESERVE_PRIMARY = 1;
+        static final int COMPACT_RESERVE_RUBY = 1 << 1;
+        static final int COMPACT_RESERVE_PRONUNCIATION = 1 << 2;
+        static final int COMPACT_RESERVE_TRANSLATION = 1 << 3;
         List<PreviewLine> rows = Collections.emptyList();
-        int sets, clears, ticks, frames;
+        int sets, clears, ticks, frames, reservedSlots;
         double framePosition;
         long frameTime;
         static class PreviewLine {
@@ -107,6 +112,7 @@ public final class InlineLifecycleRegression {
         void setKaraokeBounceEffectEnabled(boolean value) { }
         void setLyricTextAlignment(String value) { }
         void setLyricsSegmentationLocale(String value) { }
+        void setCompactReservedSlots(int slots) { reservedSlots = slots; }
     }
     static class InlineLyricPreviewModel {
         static class PreviewEntry { long startTimeMs = 0, endTimeMs = 5000; }
@@ -116,6 +122,12 @@ public final class InlineLifecycleRegression {
         InlineLyricPreviewModel(LyricsResult result, AiLyricsSettings.Snapshot settings, long duration,
                 boolean pronunciation, boolean translation, String source) {
             this.pronunciation = pronunciation; this.translation = translation;
+        }
+        int reservedSlots() {
+            int slots = MainLyricPreviewView.COMPACT_RESERVE_PRIMARY;
+            if (pronunciation) slots |= MainLyricPreviewView.COMPACT_RESERVE_PRONUNCIATION;
+            if (translation) slots |= MainLyricPreviewView.COMPACT_RESERVE_TRANSLATION;
+            return slots;
         }
         PreviewEntry at(long position) { return entry; }
         List<MainLyricPreviewView.PreviewLine> rows(PreviewEntry entry) {
@@ -204,6 +216,10 @@ public final class InlineLifecycleRegression {
         state.pronunciationLoading = state.translationLoading = true;
         view.render(state);
         check("both tasks shown while generating", view.preview.rows.size() == 3);
+        check("reserved slots include both supplements while loading", view.preview.reservedSlots
+                == (MainLyricPreviewView.COMPACT_RESERVE_PRIMARY
+                    | MainLyricPreviewView.COMPACT_RESERVE_PRONUNCIATION
+                    | MainLyricPreviewView.COMPACT_RESERVE_TRANSLATION));
         InlineLyricPreviewModel original = view.model;
         state.pronunciationLoading = false;
         view.render(state);
@@ -213,6 +229,8 @@ public final class InlineLifecycleRegression {
         state.translationLoading = false;
         view.render(state);
         check("terminal callback removes last loading row", view.preview.rows.size() == 1);
+        check("reserved slots return to primary after loading", view.preview.reservedSlots
+                == MainLyricPreviewView.COMPACT_RESERVE_PRIMARY);
         int sets = view.preview.sets;
         view.render(state);
         check("finished row remains cached during playback", view.preview.sets == sets);

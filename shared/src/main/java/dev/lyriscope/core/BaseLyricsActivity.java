@@ -153,6 +153,10 @@ public class BaseLyricsActivity extends Activity implements
     private static final String SETTINGS_ROUTE_HOME = "home";
     private static final String SETTINGS_UI_PREFS = "settings_ui";
     private static final String KEY_SETTINGS_THEME = "theme";
+    private static final String KEY_SETTINGS_MONET = "monet";
+    private static final String KEY_SETTINGS_ACCENT = "accent_color";
+    private static final int EXPORT_BACKUP_REQUEST = 9411;
+    private static final int IMPORT_BACKUP_REQUEST = 9412;
     /** Standalone only: the reader chose to use the app before Spotify Web API credentials exist. */
     private static final String KEY_SETUP_SKIPPED = "spotify_setup_skipped";
     private static final String KEY_SETTINGS_PREVIEW_PREFIX = "preview_open_";
@@ -2769,7 +2773,7 @@ public class BaseLyricsActivity extends Activity implements
         lyricPreviewContainer = new LinearLayout(this);
         lyricPreviewContainer.setOrientation(LinearLayout.VERTICAL);
         lyricPreviewContainer.setGravity(Gravity.CENTER);
-        lyricPreviewContainer.setPadding(dp(12), dp(8), dp(12), dp(8));
+        lyricPreviewContainer.setPadding(0, dp(8), 0, dp(8));
         lyricPreviewContainer.setOnClickListener(view -> showLyricsPage(true));
         makeRemoteFocusable(lyricPreviewContainer);
         attachPageSwipe(lyricPreviewContainer, true, true);
@@ -3337,6 +3341,7 @@ public class BaseLyricsActivity extends Activity implements
         landscapeLyricsView.setTypographySettings(aiLyricsSettings.snapshot().typography);
         landscapeLyricsView.setLyricTextAlignment(aiLyricsSettings.snapshot().lyricsTextAlignment);
         landscapeLyricsView.setOnSeekListener(this::seekToPosition);
+        landscapeLyricsView.setOnLineLongPressListener(line -> openLyricPosterSheet(lineIndexOf(line)));
         landscapeLyricsView.setTrackDuration(currentTrack == null ? 0L : lyricsTrackDuration(currentTrack.durationMs));
         landscapeLyricsView.setResult(currentLyricsResult);
         landscapeLyricsView.setSupplementLoading(lyricsSupplementPronunciationLoading, lyricsSupplementTranslationLoading);
@@ -3869,7 +3874,9 @@ public class BaseLyricsActivity extends Activity implements
         lyricsView.setOnSeekListener(this::seekToPosition);
         // The page container owns the margin, so the renderer keeps no inset of its own.
         lyricsView.setSidePaddingSp(0f);
-        lyricsView.setOnAnnotationLongPressListener(line -> openSongMeaning(lineIndexOf(line)));
+        lyricsView.setOnAnnotationLongPressListener(this::showAnnotatedLineLongPressActions);
+        lyricsView.setOnLineLongPressListener(line -> openLyricPosterSheet(lineIndexOf(line)));
+        attachLyricsPinchZoom(lyricsView);
         LinearLayout.LayoutParams lyricsParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -3877,6 +3884,19 @@ public class BaseLyricsActivity extends Activity implements
         );
         lyricsParams.topMargin = dp(16);
         content.addView(lyricsView, lyricsParams);
+
+        lyricsPinchBadge = label("100%", 15f, Color.WHITE, AppFonts.semiBold(this));
+        lyricsPinchBadge.setPaddingRelative(dp(16), dp(8), dp(16), dp(8));
+        lyricsPinchBadge.setBackground(roundDrawable(Color.argb(188, 22, 22, 26), dp(20)));
+        lyricsPinchBadge.setVisibility(View.GONE);
+        lyricsPinchBadge.setAlpha(0f);
+        FrameLayout.LayoutParams pinchParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL
+        );
+        pinchParams.topMargin = dp(104);
+        page.addView(lyricsPinchBadge, pinchParams);
 
         lyricsTransportBar = buildLyricsTransportBar();
         LinearLayout.LayoutParams transportParams = new LinearLayout.LayoutParams(
@@ -4126,28 +4146,24 @@ public class BaseLyricsActivity extends Activity implements
                 && AiLyricsSettings.SOLID_SOURCE_AUTO.equals(background.solidSource);
         if (!enabled || currentTrack == null) {
             backgroundView.setStableSolidColor(0);
+            if (pictureInPictureBackgroundView != null) {
+                pictureInPictureBackgroundView.setStableSolidColor(0);
+            }
             stableBackgroundTrackKey = "";
             stableBackgroundHadArtwork = false;
             return;
         }
         String trackKey = currentTrack.stableKey();
-        boolean sameTrack = trackKey.equals(stableBackgroundTrackKey);
-        Integer cached = stableBackgroundColors.get(trackKey);
-        int color;
-        if (sameTrack && cached != null && (stableBackgroundHadArtwork || artwork == null)) {
-            // Already resolved for this song: keep the exact colour it started with.
-            color = cached;
-        } else if (cached != null && !stableBackgroundHadArtwork && artwork != null) {
-            // The cover arrived after a placeholder colour; upgrade once, with the crossfade.
-            color = ArtworkColorPicker.pick(artwork, trackKey);
-            stableBackgroundColors.put(trackKey, color);
-        } else {
-            color = ArtworkColorPicker.pick(artwork, trackKey);
-            stableBackgroundColors.put(trackKey, color);
-        }
         stableBackgroundTrackKey = trackKey;
-        stableBackgroundHadArtwork = artwork != null;
-        backgroundView.setStableSolidColor(color);
+        TrackColorResolver.resolve(trackKey, artwork, (resolvedKey, color, fromArtwork) -> {
+            if (!resolvedKey.equals(stableBackgroundTrackKey) || backgroundView == null) return;
+            stableBackgroundColors.put(resolvedKey, color);
+            stableBackgroundHadArtwork = fromArtwork;
+            backgroundView.setStableSolidColor(color);
+            if (pictureInPictureBackgroundView != null) {
+                pictureInPictureBackgroundView.setStableSolidColor(color);
+            }
+        });
     }
 
     private String platformOrderLabel() {
@@ -5801,13 +5817,127 @@ public class BaseLyricsActivity extends Activity implements
         return roundDrawable(color, dp(16));
     }
 
+    private TextView lyricsPinchBadge;
+    private int pinchBaseOriginal = 100;
+    private int pinchBasePronunciation = 100;
+    private int pinchBaseTranslation = 100;
+    private float pinchAccumulatedScale = 1f;
+    private boolean pinchInProgress;
+    private boolean pendingBackupIncludeSecrets;
+    private final Runnable hidePinchBadgeRunnable = () -> {
+        if (lyricsPinchBadge != null) {
+            lyricsPinchBadge.animate().alpha(0f).setDuration(180L)
+                    .withEndAction(() -> {
+                        if (lyricsPinchBadge != null && lyricsPinchBadge.getAlpha() <= 0.01f) {
+                            lyricsPinchBadge.setVisibility(View.GONE);
+                        }
+                    }).start();
+        }
+    };
+
+    private boolean isZhUi() {
+        String lang = aiLyricsSettings == null ? "auto" : aiLyricsSettings.snapshot().uiLang;
+        if (lang == null || lang.isEmpty() || "auto".equals(lang)) {
+            return "zh".equals(Locale.getDefault().getLanguage());
+        }
+        return lang.toLowerCase(Locale.ROOT).startsWith("zh");
+    }
+
+    private void attachLyricsPinchZoom(LyricsView target) {
+        if (target == null) return;
+        target.setOnPinchZoomListener(new LyricsView.OnPinchZoomListener() {
+            @Override public void onPinchZoom(float scaleFactor) {
+                if (aiLyricsSettings == null || !Float.isFinite(scaleFactor) || scaleFactor <= 0f) return;
+                if (!pinchInProgress) {
+                    pinchInProgress = true;
+                    AiLyricsSettings.TypographySettings typo = aiLyricsSettings.snapshot().typography;
+                    pinchBaseOriginal = typo.style(AiLyricsSettings.TYPO_LYRICS_ORIGINAL).sizePercent;
+                    pinchBasePronunciation = typo.style(AiLyricsSettings.TYPO_LYRICS_PRONUNCIATION).sizePercent;
+                    pinchBaseTranslation = typo.style(AiLyricsSettings.TYPO_LYRICS_TRANSLATION).sizePercent;
+                    pinchAccumulatedScale = 1f;
+                }
+                pinchAccumulatedScale = Math.max(0.45f, Math.min(2.3f, pinchAccumulatedScale * scaleFactor));
+                int nextOrig = Math.max(70, Math.min(160, Math.round(pinchBaseOriginal * pinchAccumulatedScale)));
+                int nextPron = Math.max(70, Math.min(160, Math.round(pinchBasePronunciation * pinchAccumulatedScale)));
+                int nextTrans = Math.max(70, Math.min(160, Math.round(pinchBaseTranslation * pinchAccumulatedScale)));
+                AiLyricsSettings.TypographySettings current = aiLyricsSettings.snapshot().typography;
+                Map<String, AiLyricsSettings.TypographyStyle> previewMap = new LinkedHashMap<>(current.styles);
+                previewMap.put(AiLyricsSettings.TYPO_LYRICS_ORIGINAL, new AiLyricsSettings.TypographyStyle(
+                        nextOrig, current.style(AiLyricsSettings.TYPO_LYRICS_ORIGINAL).weight));
+                previewMap.put(AiLyricsSettings.TYPO_LYRICS_PRONUNCIATION, new AiLyricsSettings.TypographyStyle(
+                        nextPron, current.style(AiLyricsSettings.TYPO_LYRICS_PRONUNCIATION).weight));
+                previewMap.put(AiLyricsSettings.TYPO_LYRICS_TRANSLATION, new AiLyricsSettings.TypographyStyle(
+                        nextTrans, current.style(AiLyricsSettings.TYPO_LYRICS_TRANSLATION).weight));
+                AiLyricsSettings.TypographySettings preview = new AiLyricsSettings.TypographySettings(previewMap);
+                target.setTypographySettings(preview);
+                if (landscapeLyricsView != null) landscapeLyricsView.setTypographySettings(preview);
+                showLyricsPinchBadge(nextOrig + "%");
+            }
+
+            @Override public void onPinchZoomEnd() {
+                if (!pinchInProgress || aiLyricsSettings == null) return;
+                pinchInProgress = false;
+                int nextOrig = Math.max(70, Math.min(160, Math.round(pinchBaseOriginal * pinchAccumulatedScale)));
+                int nextPron = Math.max(70, Math.min(160, Math.round(pinchBasePronunciation * pinchAccumulatedScale)));
+                int nextTrans = Math.max(70, Math.min(160, Math.round(pinchBaseTranslation * pinchAccumulatedScale)));
+                AiLyricsSettings.TypographySettings current = aiLyricsSettings.snapshot().typography;
+                aiLyricsSettings.setTypographyStyle(AiLyricsSettings.TYPO_LYRICS_ORIGINAL,
+                        nextOrig, current.style(AiLyricsSettings.TYPO_LYRICS_ORIGINAL).weight);
+                aiLyricsSettings.setTypographyStyle(AiLyricsSettings.TYPO_LYRICS_PRONUNCIATION,
+                        nextPron, current.style(AiLyricsSettings.TYPO_LYRICS_PRONUNCIATION).weight);
+                aiLyricsSettings.setTypographyStyle(AiLyricsSettings.TYPO_LYRICS_TRANSLATION,
+                        nextTrans, current.style(AiLyricsSettings.TYPO_LYRICS_TRANSLATION).weight);
+                applyTypographySettings(aiLyricsSettings.snapshot());
+                handler.removeCallbacks(hidePinchBadgeRunnable);
+                handler.postDelayed(hidePinchBadgeRunnable, 900L);
+            }
+        });
+    }
+
+    private void showLyricsPinchBadge(String text) {
+        if (lyricsPinchBadge == null) return;
+        handler.removeCallbacks(hidePinchBadgeRunnable);
+        lyricsPinchBadge.animate().cancel();
+        lyricsPinchBadge.setText(text);
+        lyricsPinchBadge.setVisibility(View.VISIBLE);
+        lyricsPinchBadge.setAlpha(1f);
+    }
+
+    private void showAnnotatedLineLongPressActions(LyricsLine line) {
+        int index = lineIndexOf(line);
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        boolean zh = isZhUi();
+        CharSequence[] items = new CharSequence[]{
+                zh ? "分享歌词海报" : "Share Lyric Poster",
+                zh ? "查看文化注释与释义" : "View Song Meaning & Notes"
+        };
+        MiuixDialogs.showSingleChoice(this, kit, zh ? "歌词操作" : "Lyric Actions",
+                items, -1, ui("button.cancel"), which -> {
+                    if (which == 0) {
+                        openLyricPosterSheet(index);
+                    } else if (which == 1) {
+                        openSongMeaning(index);
+                    }
+                });
+    }
+
+    private void openLyricPosterSheet(int initialLineIndex) {
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        String uiLang = aiLyricsSettings == null ? "auto" : aiLyricsSettings.snapshot().uiLang;
+        int targetIndex = initialLineIndex >= 0
+                ? initialLineIndex
+                : (lyricsView == null ? 0 : lyricsView.activeLineIndex());
+        Bitmap art = currentArtworkBitmap != null ? currentArtworkBitmap
+                : (currentTrack == null ? null : currentTrack.artwork);
+        LyricPosterDialog.show(this, kit, uiLang, currentTrack, art, currentLyricsResult, targetIndex);
+    }
+
     /** The palette of the stored theme, available before the settings sheet has been built. */
     private SettingsPalette themePalette() {
         if (settingsKit != null) {
             return settingsKit.p;
         }
-        return SettingsPalette.forTheme(getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE)
-                .getString(KEY_SETTINGS_THEME, SettingsPalette.THEME_DARK));
+        return settingsPalette();
     }
 
     private static int withAlpha(int color, int alpha) {
@@ -6262,6 +6392,18 @@ public class BaseLyricsActivity extends Activity implements
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == EXPORT_BACKUP_REQUEST) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                writeBackupToUri(data.getData(), pendingBackupIncludeSecrets);
+            }
+            return;
+        }
+        if (requestCode == IMPORT_BACKUP_REQUEST) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                readAndConfirmBackupFromUri(data.getData());
+            }
+            return;
+        }
         if (requestCode != IMPORT_LYRICS_REQUEST) return;
         final String key = localLyricsImportKey;
         final long duration = localLyricsImportDuration;
@@ -6532,7 +6674,8 @@ public class BaseLyricsActivity extends Activity implements
         settingsScrollView.setVerticalScrollBarEnabled(false);
         shell.addView(settingsScrollView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         LinearLayout content = settingsKit.vertical();
-        content.setPadding(dp(16), dp(2), dp(16), dp(72));
+        // KernelSU-Style-UI-Kit Miuix page inset: 12dp horizontal margins around 16dp cards.
+        content.setPadding(dp(12), dp(2), dp(12), dp(72));
         settingsScrollView.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         settingsScrollView.setOnScrollChangeListener((view, scrollX, scrollY, oldX, oldY) -> onSettingsScrolled(scrollY));
@@ -6566,9 +6709,11 @@ public class BaseLyricsActivity extends Activity implements
     // ------------------------------------------------------------------ settings navigation
 
     private SettingsPalette settingsPalette() {
-        // Dark by default, light still available from the nav bar.
-        return SettingsPalette.forTheme(getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE)
-                .getString(KEY_SETTINGS_THEME, SettingsPalette.THEME_DARK));
+        SharedPreferences prefs = getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE);
+        String mode = prefs.getString(KEY_SETTINGS_THEME, SettingsPalette.THEME_DARK);
+        boolean monet = prefs.getBoolean(KEY_SETTINGS_MONET, false);
+        int accent = prefs.getInt(KEY_SETTINGS_ACCENT, 0);
+        return SettingsPalette.resolve(this, mode, monet, accent);
     }
 
     private LinearLayout buildSettingsNavBar() {
@@ -6719,15 +6864,23 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     private void onSettingsScrolled(int scrollY) {
-        if (settingsNavDivider != null) settingsNavDivider.setAlpha(scrollY > dp(2) ? 1f : 0f);
+        // Miuix TopAppBar stays seamless without a harsh divider bar; title crossfades continuously.
+        if (settingsNavDivider != null) settingsNavDivider.setAlpha(0f);
         if (settingsNavTitle != null) {
             LinearLayout page = SETTINGS_ROUTE_HOME.equals(settingsRoute) ? settingsHomePage : settingsMenuPages.get(settingsRoute);
             View largeTitle = page == null || page.getChildCount() == 0 ? null : page.getChildAt(0);
-            float target = largeTitle == null || scrollY > page.getTop() + largeTitle.getBottom() - dp(12) ? 1f : 0f;
-            if (settingsNavTitle.getTag() == null || (Float) settingsNavTitle.getTag() != target) {
-                settingsNavTitle.setTag(target);
-                settingsNavTitle.animate().cancel();
-                settingsNavTitle.animate().alpha(target).setDuration(120L).start();
+            float progress;
+            if (largeTitle == null || largeTitle.getHeight() <= 0) {
+                progress = scrollY > dp(12) ? 1f : 0f;
+            } else {
+                int start = Math.max(0, page.getTop() + largeTitle.getTop());
+                int span = Math.max(1, largeTitle.getHeight() - dp(8));
+                progress = Math.max(0f, Math.min(1f, (scrollY - start) / (float) span));
+            }
+            settingsNavTitle.animate().cancel();
+            settingsNavTitle.setAlpha(progress);
+            if (largeTitle != null) {
+                largeTitle.setAlpha(1f - progress * 0.65f);
             }
         }
         updateSettingsPreviewKind();
@@ -6915,7 +7068,7 @@ public class BaseLyricsActivity extends Activity implements
             target.addView(settingsPreviewHost, Math.min(index, target.getChildCount()), matchWrap());
         }
         boolean inline = target != settingsShell;
-        settingsPreviewHost.setPadding(inline ? 0 : dp(16), dp(6), inline ? 0 : dp(16), dp(10));
+        settingsPreviewHost.setPadding(inline ? 0 : dp(12), dp(6), inline ? 0 : dp(12), dp(10));
         settingsPreviewHost.setBackgroundColor(inline ? Color.TRANSPARENT : settingsKit.p.bg);
         updateSettingsPreviewHost();
     }
@@ -6982,9 +7135,11 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout page = kit.vertical();
         page.addView(kit.brandTitle(), matchWrap());
 
+        // KernelSU-Style-UI-Kit Miuix SuperSearchBar: borderless pill input.
         LinearLayout searchBox = kit.horizontal();
-        searchBox.setBackground(kit.rect(kit.p.surface2, 10f, kit.p.line2, 1f));
-        searchBox.setPaddingRelative(dp(13), 0, dp(2), 0);
+        int searchFill = kit.p.dark ? kit.p.card : 0xFFEAEAEA;
+        searchBox.setBackground(kit.rect(searchFill, 24f));
+        searchBox.setPaddingRelative(dp(16), 0, dp(4), 0);
         searchBox.setMinimumHeight(dp(48));
         ImageView searchIcon = new ImageView(this);
         searchIcon.setImageDrawable(kit.icon("search", kit.p.text3, 19f));
@@ -7027,7 +7182,7 @@ public class BaseLyricsActivity extends Activity implements
         });
         searchBox.addView(settingsSearchClearButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
         LinearLayout.LayoutParams boxParams = matchWrap();
-        boxParams.bottomMargin = dp(20);
+        boxParams.bottomMargin = dp(14);
         page.addView(searchBox, boxParams);
 
         settingsSearchResults = kit.vertical();
@@ -7041,10 +7196,23 @@ public class BaseLyricsActivity extends Activity implements
     private void buildSettingsHomeMenus() {
         if (settingsHomeMenus == null) return;
         settingsHomeMenus.removeAllViews();
-        String homeTrackSummary = currentTrack != null && currentTrack.hasUsableMetadata()
+        boolean hasTrack = currentTrack != null && currentTrack.hasUsableMetadata();
+        String homeTrackSummary = hasTrack
                 ? currentTrack.title + " · " + currentTrack.artist : ui("status.waiting_current_track");
+        if (settingsMenuPages.containsKey(SETTINGS_TAB_CURRENT_TRACK)) {
+            FrameLayout hero = settingsKit.heroStatusCard(
+                    settingsMenuIcon(SETTINGS_TAB_CURRENT_TRACK),
+                    settingsTabLabel(SETTINGS_TAB_CURRENT_TRACK),
+                    homeTrackSummary,
+                    hasTrack);
+            makeRemoteFocusable(hero);
+            hero.setContentDescription(settingsTabLabel(SETTINGS_TAB_CURRENT_TRACK) + ", " + homeTrackSummary);
+            hero.setOnClickListener(view -> showSettingsRoute(SETTINGS_TAB_CURRENT_TRACK, true));
+            LinearLayout.LayoutParams heroParams = matchWrap();
+            heroParams.bottomMargin = dp(14);
+            settingsHomeMenus.addView(hero, heroParams);
+        }
         String[][] groups = {
-                {ui("home.track"), SETTINGS_TAB_CURRENT_TRACK},
                 {ui("home.lyrics"), SETTINGS_TAB_PROVIDERS, SETTINGS_TAB_GENERAL, SETTINGS_TAB_AI, SETTINGS_TAB_ENHANCE},
                 {ui("home.display"), SETTINGS_TAB_STYLE, SETTINGS_TAB_BACKGROUND, SETTINGS_TAB_SCREEN},
                 {ui("home.playback"), SETTINGS_TAB_VINYL, SETTINGS_TAB_PLAYER},
@@ -7058,24 +7226,23 @@ public class BaseLyricsActivity extends Activity implements
                 if (SETTINGS_TAB_VINYL.equals(menuId) && IvLyricsBridge.isEmbedded(this)) continue;
                 if (SETTINGS_TAB_PLAYER.equals(menuId) && IvLyricsBridge.isEmbedded(this)) continue;
                 if (!settingsMenuPages.containsKey(menuId)) continue;
-                String summary = SETTINGS_TAB_CURRENT_TRACK.equals(menuId) ? homeTrackSummary : "";
-                LinearLayout item = settingsKit.homeItem(settingsMenuIcon(menuId), settingsTabLabel(menuId), summary);
+                LinearLayout item = settingsKit.homeItem(settingsMenuIcon(menuId), settingsTabLabel(menuId), "");
                 makeRemoteFocusable(item);
-                item.setContentDescription(summary.isEmpty() ? settingsTabLabel(menuId) : settingsTabLabel(menuId) + ", " + summary);
+                item.setContentDescription(settingsTabLabel(menuId));
                 item.setOnClickListener(view -> showSettingsRoute(menuId, true));
                 list.addView(item, matchWrap());
             }
             if (list.getChildCount() == 0) continue;
             settingsHomeMenus.addView(settingsKit.groupLabel(group[0]), matchWrap());
             LinearLayout.LayoutParams params = matchWrap();
-            params.bottomMargin = dp(20);
+            params.bottomMargin = dp(14);
             settingsHomeMenus.addView(list, params);
         }
         TextView footer = settingsKit.text(ui(IvLyricsBridge.isEmbedded(this) ? "app.footer_module" : "app.footer_app"),
                 12f, settingsKit.p.text4, settingsKit.regular);
         footer.setGravity(Gravity.CENTER);
         footer.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        settingsHomeMenus.addView(footer, topMargin(matchWrap(), dp(2)));
+        settingsHomeMenus.addView(footer, topMargin(matchWrap(), dp(4)));
     }
 
     /**
@@ -7153,7 +7320,7 @@ public class BaseLyricsActivity extends Activity implements
             return;
         }
         TextView count = kit.text(uiFormat("settings.result_count_format", matches.size()), 12.5f, kit.p.text3, kit.regular);
-        count.setPaddingRelative(dp(6), 0, dp(6), dp(8));
+        count.setPaddingRelative(dp(14), 0, dp(14), dp(8));
         count.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         settingsSearchResults.addView(count, matchWrap());
         for (String menuId : settingsMenuPages.keySet()) {
@@ -7161,9 +7328,11 @@ public class BaseLyricsActivity extends Activity implements
             for (SettingsSearchEntry entry : matches) {
                 if (!entry.menuId.equals(menuId)) continue;
                 if (list == null) {
-                    settingsSearchResults.addView(kit.groupLabel(settingsTabLabel(menuId)), topMargin(matchWrap(), dp(8)));
-                    list = kit.vertical();
-                    settingsSearchResults.addView(list, matchWrap());
+                    settingsSearchResults.addView(kit.groupLabel(settingsTabLabel(menuId)), topMargin(matchWrap(), dp(6)));
+                    list = kit.group();
+                    LinearLayout.LayoutParams cardParams = matchWrap();
+                    cardParams.bottomMargin = dp(12);
+                    settingsSearchResults.addView(list, cardParams);
                 }
                 String subtitle = entry.section.isEmpty() || entry.section.equals(entry.label)
                         ? settingsTabLabel(menuId) : settingsTabLabel(menuId) + " · " + entry.section;
@@ -7448,24 +7617,28 @@ public class BaseLyricsActivity extends Activity implements
     }
 
     /**
-     * A confirmation drawn on the settings palette. The platform dialog follows the system theme and
-     * its own button spacing, which reads as a different app beside these pages.
+     * KernelSU-Style-UI-Kit Miuix OverlayDialog: floating bottom-anchored 28dp rounded sheet with
+     * centered title and equal-width borderless 16dp action buttons.
      */
     private void showConfirmDialog(String title, String message, String confirmLabel, boolean danger, Runnable action) {
         SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout content = kit.vertical();
-        content.setPadding(dp(22), dp(22), dp(22), dp(18));
-        content.setBackground(kit.rect(kit.p.card, 20f));
+        content.setPadding(dp(24), dp(24), dp(24), dp(22));
+        content.setBackground(kit.rect(kit.p.card, 28f));
 
-        TextView heading = kit.text(title, 18f, kit.p.text, kit.semi);
+        TextView heading = kit.text(title, 19f, kit.p.text, kit.semi);
+        heading.setGravity(Gravity.CENTER);
+        heading.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         heading.setLineSpacing(dp(2), 1f);
         content.addView(heading, matchWrap());
         if (message != null && !message.trim().isEmpty()) {
-            TextView body = kit.text(message, 14f, kit.p.text2, kit.regular);
+            TextView body = kit.text(message, 14.5f, kit.p.text2, kit.regular);
+            body.setGravity(Gravity.CENTER);
+            body.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
             body.setLineSpacing(dp(3), 1f);
-            content.addView(body, topMargin(matchWrap(), dp(10)));
+            content.addView(body, topMargin(matchWrap(), dp(12)));
         }
 
         LinearLayout actions = kit.horizontal();
@@ -7473,7 +7646,7 @@ public class BaseLyricsActivity extends Activity implements
         makeRemoteFocusable(cancel);
         cancel.setOnClickListener(view -> dialog.dismiss());
         LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        cancelParams.setMarginEnd(dp(8));
+        cancelParams.setMarginEnd(dp(12));
         actions.addView(cancel, cancelParams);
         Button confirm = kit.button(confirmLabel, danger ? SettingsKit.BUTTON_DANGER : SettingsKit.BUTTON_PRIMARY, null);
         makeRemoteFocusable(confirm);
@@ -7482,7 +7655,7 @@ public class BaseLyricsActivity extends Activity implements
             action.run();
         });
         actions.addView(confirm, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        content.addView(actions, topMargin(matchWrap(), dp(20)));
+        content.addView(actions, topMargin(matchWrap(), dp(22)));
 
         dialog.setContentView(content);
         dialog.show();
@@ -7491,9 +7664,12 @@ public class BaseLyricsActivity extends Activity implements
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowManager.LayoutParams attributes = window.getAttributes();
-            attributes.dimAmount = 0.62f;
+            attributes.dimAmount = kit.p.dark ? 0.6f : 0.35f;
+            boolean portrait = getResources().getConfiguration().orientation != Configuration.ORIENTATION_LANDSCAPE;
+            attributes.gravity = portrait ? (Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL) : Gravity.CENTER;
+            attributes.y = portrait ? dp(14) : 0;
             window.setAttributes(attributes);
-            int width = Math.min(dp(360), Math.round(getResources().getDisplayMetrics().widthPixels * 0.9f));
+            int width = Math.min(dp(380), Math.round(getResources().getDisplayMetrics().widthPixels - dp(24)));
             window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
     }
@@ -8744,12 +8920,52 @@ public class BaseLyricsActivity extends Activity implements
     private void buildSystemSettingsMenu(LinearLayout content) {
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_SYSTEM);
         boolean embedded = IvLyricsBridge.isEmbedded(this);
+        boolean zh = isZhUi();
+
+        if (embedded) {
+            IvLyricsBridge.HookHealth health = IvLyricsBridge.hookHealth();
+            if (health != null) {
+                boolean ok = health.healthy();
+                String statusTitle = ok
+                        ? (zh ? "注入正常 · Spotify " + health.hostVersion : "Hooks Active · Spotify " + health.hostVersion)
+                        : (zh ? "注入异常 · Spotify " + health.hostVersion : "Hook Gaps · Spotify " + health.hostVersion);
+                String statusDetail;
+                if (!health.mappingMatched) {
+                    statusDetail = zh ? "当前 Spotify 版本尚未收录映射表" : "This Spotify build is not mapped yet";
+                } else if (health.missingAnchors.isEmpty()) {
+                    StringBuilder caps = new StringBuilder();
+                    caps.append(zh ? "歌词卡" : "Card");
+                    if (health.inlineActive) caps.append(zh ? " · 专辑下歌词" : " · Inline");
+                    if (health.karaokeActive) caps.append(zh ? " · 卡拉OK" : " · Karaoke");
+                    if (health.metadataActive) caps.append(zh ? " · 原生元数据" : " · Metadata");
+                    statusDetail = caps.toString();
+                } else {
+                    statusDetail = (zh ? "缺失锚点：" : "Missing: ") + TextUtils.join(", ", health.missingAnchors);
+                }
+                if (ok) {
+                    FrameLayout card = settingsKit.heroStatusCard("check", statusTitle, statusDetail, true);
+                    LinearLayout.LayoutParams cardParams = matchWrap();
+                    cardParams.topMargin = dp(4);
+                    cardParams.bottomMargin = dp(8);
+                    page.addView(card, cardParams);
+                } else {
+                    LinearLayout warn = settingsKit.note(statusTitle + "\n" + statusDetail, SettingsKit.TONE_WARN);
+                    LinearLayout.LayoutParams warnParams = matchWrap();
+                    warnParams.topMargin = dp(4);
+                    warnParams.bottomMargin = dp(8);
+                    page.addView(warn, warnParams);
+                }
+            }
+        }
+
         LinearLayout section = settingsSection(page, ui("section.language"), null, -1);
         LinearLayout languageGroup = settingsGroup(section);
         uiLanguageSelectButton = settingsKit.picker("");
         makeRemoteFocusable(uiLanguageSelectButton);
         uiLanguageSelectButton.setOnClickListener(view -> showSettingsUiLanguagePopup(uiLanguageSelectButton));
         settingsStackRow(languageGroup, ui("setting.ui_language"), ui("setting.ui_language_desc"), uiLanguageSelectButton);
+
+        buildSettingsAppearanceSection(page);
 
         buildNetworkRegionSection(page);
 
@@ -8765,12 +8981,102 @@ public class BaseLyricsActivity extends Activity implements
         }
     }
 
+    /** Miuix theme mode (System / Light / Dark), Android 12+ Monet and preset accent key colours. */
+    private void buildSettingsAppearanceSection(LinearLayout page) {
+        boolean zh = isZhUi();
+        SharedPreferences uiPrefs = getSharedPreferences(SETTINGS_UI_PREFS, MODE_PRIVATE);
+        String currentMode = uiPrefs.getString(KEY_SETTINGS_THEME, SettingsPalette.THEME_DARK);
+        boolean monetOn = uiPrefs.getBoolean(KEY_SETTINGS_MONET, false);
+        int currentAccent = uiPrefs.getInt(KEY_SETTINGS_ACCENT, 0);
+
+        LinearLayout section = settingsSection(page, zh ? "界面主题与强调色" : "Theme & Accent", null, -1);
+        LinearLayout group = settingsGroup(section);
+
+        List<SettingsKit.Option> modes = new ArrayList<>();
+        modes.add(new SettingsKit.Option(SettingsPalette.THEME_SYSTEM, zh ? "跟随系统" : "System"));
+        modes.add(new SettingsKit.Option(SettingsPalette.THEME_LIGHT, zh ? "浅色" : "Light"));
+        modes.add(new SettingsKit.Option(SettingsPalette.THEME_DARK, zh ? "深色" : "Dark"));
+        SettingsKit.Choice modeChoice = settingsKit.segmented(modes, currentMode, value -> {
+            uiPrefs.edit().putString(KEY_SETTINGS_THEME, value).apply();
+            rebuildSettingsThemeInPlace();
+        });
+        focusableItems(modeChoice);
+        settingsStackRow(group, zh ? "深浅色模式" : "Color Mode",
+                zh ? "跟随系统自动切换或固定浅色 / 深色" : "Follow system night mode or pick light / dark",
+                modeChoice.view);
+
+        if (Build.VERSION.SDK_INT >= 31) {
+            Switch monetSwitch = settingsToggle(group,
+                    zh ? "莫奈动态取色" : "Monet Dynamic Colour",
+                    zh ? "从系统壁纸提取设置页强调色（Android 12+）" : "Tint settings controls from system wallpaper (Android 12+)");
+            monetSwitch.setChecked(monetOn);
+            monetSwitch.setOnCheckedChangeListener((btn, checked) -> {
+                if (suppressSettingsEvents) return;
+                uiPrefs.edit().putBoolean(KEY_SETTINGS_MONET, checked).apply();
+                rebuildSettingsThemeInPlace();
+            });
+        }
+
+        SettingsKit.FlowLayout swatches = settingsKit.flow(12f, 10f);
+        for (int preset : SettingsPalette.ACCENT_PRESETS) {
+            int displayColor = preset == 0 ? (settingsKit.p.dark ? 0xFF277AF7 : 0xFF3482FF) : preset;
+            boolean picked = !monetOn && currentAccent == preset;
+            TextView dot = new TextView(this);
+            dot.setGravity(Gravity.CENTER);
+            dot.setText(picked ? "✓" : "");
+            dot.setTextColor(Color.WHITE);
+            dot.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f);
+            dot.setTypeface(settingsKit.semi);
+            android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+            shape.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            shape.setSize(dp(36), dp(36));
+            shape.setColor(displayColor);
+            shape.setStroke(dp(picked ? 3 : 1), picked ? settingsKit.p.text : settingsKit.p.line3);
+            dot.setBackground(shape);
+            dot.setClickable(true);
+            makeRemoteFocusable(dot);
+            dot.setContentDescription(preset == 0 ? (zh ? "默认蓝" : "Default blue")
+                    : String.format(Locale.ROOT, "#%06X", preset & 0xFFFFFF));
+            dot.setOnClickListener(view -> {
+                uiPrefs.edit()
+                        .putBoolean(KEY_SETTINGS_MONET, false)
+                        .putInt(KEY_SETTINGS_ACCENT, preset)
+                        .apply();
+                rebuildSettingsThemeInPlace();
+            });
+            swatches.addView(dot, new ViewGroup.LayoutParams(dp(36), dp(36)));
+        }
+        settingsStackRow(group, zh ? "强调色" : "Accent Key Colour",
+                zh ? "自定义按钮、开关与滑块的 Miuix 主题强调色" : "Customize the Miuix accent for switches, buttons and sliders",
+                swatches);
+    }
+
+    private void rebuildSettingsThemeInPlace() {
+        rebuildSettingsPanelInPlace();
+        if (!isMetaSheetShowing()) {
+            rebuildCurrentTrackPanel();
+        }
+    }
+
     /** Everything the app asks of the system, and the cache it keeps on disk. */
     private void buildDataSettingsMenu(LinearLayout content) {
         LinearLayout page = settingsMenuPage(content, SETTINGS_TAB_DATA);
         boolean embedded = IvLyricsBridge.isEmbedded(this);
+        boolean zh = isZhUi();
         LinearLayout section;
         LinearLayout group;
+
+        section = settingsSection(page, zh ? "备份与恢复" : "Backup & Restore",
+                zh ? "导出或恢复全部设置、单曲覆盖、本地歌词与选词记录"
+                        : "Export or restore all settings, per-track overrides, local lyrics and picks", -1);
+        group = settingsGroup(section);
+        settingsAction(group, zh ? "一键导出配置备份" : "Export Settings Backup",
+                zh ? "生成 JSON 备份文件，可选是否包含 API 密钥" : "Save a JSON backup file with optional API keys",
+                SettingsKit.ACTION_NORMAL, view -> showExportBackupDialog());
+        settingsAction(group, zh ? "从备份文件恢复" : "Import Settings Backup",
+                zh ? "选择已导出的 JSON 备份并恢复全部配置" : "Restore preferences and local lyrics from a JSON backup",
+                SettingsKit.ACTION_NORMAL, view -> launchImportBackupPicker());
+
         if (!embedded) {
             section = settingsSection(page, ui("section.spotify_shortcut"), ui("section.spotify_shortcut_desc"), -1);
             group = settingsGroup(section);
@@ -8807,6 +9113,146 @@ public class BaseLyricsActivity extends Activity implements
         settingsAction(danger, ui("button.clear_all"), null, SettingsKit.ACTION_DANGER,
                 view -> confirmSettingsAction(ui("button.clear_all"), ui("settings.confirm_irreversible"),
                         this::clearAllLyricsCacheFromSettings));
+    }
+
+    private void showExportBackupDialog() {
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        boolean zh = isZhUi();
+        LinearLayout body = kit.vertical();
+        LinearLayout card = kit.group();
+        Switch includeSecretsSwitch = kit.toggle(
+                zh ? "包含 API 密钥与凭证" : "Include API keys & credentials",
+                zh ? "关闭时自动剔除 AI Key、Token 与 Spotify 凭证，方便分享配置"
+                        : "Strip API keys and tokens when off for safe sharing");
+        includeSecretsSwitch.setChecked(false);
+        card.addView(includeSecretsSwitch, matchWrap());
+        body.addView(card, matchWrap());
+
+        MiuixDialogs.showCustom(
+                this,
+                kit,
+                zh ? "导出配置备份" : "Export Backup",
+                zh ? "将保存全部设置、单曲背景/偏移、本地歌词与手动选词记录"
+                        : "Saves all settings, track overrides, local lyrics and manual picks",
+                body,
+                ui("button.cancel"),
+                zh ? "选择保存位置" : "Save File",
+                false,
+                () -> launchExportBackupPicker(includeSecretsSwitch.isChecked())
+        );
+    }
+
+    @SuppressWarnings("deprecation")
+    private void launchExportBackupPicker(boolean includeSecrets) {
+        pendingBackupIncludeSecrets = includeSecrets;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, SettingsBackupManager.suggestedFileName());
+        try {
+            startActivityForResult(intent, EXPORT_BACKUP_REQUEST);
+        } catch (ActivityNotFoundException error) {
+            // Fallback to clipboard copy if the device has no SAF document creator.
+            try {
+                String json = SettingsBackupManager.exportJson(this, includeSecrets);
+                android.content.ClipboardManager clipboard =
+                        (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Lyriscope Backup", json));
+                    showSavedToast(isZhUi() ? "已将备份 JSON 复制到剪贴板" : "Backup JSON copied to clipboard");
+                }
+            } catch (Exception copyError) {
+                showSavedToast(isZhUi() ? "导出备份失败" : "Backup export failed");
+            }
+        }
+    }
+
+    private void writeBackupToUri(Uri uri, boolean includeSecrets) {
+        boolean zh = isZhUi();
+        new Thread(() -> {
+            try {
+                String json = SettingsBackupManager.exportJson(this, includeSecrets);
+                try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+                    if (out == null) throw new IOException("Stream unavailable");
+                    out.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    out.flush();
+                }
+                handler.post(() -> showSavedToast(zh ? "配置备份已导出" : "Settings backup exported"));
+            } catch (Exception error) {
+                handler.post(() -> showSavedToast(zh ? "导出失败：" + error.getMessage() : "Export failed"));
+            }
+        }, "lyriscope-backup-export").start();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void launchImportBackupPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        try {
+            startActivityForResult(intent, IMPORT_BACKUP_REQUEST);
+        } catch (ActivityNotFoundException error) {
+            showSavedToast(isZhUi() ? "未找到文件选择器" : "No file picker available");
+        }
+    }
+
+    private void readAndConfirmBackupFromUri(Uri uri) {
+        boolean zh = isZhUi();
+        new Thread(() -> {
+            try (InputStream input = getContentResolver().openInputStream(uri);
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                if (input == null) throw new IOException("File unavailable");
+                byte[] buf = new byte[8192];
+                int read;
+                while ((read = input.read(buf)) != -1) {
+                    if (output.size() + read > 4 * 1024 * 1024) throw new IOException("Backup file too large");
+                    output.write(buf, 0, read);
+                }
+                String json = new String(output.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+                SettingsBackupManager.BackupSummary summary = SettingsBackupManager.inspect(json);
+                handler.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    String detail = zh
+                            ? "备份时间：" + (summary.exportedAt.isEmpty() ? "未知" : summary.exportedAt)
+                                + "\n包含 " + summary.sectionCount + " 组配置（共 " + summary.entryCount + " 项）"
+                                + (summary.includesSecrets ? "\n包含 API 密钥" : "\n不含密钥（保留当前本地密钥）")
+                            : "Exported: " + (summary.exportedAt.isEmpty() ? "Unknown" : summary.exportedAt)
+                                + "\n" + summary.sectionCount + " sections (" + summary.entryCount + " entries)"
+                                + (summary.includesSecrets ? "\nIncludes API keys" : "\nNo keys (keeps current local keys)");
+                    showConfirmDialog(
+                            zh ? "确认恢复备份" : "Restore Backup",
+                            detail,
+                            zh ? "立即恢复" : "Restore",
+                            false,
+                            () -> applyRestoredBackup(json)
+                    );
+                });
+            } catch (Exception error) {
+                handler.post(() -> showSavedToast(zh ? "备份文件无效或读取失败" : "Invalid backup file"));
+            }
+        }, "lyriscope-backup-import").start();
+    }
+
+    private void applyRestoredBackup(String json) {
+        boolean zh = isZhUi();
+        try {
+            SettingsBackupManager.restoreJson(this, json);
+            aiLyricsSettings = new AiLyricsSettings(this);
+            lyricsProviderSettings = new LyricsProviderSettings(this);
+            platformTranslationSettings = new PlatformTranslationSettings(this);
+            lyricsPageSettings = new LyricsPageSettings(this);
+            AiLyricsSettings.Snapshot snap = aiLyricsSettings.snapshot();
+            applyBackgroundSettings(snap);
+            applyTypographySettings(snap);
+            applyLyricsTextAlignmentSetting(snap);
+            applyLyricsSidePadding(lyricsSidePaddingDp());
+            rebuildSettingsPanelInPlace();
+            if (!isMetaSheetShowing()) rebuildCurrentTrackPanel();
+            reloadCurrentLyricsFromSettings();
+            showSavedToast(zh ? "已恢复全部配置与数据" : "Settings and data restored");
+        } catch (Exception error) {
+            showSavedToast(zh ? "恢复失败：" + error.getMessage() : "Restore failed");
+        }
     }
 
     private void clearAiCacheFromSettings() {
@@ -9424,19 +9870,19 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout content = kit.vertical();
         content.setFocusable(true);
         content.setFocusableInTouchMode(true);
-        content.setPadding(dp(6), dp(6), dp(6), dp(6));
-        content.setBackground(kit.rect(kit.p.surface, 12f, kit.p.line2, 1f));
+        content.setPadding(dp(8), dp(8), dp(8), dp(8));
+        content.setBackground(kit.rect(kit.p.card, 16f));
 
         int visibleCount = Math.min(7, choices.size());
         PopupWindow popup = new PopupWindow(
                 content,
-                Math.max(1, Math.min(visibleSettingsWindowBounds().width() - dp(16), Math.max(anchor.getWidth(), dp(220)))),
-                Math.max(1, Math.min(visibleSettingsWindowBounds().height() - dp(16), dp(50) * visibleCount + dp(12))),
+                Math.max(1, Math.min(visibleSettingsWindowBounds().width() - dp(24), Math.max(anchor.getWidth(), dp(230)))),
+                Math.max(1, Math.min(visibleSettingsWindowBounds().height() - dp(24), dp(50) * visibleCount + dp(16))),
                 true
         );
         popup.setOutsideTouchable(true);
-        popup.setBackgroundDrawable(kit.rect(kit.p.surface, 12f));
-        popup.setElevation(dp(10));
+        popup.setBackgroundDrawable(kit.rect(kit.p.card, 16f));
+        popup.setElevation(dp(12));
         content.setOnKeyListener((view, keyCode, event) -> {
             if (event != null
                     && event.getAction() == KeyEvent.ACTION_DOWN
@@ -9467,8 +9913,8 @@ public class BaseLyricsActivity extends Activity implements
             item.setSelected(active);
             item.setGravity(Gravity.CENTER_VERTICAL);
             item.setMinHeight(dp(48));
-            item.setPaddingRelative(dp(12), dp(10), dp(12), dp(10));
-            item.setBackground(kit.pressable(kit.rect(active ? kit.p.accentSoft : 0x00000000, 8f), 8f));
+            item.setPaddingRelative(dp(14), dp(11), dp(14), dp(11));
+            item.setBackground(kit.pressable(kit.rect(active ? kit.p.accentSoft : 0x00000000, 12f), 12f));
             if (active) {
                 item.setCompoundDrawablePadding(dp(10));
                 item.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, kit.icon("check", kit.p.accentText, 18f), null);
@@ -9705,7 +10151,7 @@ public class BaseLyricsActivity extends Activity implements
             }
             View card = buildLyricsProviderSettingsCard(config, index, snapshot.order.size());
             LinearLayout.LayoutParams params = matchWrap();
-            if (lyricsProviderSettingsContainer.getChildCount() > 0) params.topMargin = dp(8);
+            if (lyricsProviderSettingsContainer.getChildCount() > 0) params.topMargin = dp(10);
             lyricsProviderSettingsContainer.addView(card, params);
         }
         updateLyricsProviderOwners();
@@ -9719,9 +10165,8 @@ public class BaseLyricsActivity extends Activity implements
             int providerCount
     ) {
         SettingsKit kit = settingsKit;
-        LinearLayout card = kit.vertical();
-        card.setBackground(kit.rect(kit.p.surface, 12f, kit.p.line, 1f));
-        card.setPaddingRelative(dp(14), dp(12), dp(12), dp(12));
+        LinearLayout card = kit.card();
+        card.setPaddingRelative(dp(16), dp(14), dp(14), dp(14));
 
         SettingsKit.AdaptiveRow top = new SettingsKit.AdaptiveRow(this, dp(120), dp(8));
         LinearLayout identity = kit.horizontal();
@@ -10541,7 +10986,7 @@ public class BaseLyricsActivity extends Activity implements
         LinearLayout button = kit.horizontal();
         button.setPaddingRelative(dp(7), dp(7), dp(12), dp(7));
         button.setMinimumHeight(dp(48));
-        button.setBackground(kit.pressable(kit.rect(kit.p.surface2, 8f, kit.p.line2, 1f), 8f));
+        button.setBackground(kit.pressable(kit.rect(kit.p.surface2, 12f), 12f));
         button.setClickable(true);
         makeRemoteFocusable(button);
         backgroundSolidColorSwatch = new View(this);
@@ -10691,6 +11136,7 @@ public class BaseLyricsActivity extends Activity implements
         previewRow.addView(value, valueParams);
         content.addView(previewRow, topMargin(matchWrap(), dp(12)));
 
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
         final boolean[] updatingColorInput = {false};
         picker.setOnColorChangedListener(color -> {
             String hex = hexColor(color);
@@ -10698,7 +11144,7 @@ public class BaseLyricsActivity extends Activity implements
             updatingColorInput[0] = true;
             value.setText(hex);
             value.setSelection(value.getText().length());
-            value.setTextColor(Color.WHITE);
+            value.setTextColor(kit.p.text);
             updatingColorInput[0] = false;
         });
         value.addTextChangedListener(new TextWatcher() {
@@ -10718,40 +11164,41 @@ public class BaseLyricsActivity extends Activity implements
                 String normalized = normalizeColorInput(editable == null ? "" : editable.toString());
                 if (normalized == null) {
                     value.setTextColor(editable == null || editable.toString().trim().isEmpty()
-                            ? Color.WHITE
-                            : Color.rgb(255, 171, 171));
+                            ? kit.p.text
+                            : kit.p.danger);
                     return;
                 }
                 int color = parseColor(normalized, fallbackColor);
                 picker.setColor(color);
                 swatch.setBackground(roundDrawable(color, dp(10)));
-                value.setTextColor(Color.WHITE);
+                value.setTextColor(kit.p.text);
             }
         });
 
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(content)
-                .setNegativeButton(ui("button.close"), null)
-                .setPositiveButton(ui("button.apply_colors"), null)
-                .create();
-        dialog.setOnShowListener(dialogInterface -> {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(Color.rgb(37, 99, 235));
-            dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.rgb(84, 91, 110));
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
-                String normalized = normalizeColorInput(value.getText().toString());
-                if (normalized == null) {
-                    value.setTextColor(Color.rgb(255, 171, 171));
-                    showSavedToast(uiFormat("toast.invalid_color_format", title));
-                    return;
+        content.setPadding(0, 0, 0, 0);
+        value.setTextColor(kit.p.text);
+        value.setHintTextColor(kit.p.text4);
+        value.setBackground(kit.fieldBackground());
+        MiuixDialogs.showCustom(
+                this,
+                kit,
+                title,
+                null,
+                content,
+                ui("button.close"),
+                ui("button.apply_colors"),
+                false,
+                () -> {
+                    String normalized = normalizeColorInput(value.getText().toString());
+                    if (normalized == null) {
+                        showSavedToast(uiFormat("toast.invalid_color_format", title));
+                        return;
+                    }
+                    if (callback != null) {
+                        callback.onColorPicked(parseColor(normalized, fallbackColor));
+                    }
                 }
-                if (callback != null) {
-                    callback.onColorPicked(parseColor(normalized, fallbackColor));
-                }
-                dialog.dismiss();
-            });
-        });
-        dialog.show();
+        );
     }
 
     private interface ColorPickedCallback {
@@ -11209,7 +11656,7 @@ public class BaseLyricsActivity extends Activity implements
             }
             View card = providerButton(provider, snapshot, index);
             LinearLayout.LayoutParams params = matchWrap();
-            if (providerButtonsContainer.getChildCount() > 0) params.topMargin = dp(8);
+            if (providerButtonsContainer.getChildCount() > 0) params.topMargin = dp(10);
             providerButtonsContainer.addView(card, params);
         }
         rebuildAiConnectionsUi(snapshot);
@@ -11230,10 +11677,9 @@ public class BaseLyricsActivity extends Activity implements
     ) {
         SettingsKit kit = settingsKit;
         boolean enabled = snapshot.isAiProviderEnabled(provider.id);
-        LinearLayout card = kit.vertical();
+        LinearLayout card = kit.card();
         card.setTag(provider.id);
-        card.setBackground(kit.rect(kit.p.surface, 12f, kit.p.line, 1f));
-        card.setPaddingRelative(dp(14), dp(12), dp(12), dp(12));
+        card.setPaddingRelative(dp(16), dp(14), dp(14), dp(14));
 
         SettingsKit.AdaptiveRow top = new SettingsKit.AdaptiveRow(this, dp(120), dp(8));
         LinearLayout identity = kit.horizontal();
@@ -11340,8 +11786,8 @@ public class BaseLyricsActivity extends Activity implements
     private View aiOwnerPill(String label, AiLyricsSettings.Provider provider, int color) {
         SettingsKit kit = settingsKit;
         LinearLayout pill = kit.horizontal();
-        pill.setBackground(kit.rect(kit.p.surface, 8f, kit.p.line2, 1f));
-        pill.setPaddingRelative(dp(10), dp(7), dp(11), dp(7));
+        pill.setBackground(kit.rect(kit.p.card, 10f));
+        pill.setPaddingRelative(dp(12), dp(7), dp(12), dp(7));
         pill.setMinimumHeight(dp(34));
         View mark = new View(this);
         mark.setBackground(kit.rect(color, 2f));
@@ -11369,7 +11815,7 @@ public class BaseLyricsActivity extends Activity implements
             if (provider == null || provider.keyless) continue;
             View card = aiConnectionCard(provider, snapshot);
             LinearLayout.LayoutParams params = matchWrap();
-            if (aiConnectionsContainer.getChildCount() > 0) params.topMargin = dp(8);
+            if (aiConnectionsContainer.getChildCount() > 0) params.topMargin = dp(10);
             aiConnectionsContainer.addView(card, params);
         }
     }
@@ -11380,13 +11826,11 @@ public class BaseLyricsActivity extends Activity implements
         boolean selected = !provider.localModel && provider.id.equals(snapshot.provider.id);
         boolean expanded = provider.localModel ? localAiDetailsExpanded : selected && providerDetailsExpanded;
         boolean enabled = snapshot.isAiProviderEnabled(provider.id);
-        LinearLayout card = kit.vertical();
+        LinearLayout card = kit.card();
         card.setTag("connection:" + provider.id);
-        card.setBackground(kit.rect(kit.p.surface, 12f, expanded ? kit.p.line2 : kit.p.line, 1f));
-        card.setClipToOutline(true);
 
         SettingsKit.AdaptiveRow summary = new SettingsKit.AdaptiveRow(this, dp(150), dp(8));
-        summary.setPaddingRelative(dp(14), dp(11), dp(10), dp(11));
+        summary.setPaddingRelative(dp(16), dp(13), dp(12), dp(13));
         summary.setMinimumHeight(dp(64));
         summary.setClickable(true);
         makeRemoteFocusable(summary);
@@ -11396,7 +11840,7 @@ public class BaseLyricsActivity extends Activity implements
         TextView avatar = kit.text(connectionInitials(provider.label), 12f, kit.p.text2, kit.semi);
         avatar.setGravity(Gravity.CENTER);
         avatar.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        avatar.setBackground(kit.rect(kit.p.surface3, 7f, kit.p.line, 1f));
+        avatar.setBackground(kit.rect(kit.p.surface2, 10f));
         identity.addView(avatar, new LinearLayout.LayoutParams(dp(34), dp(34)));
         LinearLayout texts = kit.vertical();
         texts.addView(kit.text(provider.label, 15.5f, kit.p.text, kit.semi), matchWrap());
@@ -11595,20 +12039,16 @@ public class BaseLyricsActivity extends Activity implements
             labels[index] = models.get(index).displayLabel();
             if (models.get(index).id.equals(textOf(modelInput))) selected = index;
         }
-        new AlertDialog.Builder(this)
-                .setTitle(ui("dialog.select_model"))
-                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
-                    if (which < 0 || which >= models.size() || !isCurrentModelRequest(requestId, snapshot)) return;
-                    String modelId = models.get(which).id;
-                    modelInput.setText(modelId);
-                    modelInput.setSelection(modelId.length());
-                    aiLyricsSettings.setModel(modelId);
-                    if (aiSettingsStatusView != null) aiSettingsStatusView.setText(ui("toast.settings_saved"));
-                    showSavedToast(ui("toast.settings_saved"));
-                    dialog.dismiss();
-                })
-                .setNegativeButton(ui("button.close"), null)
-                .show();
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        MiuixDialogs.showSingleChoice(this, kit, ui("dialog.select_model"), labels, selected, ui("button.close"), which -> {
+            if (which < 0 || which >= models.size() || !isCurrentModelRequest(requestId, snapshot)) return;
+            String modelId = models.get(which).id;
+            modelInput.setText(modelId);
+            modelInput.setSelection(modelId.length());
+            aiLyricsSettings.setModel(modelId);
+            if (aiSettingsStatusView != null) aiSettingsStatusView.setText(ui("toast.settings_saved"));
+            showSavedToast(ui("toast.settings_saved"));
+        });
     }
 
     private String firstApiKey(String rawValue) {
@@ -11652,8 +12092,8 @@ public class BaseLyricsActivity extends Activity implements
             final int position = index;
             String name = (index + 2) + ". " + (connection.name.isEmpty() ? "API" : connection.name);
             LinearLayout item = kit.vertical();
-            item.setBackground(kit.rect(kit.p.surface2, 10f, kit.p.line, 1f));
-            item.setPaddingRelative(dp(10), dp(8), dp(8), dp(8));
+            item.setBackground(kit.rect(kit.p.surface2, 12f));
+            item.setPaddingRelative(dp(12), dp(10), dp(10), dp(10));
             SettingsKit.AdaptiveRow head = new SettingsKit.AdaptiveRow(this, dp(110), dp(8));
             Button edit = kit.button(name, SettingsKit.BUTTON_NORMAL, null);
             edit.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
@@ -12245,6 +12685,8 @@ public class BaseLyricsActivity extends Activity implements
         if (pictureInPictureBackgroundView != null) {
             pictureInPictureBackgroundView.setBackgroundSettings(settings);
         }
+        applyStableBackgroundColor(currentArtworkBitmap != null ? currentArtworkBitmap
+                : (currentTrack == null ? null : currentTrack.artwork));
         applyMobileAppearance();
     }
 
@@ -12643,14 +13085,13 @@ public class BaseLyricsActivity extends Activity implements
             labels[index + 1] = providers.get(index).label;
             if (providers.get(index).id.equals(selectedProvider)) selected = index + 1;
         }
-        new AlertDialog.Builder(this).setTitle(ui("section.lyrics_providers"))
-                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
-                    if (currentTrack != null && trackKey.equals(currentTrack.stableKey())) {
-                        lyricsProviderSettings.setProviderForTrack(trackKey, which == 0 ? "" : providers.get(which - 1).id);
-                        onLyricsProviderSettingsChanged(false);
-                    }
-                    dialog.dismiss();
-                }).setNegativeButton(android.R.string.cancel, null).show();
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        MiuixDialogs.showSingleChoice(this, kit, ui("section.lyrics_providers"), labels, selected, ui("button.cancel"), which -> {
+            if (currentTrack != null && trackKey.equals(currentTrack.stableKey())) {
+                lyricsProviderSettings.setProviderForTrack(trackKey, which == 0 ? "" : providers.get(which - 1).id);
+                onLyricsProviderSettingsChanged(false);
+            }
+        });
     }
 
     protected void performManualLrclibSearch() {
@@ -15704,13 +16145,16 @@ public class BaseLyricsActivity extends Activity implements
                 info.latestVersionCode,
                 notes
         );
-        new AlertDialog.Builder(this)
-                .setTitle(ui("update.dialog_title"))
-                .setMessage(message)
-                .setPositiveButton(ui("update.download"), (dialog, which) -> downloadUpdateApk(info))
-                .setNegativeButton(ui("update.later"), null)
-                .setNeutralButton(ui("update.open_release"), (dialog, which) -> openUpdateReleasePage(info))
-                .show();
+        SettingsKit kit = settingsKit != null ? settingsKit : new SettingsKit(this, themePalette());
+        LinearLayout body = kit.vertical();
+        TextView msgView = kit.text(message, 14f, kit.p.text2, kit.regular);
+        msgView.setLineSpacing(dp(3), 1f);
+        body.addView(msgView, matchWrap());
+        Button releaseBtn = kit.button(ui("update.open_release"), SettingsKit.BUTTON_NORMAL, "external");
+        releaseBtn.setOnClickListener(view -> openUpdateReleasePage(info));
+        body.addView(releaseBtn, topMargin(matchWrap(), dp(12)));
+        MiuixDialogs.showCustom(this, kit, ui("update.dialog_title"), null, body,
+                ui("update.later"), ui("update.download"), false, () -> downloadUpdateApk(info));
     }
 
     private String compactReleaseNotes(String notes) {

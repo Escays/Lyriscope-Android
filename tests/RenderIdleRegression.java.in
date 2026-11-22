@@ -119,7 +119,7 @@ public final class RenderIdleRegression {
         final List<Object> lines = new ArrayList<>();
         long positionMs, lastFrameMs;
         double framePositionMs;
-        boolean smoothNextSeekCenter, centerInitialized, smoothSeekCenterActive, manualScrollActive, draggingLyrics;
+        boolean smoothNextSeekCenter, centerInitialized, smoothSeekCenterActive, manualScrollActive, draggingLyrics, untimedLyrics;
         boolean frameAnimationsEnabled, loading;
         Object pressedTarget; Scroller manualScroller;
         int invalidations, skeletonDraws;
