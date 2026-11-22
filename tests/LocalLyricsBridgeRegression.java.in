@@ -61,7 +61,7 @@ public final class LocalLyricsBridgeRegression {
         static LyricsResult empty(String reason) { return new LyricsResult("", ""); }
         static LyricsResult loading(String reason) { return empty(reason); }
     }
-    static final class Bitmap { }
+    static final class Bitmap { boolean isRecycled() { return false; } }
     static final class SystemClock { static long elapsedRealtime() { return 0; } }
     static final class Timeline { long update(Object... ignored) { return 0; } void reset() { } }
     interface PlaybackListener { void onNowPlayingChanged(TrackSnapshot track); }
@@ -118,6 +118,8 @@ public final class LocalLyricsBridgeRegression {
         LyricsResult timingSource;
         List<String> annotations = List.of();
         String sourceLanguage = "auto", key = "";
+        Bitmap loadedArtwork;
+        String loadedArtworkKey = "";
         long generation, djOffset;
         boolean loading, requestInFlight, pronunciationLoading, translationLoading, released;
         String ui(String key) { return key; }

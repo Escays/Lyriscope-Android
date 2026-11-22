@@ -13,7 +13,12 @@ import java.util.function.BooleanSupplier;
 public final class LocalLyricsImportRegression extends ImportActivityParent {
     static int checks;
     static final int IMPORT_LYRICS_REQUEST = 4871;
+    static final int EXPORT_BACKUP_REQUEST = 9411;
+    static final int IMPORT_BACKUP_REQUEST = 9412;
     static final int RESULT_OK = -1;
+    boolean pendingBackupIncludeSecrets;
+    void writeBackupToUri(Uri uri, boolean includeSecrets) {}
+    void readAndConfirmBackupFromUri(Uri uri) {}
     final ApplicationContext application;
     final Handler handler = new Handler();
     final FakeRepository lyricsRepository = new FakeRepository();

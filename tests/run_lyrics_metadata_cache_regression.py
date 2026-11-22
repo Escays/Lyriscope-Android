@@ -53,6 +53,7 @@ def renderer(value, name):
 
 COMMON = """
 long positionMs, labelBuilds, syllableVisits;
+boolean untimedLyrics;
 String preludeLabel = "Prelude", breakLabel = "Break", postludeLabel = "Postlude";
 List<DisplayLine> display = new ArrayList<>();
 static final long KARAOKE_RELEASE_WINDOW_MS = 820L, KARAOKE_COMPLETED_COLOR_FADE_MS = 520L;
